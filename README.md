@@ -1,149 +1,167 @@
 # 495
 
-**495** encadre le développement logiciel assisté par IA avec une boucle de travail explicite, vérifiable et maîtrisée.
+**495** frames AI-assisted software development with an explicit, verifiable and bounded work loop.
 
-Le nom vient de la *constante de Kaprekar* pour les nombres à trois chiffres. À partir d'un nombre dont au moins deux chiffres sont différents, on ordonne ses chiffres dans les deux sens, on soustrait le plus petit nombre du plus grand, puis on répète l'opération en conservant les zéros initiaux. On atteint alors toujours 495, où le processus se stabilise (`954 − 459 = 495`). La convergence illustre l'ambition du projet : faire progresser une production variable vers un résultat dont la conformité peut être vérifiée. Elle ne promet pas que l'IA produira toujours le même code.
+The name comes from the *Kaprekar constant* for three-digit numbers. Take any number with at least two distinct digits, order its digits both ways, subtract the smaller from the larger, and repeat while keeping leading zeros: you always reach 495, where the process stabilises (`954 − 459 = 495`). The convergence illustrates the project's aim — moving variable output toward a result whose conformance can be checked. It does not promise that an AI will produce the same code twice.
 
-Le nom se prononce « quatre neuf cinq ». Les commandes `495 init`, `495 run` et `495 verify` sont des noms d'interface envisagés ; elles ne sont pas encore définies par un contrat CLI ni implémentées.
+The name is pronounced "four nine five". The commands `495 init`, `495 run` and `495 verify` are envisaged interface names; no CLI contract defines them and none is implemented.
 
-## État du projet
+> **Status.** This repository holds a **design proposal**, not an implementation. It describes contracts to be built; it offers no experimental evidence of reliability. The authoritative current state is [`495/project.json`](495/project.json), checked by `python3 tools/verify_state.py`.
 
-Le dépôt contient une **proposition de conception**, pas une implémentation. Les documents décrivent les contrats à implémenter ; ils n'apportent aucune preuve expérimentale de fiabilité.
+## Principle
 
-495 applique à lui-même la disposition d'artefacts qu'il définit pour un projet cible : son propre travail est décrit sous `495/`. **`495/project.json` est l'état courant faisant foi** ; ce README en est un résumé.
+An agent ticking "task done" is a claim, not a result. Only the controller applies a transition, and a favourable decision requires evidence bound to the exact inputs it concerns — by digest, never by path.
 
-| Incrément | Objet | Profil | Phase |
-| --- | --- | --- | --- |
-| `INC-0001` | Définir la base du harnais | `exploration` | `closed`, motif `exploration_complete` |
-| `INC-0002` | Noyau du domaine — lot A | `standard` | `closed`, motif `superseded` |
-| `INC-0003` | Noyau du domaine sous profil de bootstrap | `self-hosting-bootstrap` | `designing`, G0 et G1 franchies |
+Requirements state the expected outcome, design structures the solution, and checks confront the implementation with the requirements. Observed gaps drive corrections until the acceptance criteria hold, or until a human decision becomes necessary.
 
-`INC-0001` est une exploration : elle a produit des connaissances et des décisions, sans code.
+## Workflow
 
-`INC-0002` a franchi G1 à la sixième évaluation — cinq refus, trente-quatre constats corrigés — puis a été clos. G2 y était bloquée : §6.8 exige un worker autorisé qui n'existera qu'aux lots D et E, et `REQ-11` interdit de changer le profil d'un incrément. Son `requirement_set` r7 reste scellé et **repris par référence** par `INC-0003` ; son verdict G1 n'est pas transféré.
+An increment moves through the phases its profile requires. Every forward step is carried by a named command and, where applicable, gated.
 
-`INC-0003` reprend le travail sous un profil dont les limites sont déclarées. Chaque décision de gate y porte le digest d'`ADR-0006 r6` comme `policy_digest`, et chaque phase enregistre son contrat scellé et sa tentative.
+```mermaid
+flowchart TD
+    C[clarifying] -->|G0| S[specifying]
+    S -->|G1| D[designing]
+    D -->|G2| I[implementing]
+    I -->|G3| V[verifying]
+    V -->|G4| A[accepted]
+    A -->|StartIntegration| G[integrating]
+    G -->|G5| T([integrated])
 
-### Reprendre le travail
+    V -.->|StartAttempt| I
+    S -.->|ReviseIncrement| C
+    D -.->|ReviseIncrement| S
+    I -.->|ReviseIncrement| S
+    V -.->|ReviseIncrement| D
+    A -.->|ReviseIncrement| D
+    G -.->|ReviseIncrement| D
+```
 
-| Question | Où est la réponse |
-| --- | --- |
-| Où en est-on ? | `495/project.json` — phase, gates, tentatives, `state_version`, `known_gaps` |
-| Qu'est-ce qui est approuvé ? | `495/approvals.json`, **seule autorité** sur l'état d'approbation |
-| Quelles décisions précisent ou remplacent la conception ? | `495/decisions/` et son manifeste |
-| Comment contrôler la cohérence publique des octets courants ? | `python3 tools/verify_state.py` — diagnostic partiel de bootstrap, sans autorité |
+The six gate crossings are carried by `ApplyGateDecision`. `CloseIncrement` leads to a terminal `closed` phase from any non-terminal phase, given a valid reason and no unreconciled external effect. `integrated` and `closed` have no outgoing edge: an integrated increment is not reopened, its evolution goes through a new increment.
 
-**Prochaine étape :** produire `design.md`, `contracts/` et `tasks.json` d'`INC-0003`, puis G2. G2 exigera une observation du dispositif hôte — identité et digest de configuration, refus réseau qualifié différentiellement contre un pair contrôlé, bornage de l'ensemble des chemins inscriptibles. Sans mécanisme d'immutabilité qualifié sur cette machine, G2 n'ouvrira qu'une tentative limitée aux contrôles de progression et **G4 restera `INDETERMINATE`**.
+A return carried by `ReviseIncrement` ends the current attempt and opens a working revision. The `verifying → implementing` correction, carried by `StartAttempt`, leaves the contract unchanged and keeps the attempt.
 
-**Aucun de ces invariants n'est encore imposé par un contrôleur.** Les phases et les gates sont tenues à la main, et les enregistrements sous `495/` sont des conventions publiques lisibles. `tools/verify_state.py` compare les artefacts courants à leurs manifestes, vérifie l'adressage des objets et quelques liaisons structurelles ; il ne démontre ni l'exhaustivité de l'historique ni une propriété de sécurité. Un manifeste permet de constater une dérive entre les octets approuvés et ceux du disque ; il ne l'empêche pas. La conception l'énonce d'ailleurs elle-même en §4.1 : le magasin contrôlé ne doit pas être un répertoire du workspace.
+The diagram shows one return edge per source phase. `ReviseIncrement` actually targets `specifying` or `designing` depending on which artifact is revised — ten edges in all, against a single correction edge.
 
-## Principe
-
-Selon son profil, un incrément peut parcourir tout le workflow de livraison ou être clos plus tôt. Pour un incrément de livraison, les spécifications définissent le résultat attendu, la conception structure la solution et les validations confrontent l'implémentation aux exigences. Les écarts observés orientent les corrections jusqu'à satisfaire les critères d'acceptation, ou jusqu'à rendre nécessaire une décision humaine.
-
-Une case « tâche terminée » cochée par un agent reste une déclaration à vérifier : seul le contrôleur applique une transition, et une décision favorable exige des preuves rattachées aux entrées exactes qu'elles concernent.
-
-## Séparation des responsabilités
-
-| Partie | Responsabilité |
-| --- | --- |
-| **495** | Organiser le travail, préparer le contexte de l'IA, gérer les gates, conserver les preuves |
-| **Application cible** | Spécifications, conception, code, tests et configuration de build |
-| **Environnement d'exécution** | Exécuter les agents, builds et contrôles, derrière un adaptateur |
-| **Fournisseur d'IA** | Produire ou examiner des propositions, via un adaptateur interchangeable |
-
-La technologie interne retenue pour la future implémentation de 495 est Python, mais aucun langage, framework de test ou système de build n'est imposé à l'application cible. La conception prévoit que la distribution embarque son runtime, ses bibliothèques et ses ressources méthodologiques, sans exiger d'outil supplémentaire installé manuellement pour le noyau.
-
-## Trois profils de workflow
-
-| Profil | Source | Usage |
+| Gate | Guarantee | Limit |
 | --- | --- | --- |
-| `standard` | §3.5 | Exige un worker autorisé et les trois capacités d'isolation de §6.8 |
-| `exploration` | §3.1 | Produit des connaissances et des décisions ; peut être clos sans code |
-| `self-hosting-bootstrap` | `ADR-0006 r6` | Construire 495 avant qu'un worker existe, avec ses limites déclarées |
+| **G0** — need framed | The work is scoped | Its economic value is not demonstrated |
+| **G1** — specification ready | An approved, verifiable specification exists | Its correctness does not follow from the parser |
+| **G2** — execution contract ready | The contract is sealed before actuation | No future result is promised |
+| **G3** — candidate admissible | The candidate can be evaluated | It is not yet correct |
+| **G4** — candidate accepted | The policy's criteria hold on this exact candidate | Under these checks and this scope only |
+| **G5** — integrated | The integrated state matches the accepted candidate | — |
 
-Le profil de bootstrap n'est pas une exception au profil standard : §3.6 ne permet d'excepter qu'un défaut de baseline identifié, pas une obligation technique dure. C'est un profil distinct, lié par le **digest** de sa définition et non par son nom. Son extinction exige cumulativement un worker implémentant CSAP 1.0 et ayant passé son kit de conformité, les trois capacités d'isolation qualifiées séparément, et la compatibilité avec la toolchain concernée.
+Evaluating a gate is a pure function returning `PASS`, `FAIL` or `INDETERMINATE`. Missing evidence, a malformed result, or a mandatory check that did not run never amount to success.
 
-Un résultat obtenu sous ce profil est une preuve fonctionnelle de bootstrap. Il n'est jamais une preuve d'isolation ni de séparation du vérificateur, et il devra être réévalué sous le profil standard avant toute revendication d'auto-hébergement conforme.
+### Attempts
 
-## Composants
+An AI attempt exists in every phase, created once its phase contract is sealed and the phase's entry condition is met — a gate where one applies, a required contract always.
 
-| Élément | Responsabilité |
+```mermaid
+stateDiagram-v2
+    [*] --> running: contract sealed, entry condition met
+    running --> suspended: G3 PASS, or explicit suspension
+    suspended --> running: StartAttempt after G4 FAIL
+    running --> finished
+    suspended --> finished
+    finished --> [*]
+```
+
+`suspended` is not terminal: it keeps the sealed contract, so a review attempt can run while the implementation attempt is paused. Reaching `finished` requires one of six declared reasons — `phase_completed`, `integration_succeeded`, `revision_requested`, `increment_closed`, `budget_exhausted`, `definitive_failure` — each with exactly one trigger. A gate `FAIL` never ends an attempt on its own.
+
+## The `495/` directory
+
+`495/` is where the harness keeps a project's state and its sealed record. It is the shape 495 defines for any target project, and this repository applies it to itself.
+
+Its role is to make every conclusion traceable to the exact bytes it concerns: an artifact is identified by the SHA-256 of its content, a revision is immutable, and an approval binds to a full reference rather than to a file path.
+
+```
+495/
+├── project.json              identity, profiles, increments, state_version, known gaps
+├── approvals.json            approvals and refusals, each on a full reference
+├── specs/                    requirements currently integrated
+├── decisions/                ADRs and their manifest
+├── changes/<INC-nnnn>/       one directory per increment
+│   ├── manifest.json         sealed artifacts, their digests and adopted references
+│   ├── proposal.md           objective, scope, exclusions, open questions
+│   ├── requirements.json     identified requirements, criteria, verification method
+│   ├── features/             Gherkin scenarios, where relevant
+│   ├── design.md             components, interfaces, risks, test strategy
+│   ├── contracts/            phase and execution contracts, interface contracts
+│   ├── tasks.json            bounded tasks and dependencies
+│   ├── attempts/             attempt state — mutable, never sealed
+│   ├── observations/         recorded results of an operation or check
+│   └── gates/                gate decisions: inputs, obligations, reasons, verdict
+└── objects/sha256/           preserved bytes, addressed by their digest
+```
+
+A path is present only once its artifact exists; an absent directory means the work has not been produced.
+
+| Defined by the design (§4.1) | Bootstrap extension |
 | --- | --- |
-| Workflow par incrément | Déterminer le travail actuellement permis et les livrables attendus |
-| Artefacts versionnés | Exprimer le besoin, les décisions, les tâches et leurs dépendances |
-| Noyau embarqué | Vérifier les observations et autoriser les transitions |
-| Protocole d'adaptateurs | Accéder aux agents et environnements techniques |
+| `project.json`, `specs/`, `decisions/`, `changes/<INC>/` and its documents | `manifest.json`, `gates/`, `attempts/`, `observations/`, `objects/`, `approvals.json` |
 
-## Workflow par incrément
+**These conventions carry no security property.** No controller exists yet: phases, gates and approvals are held by hand, and the records under `495/` are readable public conventions. A manifest lets you observe drift between approved bytes and those on disk; it does not prevent it. The design says so itself in §4.1 — the controlled store must not be a directory of the agent's workspace. The enforceable configuration remains an approved copy held by the controller.
 
-Le workflow ordonne clarification, spécification, conception, implémentation et intégration. Un incrément parcourt les étapes exigées par son profil, avec des retours possibles, une traçabilité des modifications et la possibilité d'être clos avant l'implémentation. Les méthodes retenues sont l'Example Mapping, le BDD avec Gherkin lorsqu'il est pertinent, les ADR et les contrats d'interface.
+## Separation of concerns
 
-Six progressions sont portées par `ApplyGateDecision`, après évaluation des gates G0 à G5 :
+| Party | Responsibility |
+| --- | --- |
+| **495** | Organise the work, prepare the AI's context, run the gates, preserve evidence |
+| **Target application** | Requirements, design, code, tests and build configuration |
+| **Execution environment** | Run agents, builds and checks, behind an adapter |
+| **AI provider** | Produce or review proposals, through an interchangeable adapter |
 
-| Gate | Garantie | Limite |
+Python is the internal technology chosen for the future implementation, but no language, test framework or build system is imposed on the target application. The distribution is meant to embed its runtime, libraries and methodological resources, so the core needs no manually installed tool.
+
+## Workflow profiles
+
+| Profile | Source | Use |
 | --- | --- | --- |
-| **G0** — besoin cadré | Le travail est cadré | Sa valeur économique n'est pas démontrée |
-| **G1** — spécification prête | Une spécification approuvée et vérifiable est disponible | Sa justesse ne découle pas du parseur |
-| **G2** — contrat d'exécution prêt | Le contrat est scellé avant actuation | Aucun résultat futur n'est promis |
-| **G3** — candidat recevable | Le candidat est évaluable | Il n'est pas encore correct |
-| **G4** — candidat accepté | Les critères de la politique sont satisfaits sur ce candidat précis | Selon ces contrôles et ce périmètre uniquement |
-| **G5** — intégré | L'état intégré correspond au candidat accepté | — |
+| `standard` | §3.5 | Requires an authorized worker and the three isolation capabilities of §6.8 |
+| `exploration` | §3.1 | Produces knowledge and decisions; may be closed without code |
+| `self-hosting-bootstrap` | `ADR-0006` | Build 495 before a worker exists, with its limits declared |
 
-La transition `accepted → integrating` est distincte : `StartIntegration` la porte sous précondition d'un G4 `PASS` courant sur le candidat exact. Les retours et les clôtures sont eux aussi portés par leurs commandes propres.
+The bootstrap profile is not an exception to the standard one: §3.6 only allows excepting an identified baseline defect, never a hard technical obligation. It is a separate profile, bound by the **digest** of its definition rather than by its name, and its sunset requires — cumulatively — a worker implementing CSAP 1.0 that passed its conformance kit, the three isolation capabilities qualified separately, and compatibility with the toolchain in use.
 
-L'évaluation d'une gate est une fonction pure qui produit un verdict `PASS`, `FAIL` ou `INDETERMINATE`. L'absence de preuve, un résultat mal formé ou un contrôle obligatoire non exécuté ne valent jamais réussite.
+A result obtained under it is functional bootstrap evidence. It is never evidence of isolation or of verifier separation, and it must be re-evaluated under the standard profile before any claim of conforming self-hosting.
 
-## Invariants principaux
+## Core invariants
 
-- Seul le contrôleur applique une transition ; ni un agent ni un adaptateur ne peut accepter un résultat.
-- Un artefact scellé est immuable ; toute modification crée une nouvelle révision.
-- La validité d'une preuve dépend des digests de ses entrées, pas seulement de son ancien statut « réussi ».
-- Le candidat accepté est le candidat vérifié.
-- Un jugement favorable de modèle ne neutralise jamais une violation déterministe obligatoire.
-- Une gate structurelle ne prétend pas prouver la pertinence métier d'un document.
+- Only the controller applies a transition; neither an agent nor an adapter can accept a result.
+- A sealed artifact is immutable; any change creates a new revision.
+- Evidence remains valid through the digests of its inputs, not through its former "passed" status.
+- The accepted candidate is the verified candidate.
+- A favourable model judgment never neutralises a mandatory deterministic violation.
+- A structural gate does not claim to prove a document's business relevance.
 
-Le modèle de menace considère le code et les sorties de l'agent comme non fiables. Le contrôleur, son magasin d'objets, la configuration de confiance et les workers autorisés appartiennent au périmètre de confiance.
+The threat model treats agent code and output as untrusted. The controller, its object store, the trust configuration and authorized workers sit inside the trust boundary.
 
-## Protocole d'adaptateurs
+## Adapter protocol
 
-La conception définit quatre ports pour isoler 495 des technologies cibles : `AgentPort`, `ExecutionPort`, `RepositoryPort` et `ApprovalPort`. Les adaptateurs placés derrière ces ports échangent avec 495 selon CSAP 1.0, un protocole applicatif proposé par le projet, avec des enveloppes JSON versionnées et des opérations asynchrones idempotentes.
+Four ports isolate 495 from target technologies: `AgentPort`, `ExecutionPort`, `RepositoryPort` and `ApprovalPort`. Adapters behind them speak CSAP 1.0, an application protocol proposed by the project, with versioned JSON envelopes and idempotent asynchronous operations.
 
-Un adaptateur de projet traduira les capacités demandées — construire, exécuter les tests d'acceptation, vérifier l'architecture et les contrats, produire un candidat — en opérations adaptées à sa technologie. Il retournera un résultat normalisé identifiant le contrôle, les exigences couvertes, les digests des entrées, la version du vérificateur, le statut et les preuves.
+A project's adapter translates requested capabilities — build, run acceptance tests, check architecture and contracts, produce a candidate — into operations suited to its technology, and returns a normalised result naming the check, the requirements covered, the input digests, the verifier version, the status and the evidence.
 
-## Organisation du dépôt
+## Documents
 
-`495/` suit la disposition décrite en section 4.1 de la conception : identité du projet, exigences intégrées, décisions et dossiers de changement.
-
-| Chemin | Contenu |
+| Path | Contents |
 | --- | --- |
-| [`495/project.json`](495/project.json) | Identité du projet et état des incréments |
-| [`495/changes/INC-0001/proposal.md`](495/changes/INC-0001/proposal.md) | Objectif et périmètre : méthodes retenues et socle technique embarquable |
-| [`495/changes/INC-0001/design.md`](495/changes/INC-0001/design.md) | Conception du harnais : invariants, workflow, noyau, protocole |
-| [`495/changes/INC-0001/manifest.json`](495/changes/INC-0001/manifest.json) | Digests SHA-256 des artefacts scellés de l'incrément |
-| [`495/changes/INC-0002/requirements.json`](495/changes/INC-0002/requirements.json) | 20 exigences, 98 critères, vocabulaire normatif et oracles — scellé r7, repris par `INC-0003` |
-| [`495/changes/INC-0002/gates/`](495/changes/INC-0002/gates/) | Six évaluations de G1 : entrées, obligations, raisons et constats |
-| [`495/changes/INC-0003/`](495/changes/INC-0003/) | Cadrage, contrats de phase scellés, tentatives, observations et gates |
-| [`495/decisions/`](495/decisions/) | Six ADR précisant ou remplaçant certains passages de la conception scellée, dont le profil de bootstrap |
-| [`495/approvals.json`](495/approvals.json) | Approbations et refus, chacun sur une référence complète |
-| `495/objects/sha256/` | Octets conservés, adressés par leur digest ; la révision 1 du requirement set reste perdue et documentée comme telle |
-| [`tools/verify_state.py`](tools/verify_state.py) | Diagnostic partiel de cohérence du bootstrap, sans autorité — `python3 tools/verify_state.py` |
-| [`docs/presentation.md`](docs/presentation.md) | Origine du nom et intention du projet |
+| [`495/changes/INC-0001/design.md`](495/changes/INC-0001/design.md) | The design: invariants, workflow, core, adapter protocol |
+| [`495/changes/INC-0001/proposal.md`](495/changes/INC-0001/proposal.md) | Needs, methods retained and embeddable technical foundation |
+| [`495/decisions/`](495/decisions/) | ADRs refining or replacing passages of the sealed design |
+| [`tools/verify_state.py`](tools/verify_state.py) | Partial bootstrap consistency check, without authority |
+| [`docs/presentation.md`](docs/presentation.md) | Origin of the name and intent of the project |
 
-Les artefacts publics encore absents sont `495/specs/` — aucune exigence intégrée —, puis `design.md`, les contrats d'interface sous `contracts/` et `tasks.json` d'`INC-0003`. Le répertoire `contracts/` contient déjà les contrats d'exécution des phases précédentes. `features/` restera absent : les règles du lot A sont des invariants, des ensembles clos et des tables de transitions, que Gherkin exprime mal — `requirements.json` motive ce choix.
+## Guarantees not claimed
 
-`manifest.json`, `gates/`, `attempts/`, `observations/`, `objects/` et `approvals.json` sont des extensions de bootstrap, pas des chemins définis par la conception.
+Model determinism, semantic completeness of tests, a universal sandbox with no system dependencies, strong human identity in local mode, immunity to an administrator of the controller, multi-repository atomicity, perfect parity between production and test environments.
 
-Ces conventions sont exportables et la sécurité ne repose pas sur elles : la configuration exécutoire reste une copie approuvée conservée par le contrôleur.
+## References
 
-## Garanties non revendiquées
-
-Déterminisme du modèle, exhaustivité sémantique des tests, sandbox universel sans dépendances système, identité humaine forte en mode local, immunité à un administrateur du contrôleur, atomicité multi-dépôts, équivalence parfaite des environnements de production et de test.
-
-## Références
-
-- [GitHub Spec Kit](https://github.com/github/spec-kit) — séparation des artefacts de spécification, plan et tâches
-- [OpenSpec](https://github.com/Fission-AI/OpenSpec) — organisation du travail par proposition de changement
+- [GitHub Spec Kit](https://github.com/github/spec-kit) — separating specification, plan and task artifacts
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) — organising work by change proposal
 - [BDD — Cucumber](https://cucumber.io/docs/bdd/), [Gherkin](https://github.com/cucumber/gherkin), [Cucumber Messages](https://github.com/cucumber/messages)
-- [ADR](https://adr.github.io/) et [OpenAPI](https://www.openapis.org/what-is-openapi)
-- [Principes Agile](https://agilemanifesto.org/principles.html)
+- [ADR](https://adr.github.io/) and [OpenAPI](https://www.openapis.org/what-is-openapi)
+- [Agile principles](https://agilemanifesto.org/principles.html)
