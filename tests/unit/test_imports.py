@@ -13,7 +13,12 @@ class ImportBoundariesTest(unittest.TestCase):
             "webbrowser", "xmlrpc",
         }
         forbidden_calls = {"open", "eval", "exec", "compile", "__import__"}
-        roots = (Path("src/domain"), Path("src/validation"), Path("src/policy"))
+        roots = (
+            Path("src/domain"),
+            Path("src/validation"),
+            Path("src/policy"),
+            Path("src/csap"),
+        )
         for path in sorted(path for root in roots for path in root.glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
@@ -64,9 +69,17 @@ class ImportBoundariesTest(unittest.TestCase):
                             self.assertIn(imported, allowed[package], str(path))
 
     def test_pure_packages_do_not_import_persistence(self):
-        for package in ("domain", "validation", "policy"):
+        for package in ("domain", "validation", "policy", "persistence"):
             for path in sorted((Path("src") / package).glob("*.py")):
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
                 for node in ast.walk(tree):
                     if isinstance(node, ast.ImportFrom) and node.module:
                         self.assertNotEqual(node.module.split(".")[0], "persistence", str(path))
+
+    def test_lower_packages_do_not_import_csap(self):
+        for package in ("domain", "validation", "policy", "persistence"):
+            for path in sorted((Path("src") / package).glob("*.py")):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.module:
+                        self.assertNotEqual(node.module.split(".")[0], "csap", str(path))

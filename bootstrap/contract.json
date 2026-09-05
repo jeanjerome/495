@@ -1,6 +1,8 @@
 {
   "candidate": {
     "include": [
+      "src/csap/*.py",
+      "src/csap/**/*.py",
       "src/domain/*.py",
       "src/domain/**/*.py",
       "src/persistence/*.py",
@@ -13,6 +15,7 @@
       "tests/**/*.py"
     ],
     "roots": [
+      "src/csap",
       "src/domain",
       "src/persistence",
       "src/policy",
@@ -103,6 +106,33 @@
       "required": true,
       "timeout_seconds": 300,
       "working_directory": "."
+    },
+    {
+      "argv": [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/csap",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "expected": {
+        "exit_code": 0,
+        "minimum_test_count": 1,
+        "zero_counters": [
+          "skipped",
+          "expected failures",
+          "unexpected successes"
+        ]
+      },
+      "id": "csap",
+      "required": true,
+      "timeout_seconds": 300,
+      "working_directory": "."
     }
   ],
   "environment": {
@@ -117,7 +147,7 @@
       "TMPDIR": "bootstrap/output"
     }
   },
-  "objective": "Implémenter et vérifier la persistance locale de 495.",
+  "objective": "Implémenter et vérifier CSAP 1.0 et son kit de conformité.",
   "permissions": {
     "external_effects": false,
     "network": false,
@@ -132,7 +162,7 @@
     "write": [
       "bootstrap/output/",
       "bootstrap/runs/",
-      "src/persistence/",
+      "src/csap/",
       "tests/"
     ]
   },
@@ -166,5 +196,5 @@
     "secret_access",
     "write_outside_allowed_paths"
   ],
-  "work_document": "docs/local-persistence.md"
+  "work_document": "docs/adapter-protocol.md"
 }

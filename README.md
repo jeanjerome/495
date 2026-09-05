@@ -14,9 +14,9 @@ Elle ne promet ni un code déterministe, ni une convergence automatique.
 
 ## État du projet
 
-Le dépôt contient un bootstrap minimal, le noyau de domaine et le moteur de
-décision déterministe. Le prochain candidat est la persistance locale décrite
-dans `docs/local-persistence.md`.
+Le dépôt contient un bootstrap minimal, le noyau de domaine, le moteur de
+décision déterministe et la persistance locale. Le prochain candidat est CSAP
+1.0 et son kit de conformité, décrits dans `docs/adapter-protocol.md`.
 
 Le bootstrap avancé expérimenté sous `495/` est conservé comme archive. Aucun
 contrôleur ne l’applique et ses registres ne décrivent plus l’état courant.
@@ -25,7 +25,7 @@ Le bootstrap actif repose sur trois éléments :
 
 | Élément | Rôle |
 | --- | --- |
-| [`docs/local-persistence.md`](docs/local-persistence.md) | Objectif, périmètre, critères, limites et décisions humaines du candidat courant |
+| [`docs/adapter-protocol.md`](docs/adapter-protocol.md) | Objectif, périmètre, critères, limites et décisions humaines du candidat courant |
 | [`bootstrap/contract.json`](bootstrap/contract.json) | Droits, périmètre du candidat et commandes exécutables |
 | `bootstrap/runs/*.json` | Rapports générés et liés au contrat et au candidat |
 
@@ -104,9 +104,10 @@ Le noyau de domaine fournit déjà :
 - état immutable et résultats explicites.
 
 Le code du domaine et du moteur de décision reste déterministe et sans
-entrée-sortie. Le candidat courant ajoute le magasin d’objets, le journal
-chaîné, l’idempotence des commandes et la reconstruction locale. Les
-adaptateurs, le protocole CSAP et la CLI restent hors périmètre.
+entrée-sortie. La persistance locale fournit le magasin d’objets, le journal
+chaîné, l’idempotence et la reconstruction. Le candidat courant ajoute les
+enveloppes CSAP, le cycle des opérations et le kit de conformité. Les
+adaptateurs réels, les workers et la CLI restent hors périmètre.
 
 ## Archive historique
 
@@ -144,6 +145,7 @@ appliquer ou les vérifier.
 - [Travail d’implémentation](docs/implementation.md)
 - [Moteur de décision](docs/decision-engine.md)
 - [Persistance locale](docs/local-persistence.md)
+- [Protocole d’adaptateurs](docs/adapter-protocol.md)
 - [Simplification du bootstrap](docs/proposition-simplification.md)
 - [Conception historique](495/changes/INC-0003/design.md)
 - [Exigences historiques](495/changes/INC-0002/requirements.json)
