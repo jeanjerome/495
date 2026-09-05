@@ -1,0 +1,367 @@
+{
+  "acceptance_limits": [
+    "Sans mécanisme d'immutabilité qualifié, les résultats des quatre contrôles sont des contrôles de progression au sens de SRC-DESIGN §6.8. Ils alimentent le feedback et ne fondent aucune acceptation.",
+    "La forme « détection » — comparaison du manifeste du candidat avant et après chaque contrôle — n'ouvre pas les contrôles d'acceptation : un contrôle peut modifier le code, tester la version modifiée, puis restaurer les octets d'origine ; les deux manifestes coïncident alors que le candidat scellé n'a jamais été exécuté.",
+    "En conséquence, G4 reste INDETERMINATE sous ce contrat tant que immutability.status vaut UNQUALIFIED.",
+    "L'apparition ultérieure d'un mécanisme d'immutabilité est un changement d'environnement, non une extension de ce contrat : nouveau contrat, nouvelle tentative si nécessaire, et réévaluation de G2 avant qu'une preuve soit utilisable à G4. Les résultats obtenus sans immutabilité ne changent pas de statut du fait que le mécanisme existe ensuite.",
+    "Un résultat vert obtenu sous ce contrat est une preuve fonctionnelle de bootstrap. Il n'est jamais une preuve d'isolation ni de séparation du vérificateur."
+  ],
+  "allowed_output_kinds": [
+    "candidate",
+    "observation"
+  ],
+  "allowed_output_kinds_note": "Les deux valeurs appartiennent à vocabulary.artifact_kinds. La décision de gate est produite par le contrôleur, non par la tentative.",
+  "artifact_id": "INC-0003/contract-implementation",
+  "attempt_ref": "ATT-INC-0003-0003",
+  "attempt_ref_note": "Tentative qui produit cette proposition. La tentative que ce contrat gouvernera est distincte et n'existe pas : elle sera créée après un G2 PASS.",
+  "binding_procedure": [
+    {
+      "field": "spaces.cand",
+      "how": "Capturer src/, tests/ et 495/changes/INC-0002/requirements.json après arrêt confirmé des processus auteurs, dans une racine hors de <verifier_root> et de <output_root>, puis enregistrer son chemin absolu et le manifeste du candidat.",
+      "step": 1
+    },
+    {
+      "field": "spaces.verifier_root",
+      "how": "Créer une racine hors de <cand> et de <output_root>, y matérialiser check_imports.py, check_manifest_scope.py et candidate-allowlist.json depuis leurs références approuvées, et enregistrer les trois digests.",
+      "step": 2
+    },
+    {
+      "field": "spaces.output_root",
+      "how": "Créer une racine initialement vide, hors de <cand> et de <verifier_root>, exclue de PYTHONPATH, incluse dans le bornage des écritures, et ne fournissant aucun code chargé par un contrôle.",
+      "step": 3
+    },
+    {
+      "field": "interpreter",
+      "how": "Résoudre une seule fois le chemin absolu de l'interpréteur, sans recherche dans PATH, et relever sys.version, sys.implementation, l'architecture de la plateforme et le digest de l'exécutable désigné par ce chemin.",
+      "step": 4
+    },
+    {
+      "field": "environment_manifest",
+      "how": "Énumérer chaque fichier sous le préfixe de l'interpréteur avec son digest, plus l'exécutable lui-même, hors de toute exécution du candidat. Déclarer explicitement comme non couverts les composants que la plateforme ne permet pas d'énumérer, plutôt que de les omettre en silence.",
+      "step": 5
+    },
+    {
+      "field": "checks[*].argv",
+      "how": "Substituer textuellement <py>, <cand>, <verifier_root> et <output_root> dans les quatre argv du plan de contrôles. Un argv lancé conserve zéro occurrence de < ou de >.",
+      "step": 6
+    },
+    {
+      "field": "immutability",
+      "how": "Qualifier le mécanisme rendant <cand>, <verifier_root> et l'environnement approuvé non modifiables pendant l'exécution — montage en lecture seule ou instantané immuable équivalent — ou enregistrer son absence et la conséquence sur G4.",
+      "step": 7
+    }
+  ],
+  "candidate_allowlist": {
+    "count": 35,
+    "locator": "INC-0003/design r1 §6.4",
+    "oracle": "L'ensemble des chemins du manifeste du candidat est égal à cette liste. Un chemin présent d'un seul côté est un FAIL et est nommé.",
+    "paths": [
+      "495/changes/INC-0002/requirements.json",
+      "src/domain/__init__.py",
+      "src/domain/attempts.py",
+      "src/domain/commands.py",
+      "src/domain/invalidation.py",
+      "src/domain/links.py",
+      "src/domain/outcomes.py",
+      "src/domain/phases.py",
+      "src/domain/references.py",
+      "src/domain/revisions.py",
+      "src/domain/sealing.py",
+      "src/domain/state.py",
+      "src/domain/vocabulary.py",
+      "tests/__init__.py",
+      "tests/enumeration/__init__.py",
+      "tests/enumeration/sealed_reference.py",
+      "tests/enumeration/test_artifacts.py",
+      "tests/enumeration/test_attempts.py",
+      "tests/enumeration/test_commands.py",
+      "tests/enumeration/test_invalidation.py",
+      "tests/enumeration/test_phases.py",
+      "tests/enumeration/test_statuses.py",
+      "tests/unit/__init__.py",
+      "tests/unit/test_attempts.py",
+      "tests/unit/test_commands_envelope.py",
+      "tests/unit/test_commands_preconditions.py",
+      "tests/unit/test_commands_profile.py",
+      "tests/unit/test_commands_transitions.py",
+      "tests/unit/test_commands_wellformed.py",
+      "tests/unit/test_invalidation.py",
+      "tests/unit/test_links.py",
+      "tests/unit/test_references.py",
+      "tests/unit/test_revisions.py",
+      "tests/unit/test_sealing.py",
+      "tests/unit/test_state.py"
+    ],
+    "rationale": "Oracle fermé. Une liste noire de noms de fichiers de déclaration de dépendance ne prouverait que l'absence des motifs qu'elle nomme et resterait muette sur tout format à venir. AC-19-2 découle de l'égalité ensembliste : aucun fichier de déclaration ne figure dans cette liste, donc aucun ne peut être présent sans produire un FAIL.",
+    "revision_note": "L'ajout ultérieur d'un pyproject.toml légitime est une révision explicite de cette liste, donc de ce contrat, et non un ajout silencieux.",
+    "status": "BOUND"
+  },
+  "candidate_capture": {
+    "author_write_paths": [
+      "495/changes/INC-0003/",
+      "src/",
+      "tests/"
+    ],
+    "note": "Le candidat est capturé après arrêt confirmé des processus auteurs. Le profil ne prétend pas empêcher une modification concurrente : il prétend la détecter par comparaison de manifeste.",
+    "violation": "Une écriture constatée hors des chemins autorisés fait échouer G3. Ce FAIL ne termine pas la tentative à lui seul (AC-13-7) : après réconciliation de l'état constaté, il produit l'observation definitive_failure, déclencheur de terminaison au sens de SRC-ADR-0002. Aucune correction n'est alors possible sous le même contrat."
+  },
+  "capabilities": {
+    "control_store_protection": false,
+    "locator": "SRC-DESIGN §6.8 ; SRC-ADR-0006, ce que le profil ne garantit pas",
+    "note": "Les trois capacités sont déclarées absentes. L'exécution locale en Python est un choix explicite du profil, pas un repli silencieux : le vérificateur s'exécute dans le même espace que le code vérifié.",
+    "process_isolation": false,
+    "verifier_separation": false
+  },
+  "checks_ref": {
+    "artifact_id": "INC-0003/check-plan",
+    "digest": "sha256:984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e",
+    "kind": "check_plan",
+    "note": "Les quatre contrôles, leur inventaire exact, leurs résultats attendus et leur qualification sont fixés par le plan de contrôles et ne sont pas recopiés ici.",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  "declared_limits": [
+    "Cette proposition n'est pas scellable en l'état : sept champs sont UNBOUND et trois références d'objets de contrôle sont incomplètes.",
+    "INC-0003/contract-conception r1 n'accorde la lecture que sous 495/ et docs/. Le préfixe de l'interpréteur est hors de ces chemins : interpreter et environment_manifest ne peuvent pas être renseignés sous ce contrat. Le contrat de phase exige donc un livrable dont il n'accorde pas les moyens ; la tension est dans sa révision 1, non dans cette proposition.",
+    "L'observation du dispositif hôte exigée par SRC-ADR-0006 est enregistrée INSUFFICIENT. G2 reste INDETERMINATE avec la raison MISSING_EVIDENCE, et ce contrat ne peut pas être scellé par un G2 PASS.",
+    "Le contrôle manifest_scope et la liste blanche des trente-cinq chemins sont un élargissement introduit par INC-0003/design r1 au-delà des trois contrôles de SRC-ADR-0006. Ils sont à approuver explicitement.",
+    "Les trois objets de contrôle — check_imports.py, check_manifest_scope.py et candidate-allowlist.json — n'existent pas. Leurs références ne portent ni révision ni digest, et une référence incomplète n'est pas une référence.",
+    "Aucun des quatre contrôles n'est qualifié : les huit entrées de qualification n'existent pas.",
+    "L'idempotence par command_id de SRC-DESIGN §5.5 n'est pas couverte : elle exige le journal et le verrou, qui appartiennent à application et infrastructure. domain porte le champ et compare la version d'état ; il ne revendique pas l'idempotence."
+  ],
+  "entry_condition": {
+    "attempt_phase": "implementation",
+    "entry_gate": "G2",
+    "locator": "SRC-ADR-0002, attempt_entry_conditions",
+    "required_contract": "Contrat d'implémentation complet"
+  },
+  "environment_manifest": {
+    "authority_note": "L'autorité vient du manifeste complet, calculé hors de toute exécution du candidat, et comparé au contrat avant chaque actuation. Le digest du lanceur ne suffit pas : la bibliothèque standard, unittest, ast ou une bibliothèque dynamique peuvent changer sans que l'exécutable bouge. Une fermeture relevée sur une seule exécution de référence ne suffit pas davantage.",
+    "entries": null,
+    "not_covered": null,
+    "not_covered_note": "Les composants que la plateforme ne permet pas d'énumérer sont déclarés comme non couverts, jamais omis en silence.",
+    "per_execution_observation": {
+      "detects_only": "Cette observation détecte, elle ne garantit pas : elle s'exécute dans le processus qui charge le candidat. Elle complète le manifeste, elle ne le remplace pas.",
+      "launcher": "Lanceur scellé extérieur au candidat, matérialisé depuis sa référence approuvée comme le vérificateur d'imports.",
+      "ref": {
+        "artifact_id": null,
+        "digest": null,
+        "kind": "candidate",
+        "revision": null,
+        "schema_version": "0.1-draft"
+      },
+      "requirement": "Relève la fermeture effectivement chargée et la compare à l'ensemble autorisé par le contrat. Un fichier absent du manifeste, un digest différent ou une fermeture manquante rendent le résultat inutilisable, jamais PASS.",
+      "status": "UNBOUND"
+    },
+    "requirement": "Chaque fichier sous le préfixe de l'interpréteur, avec son digest, plus l'exécutable lui-même.",
+    "status": "UNBOUND"
+  },
+  "environment_variables": {
+    "PATH": "",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONHASHSEED_note": "Valeur fixée ; une variable autorisée sans valeur fixée serait une entrée non déterminée.",
+    "PYTHONPATH": "<cand>/src",
+    "TMPDIR": "<output_root>",
+    "closed": true,
+    "closed_note": "L'environnement ne contient rien d'autre. PATH est vide : toute commande est désignée par un chemin absolu, et l'interpréteur n'est jamais résolu par recherche dans PATH.",
+    "locator": "SRC-ADR-0006, exécution",
+    "status": "BOUND_MODULO_SPACES",
+    "status_note": "Les valeurs sont fixées par le profil. Deux d'entre elles dépendent de spaces, qui reste UNBOUND."
+  },
+  "immutability": {
+    "consequence": "G2 ne peut ouvrir qu'une tentative limitée aux contrôles de progression, et cette limite est enregistrée au contrat. G4 reste INDETERMINATE.",
+    "form": null,
+    "forms_admissible": [
+      {
+        "form": "immutabilité",
+        "gates_opened": "contrôles de progression et contrôles d'acceptation",
+        "statement": "Candidat, vérificateur et environnement approuvé sont non modifiables pendant l'exécution : montage en lecture seule ou instantané immuable équivalent."
+      },
+      {
+        "form": "détection",
+        "gates_opened": "contrôles de progression uniquement",
+        "statement": "Aucune modification persistante observée : le manifeste du candidat est comparé avant et après chaque contrôle."
+      }
+    ],
+    "insufficient_measures": "-B et PYTHONDONTWRITEBYTECODE suppriment les __pycache__ ; tout fichier temporaire est écrit sous <output_root>, hors du candidat et du vérificateur. Ces mesures réduisent le risque ; elles ne valent immutabilité sous aucune des deux formes.",
+    "locator": "SRC-ADR-0006, écritures dans le candidat",
+    "status": "UNQUALIFIED"
+  },
+  "increment_id": "INC-0003",
+  "increment_phase": "implementing",
+  "increment_phase_note": "vocabulary.phases nomme implementing la phase de l'incrément ; vocabulary.attempt_entry_conditions nomme implementation la phase de la tentative. Le champ phase porte le second, comme les trois contrats de phase précédents.",
+  "inputs": [
+    {
+      "artifact_id": "INC-0001/design",
+      "digest": "sha256:48aaff9addb44bac571caf27257af1b374a34290f21099d921b697cf8cc07567",
+      "kind": "design",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0002/requirements",
+      "digest": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "kind": "requirement_set",
+      "revision": 7,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/proposal",
+      "digest": "sha256:c0533feb55ff7d3e37009b4dc300a5f38add13675e3f7adcd03ede3bb13307c6",
+      "kind": "proposal",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/design",
+      "digest": "sha256:278f54963b8fddf372de708e60758ebe3652ef8b8fa06715af192660e732076d",
+      "kind": "design",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0006",
+      "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+      "kind": "decision",
+      "revision": 6,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/tasks",
+      "digest": "sha256:71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac",
+      "kind": "task_plan",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/check-plan",
+      "digest": "sha256:984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e",
+      "kind": "check_plan",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/observation-host-device",
+      "digest": "sha256:a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d",
+      "kind": "observation",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  ],
+  "inputs_note": "Les huit entrées portent une référence complète à cinq champs. Les trois dernières sont les artefacts scellés par ATT-INC-0003-0003 avant cette proposition ; leurs digests portent sur les octets exacts déposés au magasin d'objets.",
+  "interpreter": {
+    "digest": null,
+    "implementation": null,
+    "locator": "SRC-ADR-0006, exécution",
+    "path": null,
+    "path_note": "Chemin absolu, résolu une seule fois, jamais par recherche dans PATH.",
+    "platform_architecture": null,
+    "python_requires": ">=3.12",
+    "status": "UNBOUND",
+    "stdlib_note": "sys.stdlib_module_names varie avec l'interpréteur ; AC-19-1 changerait de sens sans que le code bouge. Un changement de l'un de ces champs produit un nouveau contrat et invalide les preuves qui en dépendaient.",
+    "version": null
+  },
+  "isolation": {
+    "control_store_protection": false,
+    "note": "Repris de capabilities pour la forme attendue d'un contrat d'exécution.",
+    "process_isolation": false,
+    "verifier_separation": false
+  },
+  "kind": "execution_contract",
+  "limits": {
+    "attempts": 1,
+    "outputs": "Un candidat conforme à la liste blanche des trente-cinq chemins, et les observations d'exécution des quatre contrôles."
+  },
+  "objective": "Gouverner la tentative d'implémentation produisant le paquet src/domain/ et ses deux racines de test, selon INC-0003/design r1 et INC-0003/tasks r1, et exécuter les quatre contrôles d'INC-0003/check-plan r1.",
+  "phase": "implementation",
+  "policy": {
+    "artifact_id": "ADR-0006",
+    "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+    "kind": "decision",
+    "revision": 6,
+    "schema_version": "0.1-draft"
+  },
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "revision": 1,
+  "rights": {
+    "external_effects": "interdit",
+    "network": "interdit",
+    "read": [
+      "495/",
+      "<cand>/",
+      "<verifier_root>/",
+      "docs/"
+    ],
+    "read_note": "Le préfixe de l'interpréteur doit s'ajouter à cette liste pour que le manifeste d'environnement soit calculable. Le chemin n'est pas connu : il sera lié à l'étape 4 de binding_procedure et inscrit ici avant scellement.",
+    "secrets": "interdit",
+    "write": [
+      "495/changes/INC-0003/",
+      "<output_root>/",
+      "src/",
+      "tests/"
+    ]
+  },
+  "schema_version": "0.1-draft",
+  "sealing_preconditions": [
+    "Les sept champs UNBOUND sont renseignés selon binding_procedure.",
+    "Les trois objets de contrôle sont produits, scellés et référencés par référence complète à cinq champs.",
+    "Les huit entrées de qualification sont produites et la qualification des quatre contrôles est enregistrée avec leurs digests.",
+    "L'élargissement manifest_scope et la liste blanche des trente-cinq chemins sont approuvés explicitement.",
+    "L'observation du dispositif hôte porte un résultat admissible sur les trois points de SRC-ADR-0006, ou G2 reste INDETERMINATE avec la raison MISSING_EVIDENCE.",
+    "G2 et G4 exigent une approbation humaine explicite sur la référence exacte du contrat et du candidat. Aucun jugement de modèle ne s'y substitue."
+  ],
+  "source_baseline": {
+    "candidate_manifest": null,
+    "candidate_manifest_note": "Manifeste du candidat capturé, liant chaque chemin de candidate_allowlist à son digest. Il est l'ensemble attendu du contrôle imports pour les douze chemins sous src/, et l'ensemble comparé par manifest_scope pour les trente-cinq.",
+    "design": {
+      "artifact_id": "INC-0003/design",
+      "digest": "sha256:278f54963b8fddf372de708e60758ebe3652ef8b8fa06715af192660e732076d",
+      "kind": "design",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    "requirements": {
+      "artifact_id": "INC-0002/requirements",
+      "digest": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "kind": "requirement_set",
+      "revision": 7,
+      "schema_version": "0.1-draft"
+    },
+    "status": "UNBOUND",
+    "tasks": {
+      "artifact_id": "INC-0003/tasks",
+      "digest": "sha256:71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac",
+      "kind": "task_plan",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  },
+  "spaces": {
+    "cand": null,
+    "disjoint": true,
+    "locator": "SRC-ADR-0006, trois espaces disjoints",
+    "output_root": null,
+    "output_root_rules": [
+      "Initialement vide.",
+      "TMPDIR vaut <output_root> ; aucun temporaire n'est écrit ailleurs.",
+      "Inclus dans le bornage des écritures : c'est un espace autorisé, pas un espace ignoré.",
+      "Exclu de PYTHONPATH.",
+      "Ne fournit aucun code chargé par un contrôle : un contrôle qui importerait depuis son propre répertoire de sortie exécuterait ce qu'il vient d'y écrire."
+    ],
+    "rationale": "Un espace unique ne peut pas être à la fois immuable et inscriptible. <output_root> est le seul espace inscriptible ; <cand> et <verifier_root> ne le sont pas pour les contrôles d'acceptation.",
+    "status": "UNBOUND",
+    "verifier_root": null
+  },
+  "status": "draft",
+  "status_note": "Proposition produite par ATT-INC-0003-0003 sous INC-0003/contract-conception r1, dont outputs_expected porte : « La tentative en produit la proposition ; son scellement est une commande du contrôleur à G2. » Ce document n'est pas scellé, ne figure pas parmi les artefacts scellés du manifeste de l'incrément, et n'autorise aucune écriture.",
+  "unbound_fields": [
+    "environment_manifest.entries",
+    "environment_manifest.per_execution_observation.ref",
+    "immutability.form",
+    "interpreter.digest",
+    "interpreter.path",
+    "source_baseline.candidate_manifest",
+    "spaces"
+  ]
+}

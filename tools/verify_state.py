@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Contrôle d'intégrité de l'état 495.
+"""Contrôle d'intégrité de l'archive historique 495.
 
 Convenance de bootstrap, sans autorité : ce script vit dans le dépôt qu'il inspecte
 et n'est pas un objet de contrôle scellé au sens d'ADR-0006. Il constate une dérive,
-il ne l'empêche pas et ne vaut aucune preuve de gate.
+il ne l'empêche pas et ne valide ni le bootstrap minimal, ni un candidat.
 
     python3 tools/verify_state.py
 """
@@ -37,6 +37,7 @@ def manifests():
 
 
 def main() -> int:
+    print("— archive historique 495 —")
     print("— artefacts scellés —")
     sealed = 0
     for man, base in manifests():

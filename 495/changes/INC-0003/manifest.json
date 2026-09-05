@@ -77,13 +77,91 @@
       "schema_version": "0.1-draft",
       "size": 67865,
       "type": "file"
+    },
+    {
+      "artifact_id": "INC-0003/check-plan",
+      "digest": "sha256:984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e",
+      "kind": "check_plan",
+      "mode": "0o644",
+      "path": "checks/check-plan.json",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 55884,
+      "type": "file"
+    },
+    {
+      "artifact_id": "INC-0003/tasks",
+      "digest": "sha256:71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac",
+      "kind": "task_plan",
+      "mode": "0o644",
+      "path": "tasks.json",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 32346,
+      "type": "file"
+    },
+    {
+      "artifact_id": "INC-0003/observation-host-device",
+      "digest": "sha256:a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d",
+      "kind": "observation",
+      "mode": "0o644",
+      "path": "observations/host-device.json",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 10171,
+      "type": "file"
     }
   ],
   "bootstrap": {
+    "command_sequence": [
+      {
+        "artifact": "INC-0003/design r1",
+        "command": "SealArtifact",
+        "state_version": 9
+      },
+      {
+        "artifact": "INC-0003/check-plan r1",
+        "command": "SealArtifact",
+        "state_version": 10
+      },
+      {
+        "artifact": "INC-0003/tasks r1",
+        "command": "SealArtifact",
+        "state_version": 11
+      },
+      {
+        "artifact": "INC-0003/observation-host-device r1",
+        "command": "SealArtifact",
+        "state_version": 12
+      },
+      {
+        "artifact": "INC-0003/contract-implementation r1",
+        "command": "ProposeArtifact",
+        "state_version": 13
+      }
+    ],
+    "command_sequence_note": "Aucune commande n'est appliquée faute de contrôleur et de journal. Cette séquence projette les effets attendus des commandes du domaine et la progression de state_version qu'elles auraient produite ; elle n'en est pas la trace.",
     "controlled_store": false,
     "produced_by": "manual",
     "serialization": "json, ensure_ascii=false, sort_keys=true, indent=2, newline finale, utf-8"
   },
+  "drafts": [
+    {
+      "artifact_id": "INC-0003/contract-implementation",
+      "current_digest": "sha256:0de048a70345aee711f821783f78d98f2a5d13444638074fe819c109fca15ab0",
+      "kind": "execution_contract",
+      "mode": "0o644",
+      "path": "contracts/implementation.json",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "seal_command": "SealArtifact, commande du contrôleur à G2 (INC-0003/contract-conception r1, outputs_expected).",
+      "sealed": false,
+      "size": 20808,
+      "store_note": "Les octets d'un brouillon ne sont pas déposés sous 495/objects/sha256/ : le magasin conserve des octets historiques scellés. current_digest est l'empreinte de la révision de travail courante, pas une référence.",
+      "type": "file"
+    }
+  ],
+  "drafts_note": "Artefacts proposés par une tentative et non encore scellés. Ils ne portent pas de référence complète et n'autorisent rien.",
   "increment_id": "INC-0003",
   "profile": {
     "artifact_id": "ADR-0006",

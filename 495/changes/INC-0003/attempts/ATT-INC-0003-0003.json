@@ -8,11 +8,26 @@
     "revision": 1,
     "schema_version": "0.1-draft"
   },
+  "drafts": [
+    {
+      "artifact_id": "INC-0003/contract-implementation",
+      "current_digest": "sha256:0de048a70345aee711f821783f78d98f2a5d13444638074fe819c109fca15ab0",
+      "kind": "execution_contract",
+      "note": "Proposition. Son scellement est une commande du contrôleur à G2 ; sept champs restent UNBOUND et trois références d'objets de contrôle sont incomplètes.",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  ],
   "entry": {
     "entry_gate": "G1",
     "gate_decision_ref": "GD-INC-0003-G1-1",
     "locator": "SRC-ADR-0002, attempt_entry_conditions",
     "required_contract": "Contrat de conception"
+  },
+  "exit_status": {
+    "note": "Un verdict INDETERMINATE ne termine pas la tentative : la correction reste possible sous le même contrat. Ce que la révision 1 du contrat ne permet pas, c'est de produire l'observation manquante.",
+    "reason": "Le déclencheur de sortie est ApplyGateDecision appliquant G2 avec PASS. G2 ne peut pas être PASS : INC-0003/observation-host-device r1 enregistre qu'aucun des trois points de SRC-ADR-0006 n'est observé, ce qui laisse G2 INDETERMINATE avec la raison MISSING_EVIDENCE.",
+    "state": "running"
   },
   "expected_exit": {
     "locator": "SRC-ADR-0002, attempt_exit_conditions, phase conception",
@@ -36,8 +51,39 @@
       "kind": "design",
       "revision": 1,
       "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/check-plan",
+      "digest": "sha256:984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e",
+      "kind": "check_plan",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/tasks",
+      "digest": "sha256:71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac",
+      "kind": "task_plan",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/observation-host-device",
+      "digest": "sha256:a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d",
+      "kind": "observation",
+      "revision": 1,
+      "schema_version": "0.1-draft"
     }
   ],
+  "outputs_expected_status": {
+    "check_plan": "SCELLÉ",
+    "design": "SCELLÉ",
+    "execution_contract": "PROPOSÉ, non scellable en l'état",
+    "interface_contract": "NON PRODUIT — autorisé et non exigé ; la conception ne dégage aucune frontière de module justifiant une description formelle distincte au sens d'ADR-0004, le paquet domain n'ayant aucune arête sortante",
+    "note": "Les cinq sorties requises d'INC-0003/contract-conception r1 existent. L'existence d'un livrable ne vaut pas satisfaction de l'obligation qu'il porte.",
+    "observation_host_device": "SCELLÉ — contenu INSUFFICIENT, aucune des trois obligations de SRC-ADR-0006 n'est satisfaite",
+    "task_plan": "SCELLÉ"
+  },
+  "outputs_note": "Sorties scellées de la tentative, dans l'ordre des commandes SealArtifact projetées.",
   "phase": "conception",
   "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
   "record_kind": "attempt_state",
@@ -46,8 +92,12 @@
   "state": "running",
   "state_versions": {
     "attempt_start_projected": 8,
+    "check_plan_seal_projected": 10,
     "contract_seal_projected": 7,
     "design_seal_projected": 9,
-    "note": "Aucune commande n'est appliquée faute de contrôleur et de journal. state_version est un compteur conventionnel de mutations du registre ; les passages 6 → 7, 7 → 8 et 8 → 9 projettent respectivement les effets attendus de SealArtifact sur le contrat de phase, de StartAttempt, et de SealArtifact sur la conception."
+    "implementation_contract_proposal_projected": 13,
+    "note": "Aucune commande n'est appliquée faute de contrôleur et de journal. state_version est un compteur conventionnel de mutations du registre ; les passages 6 → 7, 7 → 8 et 8 → 9 projettent respectivement les effets attendus de SealArtifact sur le contrat de phase, de StartAttempt, et de SealArtifact sur la conception. Les passages 9 → 10, 10 → 11 et 11 → 12 projettent SealArtifact sur le plan de contrôles, le plan de tâches et l'observation du dispositif hôte ; 12 → 13 projette ProposeArtifact sur la proposition de contrat d'implémentation.",
+    "observation_seal_projected": 12,
+    "task_plan_seal_projected": 11
   }
 }

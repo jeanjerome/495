@@ -1,0 +1,373 @@
+{
+  "acceptance_eligible": false,
+  "candidate": {
+    "digest": "sha256:3d6fbf902962d2550ba2891140e0dfa36f05e2b06720d146ee8bf4117c583908",
+    "manifest": [
+      {
+        "digest": "sha256:4d40add70c4bf8e007d3dd48316a559448136702ee3e8433a5e4c80b7646d6ad",
+        "path": "src/domain/__init__.py",
+        "size": 46
+      },
+      {
+        "digest": "sha256:28022f6adbe44a966072f2a1dff6b47f2f75877560ddf5f2477db9e0183f6d70",
+        "path": "src/domain/attempts.py",
+        "size": 4777
+      },
+      {
+        "digest": "sha256:887bf3e9f9904538194461a1560a4aa50bf471c34eb8242f1097a826cb271dd0",
+        "path": "src/domain/commands.py",
+        "size": 28972
+      },
+      {
+        "digest": "sha256:5f8c2811b84c4a33c6126ddaa45c8cd24c501382a239e2d0ddec0e088f940a80",
+        "path": "src/domain/invalidation.py",
+        "size": 671
+      },
+      {
+        "digest": "sha256:0303c4640a9bb398bd98529298b1ecd8252ff555384be2a7a38b1bb4fb6234a0",
+        "path": "src/domain/links.py",
+        "size": 2014
+      },
+      {
+        "digest": "sha256:bab1df3c79402d88b3ef4783d15b5234ed4087e7c862ced69e547cfce0f3b8c0",
+        "path": "src/domain/outcomes.py",
+        "size": 1396
+      },
+      {
+        "digest": "sha256:c3fcf147e0d6e4f51e3d8b94a1580d91eb4aafdffe63b9287f409c7940dfb5db",
+        "path": "src/domain/phases.py",
+        "size": 2908
+      },
+      {
+        "digest": "sha256:4ef31dd8b0597d5cd171e7e2340eaa993fa9aca385e70425e0c4120572031f27",
+        "path": "src/domain/references.py",
+        "size": 3222
+      },
+      {
+        "digest": "sha256:24ccb746a1101291386b54104301104dac96ffbace421ba4e04a33ac61cfcb00",
+        "path": "src/domain/revisions.py",
+        "size": 817
+      },
+      {
+        "digest": "sha256:4c520786e3a8c2b8bd9e5e188af2c9a0daaadfe0df83da31ef989c9a32eb2dc8",
+        "path": "src/domain/sealing.py",
+        "size": 1293
+      },
+      {
+        "digest": "sha256:17d01a804b2436c91ceba6687754e7f9fb468904c93df26a0816f34f1f71bd9f",
+        "path": "src/domain/state.py",
+        "size": 2072
+      },
+      {
+        "digest": "sha256:203a0157262330be0b13ce5f966e47ec2a437654ea0ef050e6ca56084560be5b",
+        "path": "src/domain/vocabulary.py",
+        "size": 4135
+      },
+      {
+        "digest": "sha256:305f72ca8ae485920068dacbce9c046165df1f06713b83295d1f148e91180ef1",
+        "path": "tests/__init__.py",
+        "size": 47
+      },
+      {
+        "digest": "sha256:81754a69c2c0d7622ee2e23096acead61df102a511cca3ca9329a30ebb52a85f",
+        "path": "tests/enumeration/__init__.py",
+        "size": 54
+      },
+      {
+        "digest": "sha256:a9aaf4ca626d843a642f043b8e57e5574883b45c1fdb4777fc62311a45a412de",
+        "path": "tests/enumeration/sealed_reference.py",
+        "size": 1006
+      },
+      {
+        "digest": "sha256:419de6888c534b34e4d215007808556ba2509cbd663eaa8d13d245e7a7fb3738",
+        "path": "tests/enumeration/test_artifacts.py",
+        "size": 709
+      },
+      {
+        "digest": "sha256:6f9ff6b3e1ef1fe1c28626fd5df71ed99c7a018eeeec09ec7b2ae7cc1e6018a5",
+        "path": "tests/enumeration/test_attempts.py",
+        "size": 1992
+      },
+      {
+        "digest": "sha256:1e251277477073b251d18f928fc1a2468b163bc23b195c176850567359970dd5",
+        "path": "tests/enumeration/test_commands.py",
+        "size": 448
+      },
+      {
+        "digest": "sha256:e5729f6a26a5e886287b5f329e5ea4b065e6fea55b21474fb2a87795783ed644",
+        "path": "tests/enumeration/test_invalidation.py",
+        "size": 853
+      },
+      {
+        "digest": "sha256:f329f9c2a71531120a6bf741653a4f25e7c0cb7283029fd801013497ffc29ad3",
+        "path": "tests/enumeration/test_phases.py",
+        "size": 1205
+      },
+      {
+        "digest": "sha256:c20ba0f3fac16e432c16dc5f838af1f570d563c4ebdc4fc50f537b38c98974e4",
+        "path": "tests/enumeration/test_statuses.py",
+        "size": 402
+      },
+      {
+        "digest": "sha256:ccf680e0d5e494b272038f4f3a1028ac4c73f811392d7b43ddf53e7fb65f79b9",
+        "path": "tests/unit/__init__.py",
+        "size": 46
+      },
+      {
+        "digest": "sha256:75b00a071bb8f0cd14164d73ddff767250fa20e7ac80b9d1304bdd2820c59333",
+        "path": "tests/unit/support.py",
+        "size": 2090
+      },
+      {
+        "digest": "sha256:9642ad1297f7d5e8a1f23c0b1365a8a26492bf8958e3ecf7c0b2279f05cdd7a1",
+        "path": "tests/unit/test_attempts.py",
+        "size": 3476
+      },
+      {
+        "digest": "sha256:56fa85c02297de10abad502bfb8317534dbf31d054ec436cfd08bd65ef766142",
+        "path": "tests/unit/test_commands.py",
+        "size": 13788
+      },
+      {
+        "digest": "sha256:de0a94aabf438a51d020961e82596f47fde81c64889c2efea5dff2687b8799c1",
+        "path": "tests/unit/test_imports.py",
+        "size": 2221
+      },
+      {
+        "digest": "sha256:d603adc53e5ed53d6cd743c7ae2d2016ddc569e7abc22b9c1ea7e70214ed9bdd",
+        "path": "tests/unit/test_links_invalidation.py",
+        "size": 1720
+      },
+      {
+        "digest": "sha256:f75f825acee3de701331fd1d230af8f6531513bc174d36b7b0d1c786b87f453d",
+        "path": "tests/unit/test_references.py",
+        "size": 2775
+      },
+      {
+        "digest": "sha256:f92e5cea617e9b5080b0e95f121c7c43f038c0ad889cac7684f487e30fdefea5",
+        "path": "tests/unit/test_revisions_sealing.py",
+        "size": 1585
+      },
+      {
+        "digest": "sha256:2a67362703c46ee55502b448206d5c954886cf1c7a2816f3663827e4a367920d",
+        "path": "tests/unit/test_state.py",
+        "size": 1264
+      }
+    ]
+  },
+  "checks": [
+    {
+      "argv": [
+        "/opt/homebrew/anaconda3/bin/python3.12",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/unit",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "coverage": [],
+      "duration_seconds": 0.062685,
+      "exit_code": 0,
+      "id": "unit",
+      "identifiers": [
+        "tests.unit.test_attempts.AttemptsTest.test_creation_requires_contract_entry_condition_and_budget",
+        "tests.unit.test_attempts.AttemptsTest.test_finish_reasons_have_unique_triggers_and_identity_is_stable",
+        "tests.unit.test_attempts.AttemptsTest.test_only_declared_state_pairs_and_triggers_are_accepted",
+        "tests.unit.test_attempts.AttemptsTest.test_running_conflict_only_applies_to_distinct_phases",
+        "tests.unit.test_commands.CommandsTest.test_all_commands_declare_arity_preconditions_and_payload_shape",
+        "tests.unit.test_commands.CommandsTest.test_close_accepts_each_reason_from_each_nonterminal_phase",
+        "tests.unit.test_commands.CommandsTest.test_create_increment_fixes_profile_and_initial_state",
+        "tests.unit.test_commands.CommandsTest.test_edges_require_pair_command_and_gate",
+        "tests.unit.test_commands.CommandsTest.test_envelope_precedes_transition_and_refusal_preserves_identity",
+        "tests.unit.test_commands.CommandsTest.test_gate_decision_form_is_bound_to_verdict",
+        "tests.unit.test_commands.CommandsTest.test_open_suspend_and_resume_implementation_attempt",
+        "tests.unit.test_commands.CommandsTest.test_review_report_and_g5_complete_attempt_lifecycle",
+        "tests.unit.test_commands.CommandsTest.test_revise_opens_revision_finishes_current_attempt_and_preserves_seals",
+        "tests.unit.test_commands.CommandsTest.test_start_integration_requires_exact_current_g4_pass_and_records_intent",
+        "tests.unit.test_commands.CommandsTest.test_submit_seal_and_approval_update_only_their_registries",
+        "tests.unit.test_commands.CommandsTest.test_transition_table_has_expected_partition",
+        "tests.unit.test_commands.CommandsTest.test_validation_only_commands_name_failed_preconditions",
+        "tests.unit.test_imports.ImportBoundariesTest.test_domain_has_no_io_dynamic_or_project_dependencies",
+        "tests.unit.test_imports.ImportBoundariesTest.test_internal_imports_follow_the_dependency_levels",
+        "tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_dependency_cycle_is_refused_with_ordered_nodes",
+        "tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_link_types_are_modeled_and_unknown_type_is_refused",
+        "tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_related_cycles_are_accepted_and_informational_changes_invalidate_nothing",
+        "tests.unit.test_references.ReferencesTest.test_approval_applies_to_exact_five_fields_and_registry_is_append_only",
+        "tests.unit.test_references.ReferencesTest.test_approval_requires_and_revalidates_complete_target",
+        "tests.unit.test_references.ReferencesTest.test_reference_validation",
+        "tests.unit.test_revisions_sealing.RevisionsAndSealingTest.test_revisions_are_consecutive_from_one",
+        "tests.unit.test_revisions_sealing.RevisionsAndSealingTest.test_sealing_uses_exact_bytes_and_is_immutable",
+        "tests.unit.test_state.StateTest.test_phase_and_status_are_independent",
+        "tests.unit.test_state.StateTest.test_unreconciled_predicate_covers_both_sources"
+      ],
+      "required": true,
+      "status": "PASS",
+      "status_reasons": [],
+      "stderr": "test_creation_requires_contract_entry_condition_and_budget (tests.unit.test_attempts.AttemptsTest.test_creation_requires_contract_entry_condition_and_budget) ... ok\ntest_finish_reasons_have_unique_triggers_and_identity_is_stable (tests.unit.test_attempts.AttemptsTest.test_finish_reasons_have_unique_triggers_and_identity_is_stable) ... ok\ntest_only_declared_state_pairs_and_triggers_are_accepted (tests.unit.test_attempts.AttemptsTest.test_only_declared_state_pairs_and_triggers_are_accepted) ... ok\ntest_running_conflict_only_applies_to_distinct_phases (tests.unit.test_attempts.AttemptsTest.test_running_conflict_only_applies_to_distinct_phases) ... ok\ntest_all_commands_declare_arity_preconditions_and_payload_shape (tests.unit.test_commands.CommandsTest.test_all_commands_declare_arity_preconditions_and_payload_shape) ... ok\ntest_close_accepts_each_reason_from_each_nonterminal_phase (tests.unit.test_commands.CommandsTest.test_close_accepts_each_reason_from_each_nonterminal_phase) ... ok\ntest_create_increment_fixes_profile_and_initial_state (tests.unit.test_commands.CommandsTest.test_create_increment_fixes_profile_and_initial_state) ... ok\ntest_edges_require_pair_command_and_gate (tests.unit.test_commands.CommandsTest.test_edges_require_pair_command_and_gate) ... ok\ntest_envelope_precedes_transition_and_refusal_preserves_identity (tests.unit.test_commands.CommandsTest.test_envelope_precedes_transition_and_refusal_preserves_identity) ... ok\ntest_gate_decision_form_is_bound_to_verdict (tests.unit.test_commands.CommandsTest.test_gate_decision_form_is_bound_to_verdict) ... ok\ntest_open_suspend_and_resume_implementation_attempt (tests.unit.test_commands.CommandsTest.test_open_suspend_and_resume_implementation_attempt) ... ok\ntest_review_report_and_g5_complete_attempt_lifecycle (tests.unit.test_commands.CommandsTest.test_review_report_and_g5_complete_attempt_lifecycle) ... ok\ntest_revise_opens_revision_finishes_current_attempt_and_preserves_seals (tests.unit.test_commands.CommandsTest.test_revise_opens_revision_finishes_current_attempt_and_preserves_seals) ... ok\ntest_start_integration_requires_exact_current_g4_pass_and_records_intent (tests.unit.test_commands.CommandsTest.test_start_integration_requires_exact_current_g4_pass_and_records_intent) ... ok\ntest_submit_seal_and_approval_update_only_their_registries (tests.unit.test_commands.CommandsTest.test_submit_seal_and_approval_update_only_their_registries) ... ok\ntest_transition_table_has_expected_partition (tests.unit.test_commands.CommandsTest.test_transition_table_has_expected_partition) ... ok\ntest_validation_only_commands_name_failed_preconditions (tests.unit.test_commands.CommandsTest.test_validation_only_commands_name_failed_preconditions) ... ok\ntest_domain_has_no_io_dynamic_or_project_dependencies (tests.unit.test_imports.ImportBoundariesTest.test_domain_has_no_io_dynamic_or_project_dependencies) ... ok\ntest_internal_imports_follow_the_dependency_levels (tests.unit.test_imports.ImportBoundariesTest.test_internal_imports_follow_the_dependency_levels) ... ok\ntest_dependency_cycle_is_refused_with_ordered_nodes (tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_dependency_cycle_is_refused_with_ordered_nodes) ... ok\ntest_link_types_are_modeled_and_unknown_type_is_refused (tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_link_types_are_modeled_and_unknown_type_is_refused) ... ok\ntest_related_cycles_are_accepted_and_informational_changes_invalidate_nothing (tests.unit.test_links_invalidation.LinksAndInvalidationTest.test_related_cycles_are_accepted_and_informational_changes_invalidate_nothing) ... ok\ntest_approval_applies_to_exact_five_fields_and_registry_is_append_only (tests.unit.test_references.ReferencesTest.test_approval_applies_to_exact_five_fields_and_registry_is_append_only) ... ok\ntest_approval_requires_and_revalidates_complete_target (tests.unit.test_references.ReferencesTest.test_approval_requires_and_revalidates_complete_target) ... ok\ntest_reference_validation (tests.unit.test_references.ReferencesTest.test_reference_validation) ... ok\ntest_revisions_are_consecutive_from_one (tests.unit.test_revisions_sealing.RevisionsAndSealingTest.test_revisions_are_consecutive_from_one) ... ok\ntest_sealing_uses_exact_bytes_and_is_immutable (tests.unit.test_revisions_sealing.RevisionsAndSealingTest.test_sealing_uses_exact_bytes_and_is_immutable) ... ok\ntest_phase_and_status_are_independent (tests.unit.test_state.StateTest.test_phase_and_status_are_independent) ... ok\ntest_unreconciled_predicate_covers_both_sources (tests.unit.test_state.StateTest.test_unreconciled_predicate_covers_both_sources) ... ok\n\n----------------------------------------------------------------------\nRan 29 tests in 0.015s\n\nOK\n",
+      "stdout": "",
+      "test_count": 29,
+      "timed_out": false,
+      "zero_counters": {
+        "expected failures": 0,
+        "skipped": 0,
+        "unexpected successes": 0
+      }
+    },
+    {
+      "argv": [
+        "/opt/homebrew/anaconda3/bin/python3.12",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/enumeration",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "coverage": [
+        {
+          "covered": 13,
+          "declared": 13,
+          "domain": "artifact_kinds"
+        },
+        {
+          "covered": 5,
+          "declared": 5,
+          "domain": "close_reasons"
+        },
+        {
+          "covered": 6,
+          "declared": 6,
+          "domain": "link_types"
+        },
+        {
+          "covered": 5,
+          "declared": 5,
+          "domain": "attempt_entry_conditions"
+        },
+        {
+          "covered": 5,
+          "declared": 5,
+          "domain": "attempt_exit_conditions"
+        },
+        {
+          "covered": 6,
+          "declared": 6,
+          "domain": "attempt_finish_reasons"
+        },
+        {
+          "covered": 9,
+          "declared": 9,
+          "domain": "attempt_state_pairs"
+        },
+        {
+          "covered": 3,
+          "declared": 3,
+          "domain": "attempt_states"
+        },
+        {
+          "covered": 12,
+          "declared": 12,
+          "domain": "commands"
+        },
+        {
+          "covered": 6,
+          "declared": 6,
+          "domain": "invalidation_rules"
+        },
+        {
+          "covered": 81,
+          "declared": 81,
+          "domain": "phase_pairs"
+        },
+        {
+          "covered": 9,
+          "declared": 9,
+          "domain": "phases"
+        },
+        {
+          "covered": 25,
+          "declared": 25,
+          "domain": "transition_edges"
+        },
+        {
+          "covered": 5,
+          "declared": 5,
+          "domain": "operational_statuses"
+        }
+      ],
+      "duration_seconds": 0.049501,
+      "exit_code": 0,
+      "id": "enumeration",
+      "identifiers": [
+        "tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_artifact_kinds",
+        "tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_close_reasons",
+        "tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_link_types",
+        "tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_entry_conditions",
+        "tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_exit_conditions",
+        "tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_finish_reasons",
+        "tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_state_pairs",
+        "tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_states",
+        "tests.enumeration.test_commands.CommandsEnumerationTest.test_commands",
+        "tests.enumeration.test_invalidation.InvalidationEnumerationTest.test_invalidation_rules",
+        "tests.enumeration.test_phases.PhasesEnumerationTest.test_phase_pairs",
+        "tests.enumeration.test_phases.PhasesEnumerationTest.test_phases",
+        "tests.enumeration.test_phases.PhasesEnumerationTest.test_transition_edges",
+        "tests.enumeration.test_statuses.StatusesEnumerationTest.test_operational_statuses"
+      ],
+      "required": true,
+      "status": "PASS",
+      "status_reasons": [],
+      "stderr": "test_artifact_kinds (tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_artifact_kinds) ... ok\ntest_close_reasons (tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_close_reasons) ... ok\ntest_link_types (tests.enumeration.test_artifacts.ArtifactsEnumerationTest.test_link_types) ... ok\ntest_attempt_entry_conditions (tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_entry_conditions) ... ok\ntest_attempt_exit_conditions (tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_exit_conditions) ... ok\ntest_attempt_finish_reasons (tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_finish_reasons) ... ok\ntest_attempt_state_pairs (tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_state_pairs) ... ok\ntest_attempt_states (tests.enumeration.test_attempts.AttemptsEnumerationTest.test_attempt_states) ... ok\ntest_commands (tests.enumeration.test_commands.CommandsEnumerationTest.test_commands) ... ok\ntest_invalidation_rules (tests.enumeration.test_invalidation.InvalidationEnumerationTest.test_invalidation_rules) ... ok\ntest_phase_pairs (tests.enumeration.test_phases.PhasesEnumerationTest.test_phase_pairs) ... ok\ntest_phases (tests.enumeration.test_phases.PhasesEnumerationTest.test_phases) ... ok\ntest_transition_edges (tests.enumeration.test_phases.PhasesEnumerationTest.test_transition_edges) ... ok\ntest_operational_statuses (tests.enumeration.test_statuses.StatusesEnumerationTest.test_operational_statuses) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 0.000s\n\nOK\n",
+      "stdout": "COVERAGE artifact_kinds 13/13\nCOVERAGE close_reasons 5/5\nCOVERAGE link_types 6/6\nCOVERAGE attempt_entry_conditions 5/5\nCOVERAGE attempt_exit_conditions 5/5\nCOVERAGE attempt_finish_reasons 6/6\nCOVERAGE attempt_state_pairs 9/9\nCOVERAGE attempt_states 3/3\nCOVERAGE commands 12/12\nCOVERAGE invalidation_rules 6/6\nCOVERAGE phase_pairs 81/81\nCOVERAGE phases 9/9\nCOVERAGE transition_edges 25/25\nCOVERAGE operational_statuses 5/5\n",
+      "test_count": 14,
+      "timed_out": false,
+      "zero_counters": {
+        "expected failures": 0,
+        "skipped": 0,
+        "unexpected successes": 0
+      }
+    }
+  ],
+  "contract_digest": "sha256:92deede997afee5a6d8b98c575967e475009fc1f5bdcfd50cd56a4dfb0b5cc80",
+  "git": {
+    "commit": "02dff8d0bd628dd86f9da642b61c56776e94f450",
+    "status_after": "M .gitignore\n M 495/changes/INC-0003/attempts/ATT-INC-0003-0003.json\n M 495/changes/INC-0003/manifest.json\n M 495/project.json\n M AGENTS.md\n M README.md\n M tools/verify_state.py\n?? 495/changes/INC-0003/checks/\n?? 495/changes/INC-0003/contracts/implementation.json\n?? 495/changes/INC-0003/observations/host-device.json\n?? 495/changes/INC-0003/tasks.json\n?? 495/objects/sha256/71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac\n?? 495/objects/sha256/984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e\n?? 495/objects/sha256/a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d\n?? bootstrap/\n?? docs/implementation.md\n?? docs/proposition-simplification.md\n?? src/\n?? tests/\n?? tools/run_bootstrap.py\n?? tools/test_run_bootstrap.py",
+    "status_before": "M .gitignore\n M 495/changes/INC-0003/attempts/ATT-INC-0003-0003.json\n M 495/changes/INC-0003/manifest.json\n M 495/project.json\n M AGENTS.md\n M README.md\n M tools/verify_state.py\n?? 495/changes/INC-0003/checks/\n?? 495/changes/INC-0003/contracts/implementation.json\n?? 495/changes/INC-0003/observations/host-device.json\n?? 495/changes/INC-0003/tasks.json\n?? 495/objects/sha256/71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac\n?? 495/objects/sha256/984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e\n?? 495/objects/sha256/a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d\n?? bootstrap/\n?? docs/implementation.md\n?? docs/proposition-simplification.md\n?? src/\n?? tests/\n?? tools/run_bootstrap.py\n?? tools/test_run_bootstrap.py"
+  },
+  "interpreter": {
+    "architecture": "arm64",
+    "digest": "sha256:b06f2ac7f902355287890e25dbd487477e1f39116d1ad2c53a1e6e9ce7c6b35d",
+    "implementation": "CPython",
+    "path": "/opt/homebrew/anaconda3/bin/python3.12",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "version": "3.12.7"
+  },
+  "objective": "Implémenter et vérifier le noyau de domaine de 495.",
+  "qualification": "progress",
+  "run_id": "2026-09-05T23:07:39.195473+00:00",
+  "schema_version": "bootstrap-run-1",
+  "security": {
+    "candidate_immutability": {
+      "mechanism": "none",
+      "qualified": false
+    },
+    "network_restriction": {
+      "mechanism": "none",
+      "qualified": false
+    },
+    "write_restriction": {
+      "mechanism": "post_run_workspace_snapshot",
+      "qualified": false
+    }
+  },
+  "status": "PASS",
+  "violations": [],
+  "workspace_changes": []
+}

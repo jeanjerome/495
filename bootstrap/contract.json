@@ -1,0 +1,134 @@
+{
+  "candidate": {
+    "include": [
+      "src/domain/*.py",
+      "src/domain/**/*.py",
+      "tests/*.py",
+      "tests/**/*.py"
+    ],
+    "roots": [
+      "src/domain",
+      "tests"
+    ],
+    "symlinks": false
+  },
+  "checks": [
+    {
+      "argv": [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/unit",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "expected": {
+        "exit_code": 0,
+        "minimum_test_count": 1,
+        "zero_counters": [
+          "skipped",
+          "expected failures",
+          "unexpected successes"
+        ]
+      },
+      "id": "unit",
+      "required": true,
+      "timeout_seconds": 300,
+      "working_directory": "."
+    },
+    {
+      "argv": [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/enumeration",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "expected": {
+        "coverage_equality": true,
+        "exit_code": 0,
+        "minimum_test_count": 1,
+        "zero_counters": [
+          "skipped",
+          "expected failures",
+          "unexpected successes"
+        ]
+      },
+      "id": "enumeration",
+      "required": true,
+      "timeout_seconds": 300,
+      "working_directory": "."
+    }
+  ],
+  "environment": {
+    "inherit": [
+      "LANG",
+      "LC_ALL"
+    ],
+    "set": {
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONHASHSEED": "0",
+      "PYTHONPATH": "src",
+      "TMPDIR": "bootstrap/output"
+    }
+  },
+  "objective": "Implémenter et vérifier le noyau de domaine de 495.",
+  "permissions": {
+    "external_effects": false,
+    "network": false,
+    "read": [
+      "495/",
+      "bootstrap/contract.json",
+      "docs/",
+      "src/",
+      "tests/"
+    ],
+    "secrets": false,
+    "write": [
+      "bootstrap/output/",
+      "bootstrap/runs/",
+      "src/",
+      "tests/"
+    ]
+  },
+  "report": {
+    "directory": "bootstrap/runs",
+    "qualification_without_enforcement": "progress"
+  },
+  "runtime": {
+    "command_token": "{python}",
+    "python_requires": ">=3.12"
+  },
+  "schema_version": "bootstrap-1",
+  "security": {
+    "candidate_immutability": {
+      "mechanism": "none",
+      "qualified": false
+    },
+    "network_restriction": {
+      "mechanism": "none",
+      "qualified": false
+    },
+    "write_restriction": {
+      "mechanism": "post_run_workspace_snapshot",
+      "qualified": false
+    }
+  },
+  "stop_on": [
+    "candidate_scope_violation",
+    "contract_change",
+    "network_access",
+    "secret_access",
+    "write_outside_allowed_paths"
+  ],
+  "work_document": "docs/implementation.md"
+}

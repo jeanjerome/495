@@ -6,7 +6,8 @@
       "Les octets de la révision 1 du requirement_set sont perdus : le magasin d'objets n'existait pas encore.",
       "SRC-DESIGN §4.2 n'offre aucun type d'artefact pour un profil de workflow. Le rattacher à un check_plan serait incorrect : le profil gouverne toutes les gates et précède ce plan. ADR-0006 sert de définition normative transitoire jusqu'à l'introduction d'un type `policy` (Q-15).",
       "Les transitions enregistrées avant l'introduction de state_version n'ont pas de expected_state_version. Les décisions de gate d'INC-0001 et INC-0002, incréments clos, portent engine.version et expected_state_version à null et restent inutilisables à ce titre ; elles ne sont pas réécrites.",
-      "Aucune commande n'est appliquée : il n'existe ni contrôleur ni journal d'événements, alors que §5.5 exige que chaque commande porte command_id et expected_state_version et soit journalisée. Les enregistrements sous 495/ sont des mutations manuelles projetant les effets attendus des commandes du domaine ; la séquence qui produit une progression de state_version n'est reconstituable qu'à partir des artefacts eux-mêmes. tools/verify_state.py ne contrôle ni les tentatives ni cette séquence."
+      "Aucune commande n'est appliquée : il n'existe ni contrôleur ni journal d'événements, alors que §5.5 exige que chaque commande porte command_id et expected_state_version et soit journalisée. Les enregistrements sous 495/ sont des mutations manuelles projetant les effets attendus des commandes du domaine ; la séquence qui produit une progression de state_version n'est reconstituable qu'à partir des artefacts eux-mêmes. tools/verify_state.py ne contrôle ni les tentatives ni cette séquence.",
+      "INC-0003/contract-conception r1 exige de la proposition de contrat d'implémentation le manifeste d'environnement complet et l'identité de l'interpréteur, mais n'accorde la lecture que sous 495/ et docs/. Le préfixe de l'interpréteur est hors de ces chemins : le contrat exige un livrable dont il n'accorde pas les moyens. Sept champs de la proposition restent UNBOUND pour cette raison."
     ],
     "note": "Aucune implémentation n'existe encore. Les phases et les gates sont tenues à la main ; les enregistrements sous 495/ sont des conventions publiques sans propriété de sécurité."
   },
@@ -70,11 +71,15 @@
     },
     {
       "artifacts": {
+        "check-plan": "sealed r1",
         "contract-clarification": "sealed r1",
         "contract-conception": "sealed r1",
+        "contract-implementation": "draft r1, non scellé",
         "design": "sealed r1",
+        "observation-host-device": "sealed r1",
         "proposal": "sealed r1",
-        "requirements": "repris par référence : INC-0002/requirements r7"
+        "requirements": "repris par référence : INC-0002/requirements r7",
+        "tasks": "sealed r1"
       },
       "attempts": [
         {
@@ -126,13 +131,19 @@
       ],
       "increment_id": "INC-0003",
       "lot": "A",
-      "next": "Conception scellée. Restent sous ATT-INC-0003-0003 : tasks.json, checks/check-plan.json, l'observation du dispositif hôte et la proposition de contrat d'implémentation, puis l'évaluation de G2.",
+      "next": "Les cinq sorties requises d'INC-0003/contract-conception r1 existent : conception, plan de tâches, plan de contrôles et observation du dispositif hôte sont scellés ; la proposition de contrat d'implémentation est un brouillon. La tentative reste running. G2 est évaluable et ne peut pas être PASS : l'observation enregistre qu'aucun des trois points de SRC-ADR-0006 n'est observé, ce qui fixe INDETERMINATE avec la raison MISSING_EVIDENCE. Une progression exige Q-18, puis une observation admissible.",
       "open_questions": [
         {
           "blocks": "Scellement d'INC-0003/contract-conception r2",
           "id": "Q-17",
           "note": "ADR-0002 attache un déclencheur unique à chacun des six motifs de terminaison. Aucun ne se déclenche sur le scellement d'une nouvelle révision d'un contrat de phase : le déclencheur de revision_requested est ReviseIncrement, commande portant sur l'incrément et non sur le contrat. La lacune est dans l'énumération des déclencheurs, pas dans cet incrément.",
           "question": "Quel motif termine ATT-INC-0003-0003 lorsqu'une révision 2 du contrat de conception est scellée, ADR-0002 imposant une nouvelle tentative dès que le contrat change ?"
+        },
+        {
+          "blocks": "Toute qualification différentielle du refus réseau sous le profil self-hosting-bootstrap, donc G2 pour INC-0003.",
+          "id": "Q-18",
+          "note": "La lacune est dans l'articulation entre deux sections de SRC-ADR-0006, non dans cet incrément. Trois résolutions possibles sont enregistrées dans INC-0003/observation-host-device r1 : produire l'observation hors de toute actuation sous ce profil et l'adopter par référence complète ; réviser ADR-0006 pour distinguer l'actuation gouvernée du dispositif qui la gouverne ; ou définir une qualification différentielle dont la première branche n'est pas un accès réseau sortant du processus gouverné.",
+          "question": "Comment produire la qualification différentielle du refus réseau, dont la première branche exige de démontrer un pair contrôlé joignable sans la règle, alors que SRC-ADR-0006 interdit tout accès réseau à toute actuation sous ce profil — processus auteur, contrôles et outils auxiliaires ?"
         }
       ],
       "phase": "designing",
@@ -185,35 +196,51 @@
       "octets": "495/objects/sha256/ comparé aux manifestes",
       "état": "495/project.json"
     },
-    "blocking": "G2 exige une observation du dispositif hôte selon ADR-0006 r6 : identité et digest de configuration, refus réseau qualifié différentiellement contre un pair contrôlé, bornage de l'ensemble des chemins inscriptibles. Le mécanisme n'est pas choisi. Cette observation est un livrable obligatoire d'INC-0003/contract-conception r1, qui n'accorde aucun droit réseau : la révision 1 produit les documents de conception mais ne peut pas conduire seule à G2 PASS. Une progression exige soit un cadre rendant la qualification différentielle admissible sous un profil qui interdit tout réseau, soit une observation admissible introduite comme entrée d'une nouvelle révision du contrat. Sans immutabilité qualifiée, G2 n'ouvre qu'une tentative limitée aux contrôles de progression et G4 reste INDETERMINATE.",
-    "next": "INC-0003, phase designing, tentative ATT-INC-0003-0003 à l'état running. INC-0003/design r1 est scellée et fixe le contenu attendu des livrables restants. Produire les quatre artefacts listés dans resume.remaining, puis évaluer G2.",
-    "remaining": [
+    "blocking": "G2 exige une observation du dispositif hôte selon ADR-0006 r6 sur trois points : identité et digest de configuration, refus réseau qualifié différentiellement contre un pair contrôlé, bornage de l'ensemble des chemins inscriptibles. INC-0003/observation-host-device r1 enregistre qu'aucun des trois n'est observé. Deux causes distinctes : la révision 1 du contrat de phase n'accorde la lecture que sous 495/ et docs/, ce qui interdit de relever l'identité du dispositif et l'ensemble inscriptible ; et Q-18, structurelle, qui tient à ADR-0006 lui-même — la première branche de la qualification différentielle est un accès réseau réussi, exigé par le texte qui l'interdit à toute actuation sous ce profil. Sans immutabilité qualifiée, G2 n'ouvrirait de toute façon qu'une tentative limitée aux contrôles de progression et G4 resterait INDETERMINATE.",
+    "next": "INC-0003, phase designing, tentative ATT-INC-0003-0003 à l'état running. Les cinq sorties requises du contrat de phase existent. Prochain pas : enregistrer la décision de gate G2, qui ne peut être que INDETERMINATE avec la raison MISSING_EVIDENCE, ou trancher Q-18 avant de l'évaluer.",
+    "pending_approvals": [
       {
-        "kind": "task_plan",
-        "path": "495/changes/INC-0003/tasks.json",
-        "required": true,
-        "serves_g2": "tâches"
+        "locator": "INC-0003/design r1 §6.4 et §8 ; INC-0003/check-plan r1, checks[manifest_scope].status",
+        "subject": "Élargissement manifest_scope",
+        "what": "ADR-0006 ne nomme que trois contrôles. Le quatrième, et la liste blanche exacte des trente-cinq chemins du candidat qu'il exige du contrat d'implémentation, sont un élargissement introduit par la conception. Sans approbation explicite, AC-19-2 reste sans contrôle."
       },
       {
-        "kind": "check_plan",
-        "path": "495/changes/INC-0003/checks/check-plan.json",
-        "required": true,
-        "serves_g2": "plan de contrôles"
-      },
-      {
-        "kind": "observation",
-        "path": "495/changes/INC-0003/observations/host-device.json",
-        "required": true,
-        "serves_g2": "observation du dispositif hôte"
-      },
-      {
-        "kind": "execution_contract",
-        "path": "495/changes/INC-0003/contracts/implementation.json",
-        "required": true,
-        "serves_g2": "contrat d'exécution, base source, capacités"
+        "locator": "INC-0003/check-plan r1, checks[*].inventory",
+        "subject": "Inventaire attendu des deux contrôles unittest",
+        "what": "Le plan fixe 88 tests unitaires et 14 tests d'énumération, par identifiant. C'est une obligation opposable à l'implémentation : tout écart impose une révision du plan, donc une nouvelle approbation."
       }
     ],
-    "remaining_note": "Dérivé de outputs_expected d'INC-0003/contract-conception r1 moins les artefacts déjà présents au manifeste. Le contrat scellé fait autorité ; cette liste est une commodité de reprise.",
+    "produced_this_attempt": [
+      {
+        "artifact_id": "INC-0003/design",
+        "digest": "sha256:278f54963b8fddf372de708e60758ebe3652ef8b8fa06715af192660e732076d",
+        "kind": "design",
+        "revision": 1,
+        "schema_version": "0.1-draft"
+      },
+      {
+        "artifact_id": "INC-0003/check-plan",
+        "digest": "sha256:984425be32272bf3e213beebe2c00190e892d168b5785812574d65f45c92f18e",
+        "kind": "check_plan",
+        "revision": 1,
+        "schema_version": "0.1-draft"
+      },
+      {
+        "artifact_id": "INC-0003/tasks",
+        "digest": "sha256:71bcdefb555d217777ce2af7b892111068654415ec41d6819bbe1fb215b167ac",
+        "kind": "task_plan",
+        "revision": 1,
+        "schema_version": "0.1-draft"
+      },
+      {
+        "artifact_id": "INC-0003/observation-host-device",
+        "digest": "sha256:a9303f01e7ff8d9dcaba799d0ee40a0e14789e5a8c9087a885faaf5cc3c0f00d",
+        "kind": "observation",
+        "revision": 1,
+        "schema_version": "0.1-draft"
+      }
+    ],
+    "produced_this_attempt_note": "Quatre artefacts scellés. La proposition de contrat d'implémentation est un brouillon et ne porte pas de référence complète : voir drafts du manifeste de l'incrément.",
     "rules": [
       "Enregistrer le contrat de phase et ouvrir la tentative AVANT d'écrire le premier artefact d'une phase (REQ-13).",
       "Toute décision de gate d'INC-0003 porte le policy_digest d'ADR-0006 r6, engine.version et expected_state_version.",
@@ -221,8 +248,9 @@
       "Aucun état mutable dans un artefact scellé.",
       "Un artefact scellé ne se modifie pas : nouvelle révision, ancienne conservée dans le magasin.",
       "Changer un contrat de phase impose une nouvelle tentative (SRC-ADR-0002) : une révision du contrat ne suffit pas seule, la terminaison de la tentative courante est réglée explicitement et son motif n'est jamais attribué rétroactivement.",
-      "La conception scellée introduit un quatrième contrôle, manifest_scope, absent d'ADR-0006 : son ajout au plan de contrôles et la liste blanche exacte des chemins du candidat qu'il exige du contrat d'implémentation sont un élargissement à approuver, non un acquis.",
-      "Le contrat de phase courant n'accorde aucun droit réseau : la qualification différentielle du refus réseau exigée par ADR-0006 ne peut pas être produite sous INC-0003/contract-conception r1."
+      "Un livrable exigé par un contrat peut exister sans que l'obligation qu'il porte soit satisfaite. INC-0003/observation-host-device r1 en est le cas : elle est produite et scellée, son contenu est INSUFFICIENT.",
+      "N'inscrire au magasin d'objets que des octets scellés. Un brouillon est enregistré sous drafts avec un current_digest, jamais avec une référence complète.",
+      "Le contrat de phase courant n'accorde ni droit réseau ni lecture hors de 495/ et docs/ : ni la qualification différentielle du refus réseau, ni l'identité de l'interpréteur, ni le manifeste d'environnement ne peuvent être produits sous INC-0003/contract-conception r1."
     ],
     "sealed_design": {
       "artifact_id": "INC-0003/design",
@@ -234,7 +262,7 @@
     "verify": "python3 tools/verify_state.py"
   },
   "schema_version": "0.1-draft",
-  "state_version": 9,
+  "state_version": 13,
   "state_version_note": "Compteur conventionnel de mutations du registre, monotone. Aucune commande n'est appliquée faute de contrôleur et de journal : chaque incrément projette l'effet attendu d'une commande du domaine. Introduit à ce point ; les mutations antérieures ont été enregistrées sans suivi de version, ce qui est consigné dans known_gaps.",
   "workflow_profile": "standard"
 }
