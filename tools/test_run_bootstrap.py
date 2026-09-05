@@ -35,19 +35,22 @@ class BootstrapRunnerTest(unittest.TestCase):
         directories = {
             "bootstrap",
             "docs",
-            "tests/unit",
-            "tests/enumeration",
             *self.contract["candidate"]["roots"],
         }
+        for check in self.contract["checks"]:
+            arguments = check["argv"]
+            directories.add(arguments[arguments.index("-s") + 1])
         for path in sorted(directories):
             (self.root / path).mkdir(parents=True, exist_ok=True)
         for path in (
             "src/domain/__init__.py",
             "tests/__init__.py",
-            "tests/unit/__init__.py",
-            "tests/enumeration/__init__.py",
         ):
             (self.root / path).write_text("", encoding="utf-8")
+        for check in self.contract["checks"]:
+            arguments = check["argv"]
+            start = self.root / arguments[arguments.index("-s") + 1]
+            (start / "__init__.py").write_text("", encoding="utf-8")
 
         self.contract_path = self.root / "bootstrap/contract.json"
         self.contract_raw = run_bootstrap.canonical_bytes(self.contract)
@@ -64,22 +67,23 @@ class BootstrapRunnerTest(unittest.TestCase):
         )
 
     def add_passing_tests(self) -> None:
-        (self.root / "tests/unit/test_smoke.py").write_text(
-            "import unittest\n\n"
-            "class SmokeTest(unittest.TestCase):\n"
-            "    def test_true(self):\n"
-            "        self.assertTrue(True)\n",
-            encoding="utf-8",
-        )
-        (self.root / "tests/enumeration/test_domain.py").write_text(
-            "import sys\n"
-            "import unittest\n\n"
-            "class DomainTest(unittest.TestCase):\n"
-            "    def test_domain(self):\n"
-            "        print('COVERAGE sample 1/1', file=sys.stderr)\n"
-            "        self.assertEqual(1, 1)\n",
-            encoding="utf-8",
-        )
+        for check in self.contract["checks"]:
+            arguments = check["argv"]
+            start = self.root / arguments[arguments.index("-s") + 1]
+            coverage = (
+                "        print('COVERAGE sample 1/1', file=sys.stderr)\n"
+                if check["expected"].get("coverage_equality")
+                else ""
+            )
+            (start / f"test_smoke_{check['id']}.py").write_text(
+                "import sys\n"
+                "import unittest\n\n"
+                "class SmokeTest(unittest.TestCase):\n"
+                "    def test_true(self):\n"
+                f"{coverage}"
+                "        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
 
     def run_silently(self) -> int:
         with contextlib.redirect_stdout(io.StringIO()):
@@ -102,10 +106,16 @@ class BootstrapRunnerTest(unittest.TestCase):
         self.assertEqual("PASS", report["status"])
         self.assertEqual("progress", report["qualification"])
         self.assertFalse(report["acceptance_eligible"])
-        self.assertEqual([1, 1], [item["test_count"] for item in report["checks"]])
+        self.assertEqual(
+            [1] * len(self.contract["checks"]),
+            [item["test_count"] for item in report["checks"]],
+        )
+        enumeration = next(
+            item for item in report["checks"] if item["id"] == "enumeration"
+        )
         self.assertEqual(
             [{"covered": 1, "declared": 1, "domain": "sample"}],
-            report["checks"][1]["coverage"],
+            enumeration["coverage"],
         )
 
     def test_candidate_scope_rejects_unmatched_file(self) -> None:

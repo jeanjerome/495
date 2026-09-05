@@ -3,6 +3,8 @@
     "include": [
       "src/domain/*.py",
       "src/domain/**/*.py",
+      "src/persistence/*.py",
+      "src/persistence/**/*.py",
       "src/policy/*.py",
       "src/policy/**/*.py",
       "src/validation/*.py",
@@ -12,6 +14,7 @@
     ],
     "roots": [
       "src/domain",
+      "src/persistence",
       "src/policy",
       "src/validation",
       "tests"
@@ -73,6 +76,33 @@
       "required": true,
       "timeout_seconds": 300,
       "working_directory": "."
+    },
+    {
+      "argv": [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/persistence",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "expected": {
+        "exit_code": 0,
+        "minimum_test_count": 1,
+        "zero_counters": [
+          "skipped",
+          "expected failures",
+          "unexpected successes"
+        ]
+      },
+      "id": "persistence",
+      "required": true,
+      "timeout_seconds": 300,
+      "working_directory": "."
     }
   ],
   "environment": {
@@ -87,7 +117,7 @@
       "TMPDIR": "bootstrap/output"
     }
   },
-  "objective": "Implémenter et vérifier le moteur de décision déterministe de 495.",
+  "objective": "Implémenter et vérifier la persistance locale de 495.",
   "permissions": {
     "external_effects": false,
     "network": false,
@@ -102,8 +132,7 @@
     "write": [
       "bootstrap/output/",
       "bootstrap/runs/",
-      "src/policy/",
-      "src/validation/",
+      "src/persistence/",
       "tests/"
     ]
   },
@@ -137,5 +166,5 @@
     "secret_access",
     "write_outside_allowed_paths"
   ],
-  "work_document": "docs/decision-engine.md"
+  "work_document": "docs/local-persistence.md"
 }

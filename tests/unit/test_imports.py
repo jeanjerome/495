@@ -62,3 +62,11 @@ class ImportBoundariesTest(unittest.TestCase):
                         self.assertNotIn(imported, forbidden_project, str(path))
                         if imported in {"domain", "validation", "policy"}:
                             self.assertIn(imported, allowed[package], str(path))
+
+    def test_pure_packages_do_not_import_persistence(self):
+        for package in ("domain", "validation", "policy"):
+            for path in sorted((Path("src") / package).glob("*.py")):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.module:
+                        self.assertNotEqual(node.module.split(".")[0], "persistence", str(path))
