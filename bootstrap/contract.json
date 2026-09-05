@@ -3,11 +3,17 @@
     "include": [
       "src/domain/*.py",
       "src/domain/**/*.py",
+      "src/policy/*.py",
+      "src/policy/**/*.py",
+      "src/validation/*.py",
+      "src/validation/**/*.py",
       "tests/*.py",
       "tests/**/*.py"
     ],
     "roots": [
       "src/domain",
+      "src/policy",
+      "src/validation",
       "tests"
     ],
     "symlinks": false
@@ -81,7 +87,7 @@
       "TMPDIR": "bootstrap/output"
     }
   },
-  "objective": "Implémenter et vérifier le noyau de domaine de 495.",
+  "objective": "Implémenter et vérifier le moteur de décision déterministe de 495.",
   "permissions": {
     "external_effects": false,
     "network": false,
@@ -96,7 +102,8 @@
     "write": [
       "bootstrap/output/",
       "bootstrap/runs/",
-      "src/",
+      "src/policy/",
+      "src/validation/",
       "tests/"
     ]
   },
@@ -130,5 +137,5 @@
     "secret_access",
     "write_outside_allowed_paths"
   ],
-  "work_document": "docs/implementation.md"
+  "work_document": "docs/decision-engine.md"
 }

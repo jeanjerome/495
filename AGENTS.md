@@ -14,7 +14,8 @@ mécanisme exécutable les applique effectivement.
 
 Trois éléments décrivent le bootstrap courant :
 
-- `docs/implementation.md` : objectif, périmètre, décisions, critères et limites ;
+- le document désigné par `bootstrap/contract.json#work_document` : objectif,
+  périmètre, décisions, critères et limites ;
 - `bootstrap/contract.json` : autorisation d’exécution, chemins, droits et contrôles ;
 - `bootstrap/runs/*.json` : rapports générés, un fichier par exécution.
 
@@ -42,12 +43,12 @@ Une écriture documentaire ou d’outillage répondant à une demande explicite 
 l’utilisateur peut modifier `docs/`, `bootstrap/`, `tools/`, `README.md`,
 `AGENTS.md` et `CLAUDE.md`.
 
-L’écriture du candidat sous `src/` ou `tests/` exige en plus :
+L’écriture du candidat sous les chemins déclarés par le contrat exige en plus :
 
 - un `bootstrap/contract.json` valide et sans valeur indéterminée nécessaire à
   l’exécution ;
-- une décision humaine dans `docs/implementation.md` qui vise le digest exact
-  de ce contrat ;
+- une décision humaine dans le document de travail désigné par le contrat qui
+  vise le digest exact de ce contrat ;
 - des écritures limitées aux chemins autorisés par ce contrat.
 
 Ne crée jamais cette décision humaine à la place de l’utilisateur. Un contrat

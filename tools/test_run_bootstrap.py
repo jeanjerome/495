@@ -32,13 +32,14 @@ class BootstrapRunnerTest(unittest.TestCase):
         run_bootstrap.ROOT = self.root
         self.addCleanup(setattr, run_bootstrap, "ROOT", previous_root)
 
-        for path in (
+        directories = {
             "bootstrap",
             "docs",
-            "src/domain",
             "tests/unit",
             "tests/enumeration",
-        ):
+            *self.contract["candidate"]["roots"],
+        }
+        for path in sorted(directories):
             (self.root / path).mkdir(parents=True, exist_ok=True)
         for path in (
             "src/domain/__init__.py",
@@ -54,7 +55,9 @@ class BootstrapRunnerTest(unittest.TestCase):
         self.contract_digest = run_bootstrap.sha256_bytes(self.contract_raw)
 
     def authorize(self) -> None:
-        (self.root / "docs/implementation.md").write_text(
+        work_document = self.root / self.contract["work_document"]
+        work_document.parent.mkdir(parents=True, exist_ok=True)
+        work_document.write_text(
             "AUTORISÉ — contrat "
             f"{self.contract_digest} — test-local — 2026-09-06\n",
             encoding="utf-8",

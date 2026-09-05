@@ -14,8 +14,9 @@ Elle ne promet ni un code déterministe, ni une convergence automatique.
 
 ## État du projet
 
-Le dépôt contient la conception du noyau et un bootstrap minimal. Le noyau sous
-`src/domain/` n’est pas encore implémenté.
+Le dépôt contient un bootstrap minimal et le noyau de domaine implémenté sous
+`src/domain/`. Le prochain candidat est le moteur de décision déterministe
+décrit dans `docs/decision-engine.md`.
 
 Le bootstrap avancé expérimenté sous `495/` est conservé comme archive. Aucun
 contrôleur ne l’applique et ses registres ne décrivent plus l’état courant.
@@ -24,7 +25,7 @@ Le bootstrap actif repose sur trois éléments :
 
 | Élément | Rôle |
 | --- | --- |
-| [`docs/implementation.md`](docs/implementation.md) | Objectif, périmètre, critères, limites et décisions humaines |
+| [`docs/decision-engine.md`](docs/decision-engine.md) | Objectif, périmètre, critères, limites et décisions humaines du candidat courant |
 | [`bootstrap/contract.json`](bootstrap/contract.json) | Droits, périmètre du candidat et commandes exécutables |
 | `bootstrap/runs/*.json` | Rapports générés et liés au contrat et au candidat |
 
@@ -91,9 +92,9 @@ Le programme refuse l’exécution si
 `docs/implementation.md` ne contient pas une autorisation visant le digest
 courant du contrat.
 
-## Périmètre initial
+## Candidat courant
 
-Le premier candidat doit implémenter le noyau de domaine en Python :
+Le noyau de domaine fournit déjà :
 
 - références et révisions ;
 - scellement ;
@@ -102,8 +103,9 @@ Le premier candidat doit implémenter le noyau de domaine en Python :
 - liens et invalidation ;
 - état immutable et résultats explicites.
 
-Le code du domaine reste déterministe et sans entrée-sortie. La persistance, le
-moteur de gate, les adaptateurs, le protocole CSAP et la CLI sont hors
+Le code du domaine reste déterministe et sans entrée-sortie. Le candidat courant
+ajoute la validation des faits et l’évaluation pure de politiques bornées. La
+persistance, les adaptateurs, le protocole CSAP et la CLI restent hors
 périmètre.
 
 ## Archive historique
@@ -140,6 +142,7 @@ appliquer ou les vérifier.
 
 - [Présentation](docs/presentation.md)
 - [Travail d’implémentation](docs/implementation.md)
+- [Moteur de décision](docs/decision-engine.md)
 - [Simplification du bootstrap](docs/proposition-simplification.md)
 - [Conception historique](495/changes/INC-0003/design.md)
 - [Exigences historiques](495/changes/INC-0002/requirements.json)

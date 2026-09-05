@@ -13,8 +13,8 @@ class ImportBoundariesTest(unittest.TestCase):
             "webbrowser", "xmlrpc",
         }
         forbidden_calls = {"open", "eval", "exec", "compile", "__import__"}
-        root = Path("src/domain")
-        for path in sorted(root.glob("*.py")):
+        roots = (Path("src/domain"), Path("src/validation"), Path("src/policy"))
+        for path in sorted(path for root in roots for path in root.glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
@@ -46,3 +46,19 @@ class ImportBoundariesTest(unittest.TestCase):
                 if isinstance(node, ast.ImportFrom) and node.level == 1:
                     dependency = (node.module or "").split(".")[0]
                     self.assertLess(levels[dependency], level, f"{module} -> {dependency}")
+
+    def test_decision_packages_only_depend_downward(self):
+        allowed = {
+            "validation": {"domain"},
+            "policy": {"domain", "validation"},
+        }
+        forbidden_project = {"application", "ports", "infrastructure"}
+        for package in ("validation", "policy"):
+            for path in sorted((Path("src") / package).glob("*.py")):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                        imported = node.module.split(".")[0]
+                        self.assertNotIn(imported, forbidden_project, str(path))
+                        if imported in {"domain", "validation", "policy"}:
+                            self.assertIn(imported, allowed[package], str(path))
