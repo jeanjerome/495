@@ -29,6 +29,15 @@
   "increment_id": "INC-0003",
   "increment_revision": 1,
   "note": "État vivant, non scellé : l'état d'une tentative est mutable par nature. Seul le contrat qu'elle référence est scellé.",
+  "outputs": [
+    {
+      "artifact_id": "INC-0003/design",
+      "digest": "sha256:278f54963b8fddf372de708e60758ebe3652ef8b8fa06715af192660e732076d",
+      "kind": "design",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  ],
   "phase": "conception",
   "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
   "record_kind": "attempt_state",
@@ -38,6 +47,7 @@
   "state_versions": {
     "attempt_start_projected": 8,
     "contract_seal_projected": 7,
-    "note": "Aucune commande n'est appliquée faute de contrôleur et de journal. state_version est un compteur conventionnel de mutations du registre ; les passages 6 → 7 et 7 → 8 projettent respectivement les effets attendus de SealArtifact et StartAttempt."
+    "design_seal_projected": 9,
+    "note": "Aucune commande n'est appliquée faute de contrôleur et de journal. state_version est un compteur conventionnel de mutations du registre ; les passages 6 → 7, 7 → 8 et 8 → 9 projettent respectivement les effets attendus de SealArtifact sur le contrat de phase, de StartAttempt, et de SealArtifact sur la conception."
   }
 }

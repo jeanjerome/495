@@ -66,6 +66,17 @@
       "schema_version": "0.1-draft",
       "size": 8943,
       "type": "file"
+    },
+    {
+      "artifact_id": "INC-0003/design",
+      "digest": "sha256:278f54963b8fddf372de708e60758ebe3652ef8b8fa06715af192660e732076d",
+      "kind": "design",
+      "mode": "0o644",
+      "path": "design.md",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 67865,
+      "type": "file"
     }
   ],
   "bootstrap": {
