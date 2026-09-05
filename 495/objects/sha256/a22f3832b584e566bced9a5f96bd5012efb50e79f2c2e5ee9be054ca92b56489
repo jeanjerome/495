@@ -1,0 +1,193 @@
+{
+  "agent_profile": {
+    "backend": "claude-code",
+    "model": "claude-opus-5[1m]",
+    "note": "Enregistré au sens de §6.6. Sorties non fiables au sens de §2 ; le contrôle est la relecture humaine."
+  },
+  "allowed_output_kinds": [
+    "design",
+    "task_plan",
+    "check_plan",
+    "interface_contract",
+    "observation",
+    "execution_contract"
+  ],
+  "allowed_output_kinds_note": "Les six valeurs appartiennent à vocabulary.artifact_kinds (REQ-05). `decision` en est absent : produire un ADR exigerait d'écrire sous 495/decisions/, hors des chemins de ce contrat. Un tel besoin impose une nouvelle révision du contrat, pas une extension implicite.",
+  "allowed_write_paths": [
+    "495/changes/INC-0003/",
+    "495/changes/INC-0003/checks/",
+    "495/changes/INC-0003/contracts/",
+    "495/changes/INC-0003/observations/"
+  ],
+  "artifact_id": "INC-0003/contract-conception",
+  "declared_limits": [
+    "L'observation du dispositif hôte exigée par SRC-ADR-0006 n'a pas de mécanisme choisi. En son absence, G2 reste INDETERMINATE avec la raison MISSING_EVIDENCE. Ce contrat n'autorise pas à la déclarer satisfaite.",
+    "La qualification différentielle du refus réseau exige de démontrer un pair contrôlé joignable sans la règle, puis inaccessible avec elle. Ce contrat n'accorde aucun droit réseau et ne peut donc pas produire cette démonstration : le cadre dans lequel elle est admissible sous un profil qui interdit tout réseau reste à établir.",
+    "Sans mécanisme d'immutabilité qualifié, G2 n'ouvre qu'une tentative limitée aux contrôles de progression et G4 reste INDETERMINATE (SRC-ADR-0006). Le contrat d'implémentation proposé enregistre cette limite plutôt que de la passer sous silence.",
+    "Aucun code livrable n'est écrit sous ce contrat : §3.7 réserve l'écriture du candidat à la tentative d'implémentation, ouverte par G2. Aucune exploration en workspace jetable n'est autorisée ici.",
+    "Aucun contrôle exécutable n'est lancé sous ce contrat. Le plan de contrôles est un document ; la qualification fonctionnelle sur une entrée conforme et une entrée fautive exigée par SRC-ADR-0006 relève de G2."
+  ],
+  "entry_condition": {
+    "attempt_phase": "conception",
+    "entry_gate": "G1",
+    "locator": "SRC-ADR-0002, attempt_entry_conditions",
+    "required_contract": "Contrat de conception"
+  },
+  "entry_gate_decision": "GD-INC-0003-G1-1",
+  "exit_condition": {
+    "locator": "SRC-ADR-0002, attempt_exit_conditions, phase conception",
+    "reason": "phase_completed",
+    "trigger": "ApplyGateDecision appliquant G2 avec PASS"
+  },
+  "increment_id": "INC-0003",
+  "increment_phase": "designing",
+  "increment_phase_note": "vocabulary.phases nomme `designing` la phase de l'incrément ; vocabulary.attempt_entry_conditions nomme `conception` la phase de la tentative. Les deux ensembles sont scellés et distincts. Le champ `phase` de ce contrat porte le second, comme les deux contrats de phase précédents.",
+  "inputs": [
+    {
+      "artifact_id": "INC-0001/design",
+      "digest": "sha256:48aaff9addb44bac571caf27257af1b374a34290f21099d921b697cf8cc07567",
+      "kind": "design",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0002/requirements",
+      "digest": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "kind": "requirement_set",
+      "revision": 7,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/proposal",
+      "digest": "sha256:c0533feb55ff7d3e37009b4dc300a5f38add13675e3f7adcd03ede3bb13307c6",
+      "kind": "proposal",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0001",
+      "digest": "sha256:ceb08516590677e58ce0adb852959901af6ad6c56de1f86bf413b05d5b55a55e",
+      "kind": "decision",
+      "revision": 4,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0002",
+      "digest": "sha256:0e876614c4e22985cf63b33b9e9303ee5d9508c2d7ae125d3b975da39872c4f7",
+      "kind": "decision",
+      "revision": 5,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0003",
+      "digest": "sha256:71b40bb68489ec737b3d738a645cc4765f2302ef5786d3bc80673893feccd286",
+      "kind": "decision",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0004",
+      "digest": "sha256:968d032bfd915995da6b4e4cdfc412baf43577a1a8ee8d7e60c888b644911ea8",
+      "kind": "decision",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0005",
+      "digest": "sha256:5c69fb74f609535ff6cbb275f343cb3446a3437f6a6d6f080735ca698c20dc7e",
+      "kind": "decision",
+      "revision": 2,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "ADR-0006",
+      "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+      "kind": "decision",
+      "revision": 6,
+      "schema_version": "0.1-draft"
+    }
+  ],
+  "inputs_note": "Les six décisions sont approuvées et normatives pour le modèle du domaine : elles fixent les arêtes de retour, l'automate de la tentative, les transitions de clôture, les dépendances des modules, les douze commandes et le profil. Leur reprise ici est une adoption par référence, sans recopie.",
+  "isolation": {
+    "control_store_protection": false,
+    "note": "Les trois capacités de §6.8 sont déclarées absentes. Aucun contrôle exécutable n'est lancé sous ce contrat : la phase de conception ne produit que des documents.",
+    "process_isolation": false,
+    "verifier_separation": false
+  },
+  "kind": "execution_contract",
+  "kind_note": "SRC-DESIGN §4.2 ne distingue pas le contrat de phase de §3.7 du contrat d'implémentation complet de G2. `execution_contract` est retenu faute de type dédié.",
+  "limits": {
+    "attempts": 1,
+    "outputs": "Une conception, un plan de tâches, un plan de contrôles, une observation du dispositif hôte et une proposition de contrat d'implémentation."
+  },
+  "objective": "Allouer les vingt exigences d'INC-0002/requirements r7 à une conception du module `domain` de §5.1, produire le plan de tâches et le plan de contrôles, et proposer le contrat d'implémentation que G2 évaluera sous le profil self-hosting-bootstrap.",
+  "outputs_expected": [
+    {
+      "g2_input": "conception",
+      "kind": "design",
+      "locator": "SRC-DESIGN §3.5, §4.1",
+      "path": "495/changes/INC-0003/design.md",
+      "required": true
+    },
+    {
+      "g2_input": "tâches",
+      "kind": "task_plan",
+      "locator": "SRC-DESIGN §3.5, §4.1",
+      "path": "495/changes/INC-0003/tasks.json",
+      "required": true
+    },
+    {
+      "g2_input": "plan de contrôles",
+      "kind": "check_plan",
+      "locator": "SRC-DESIGN §3.5 ; contrôles unit, enumeration et imports de SRC-ADR-0006",
+      "path": "495/changes/INC-0003/checks/check-plan.json",
+      "required": true
+    },
+    {
+      "g2_input": "observation du dispositif hôte",
+      "kind": "observation",
+      "locator": "SRC-ADR-0006, preuve admissible des interdictions dures",
+      "note": "Identité et digest de configuration, refus réseau qualifié différentiellement, bornage de l'ensemble inscriptible. Son mécanisme n'est pas choisi : voir declared_limits.",
+      "path": "495/changes/INC-0003/observations/host-device.json",
+      "required": true
+    },
+    {
+      "g2_input": "contrat d'exécution, base source, capacités",
+      "kind": "execution_contract",
+      "locator": "SRC-DESIGN §3.5, §3.7 ; exécution et trois espaces disjoints de SRC-ADR-0006",
+      "note": "La tentative en produit la proposition ; son scellement est une commande du contrôleur à G2. Il enregistre <py>, <cand>, <verifier_root>, <output_root>, le manifeste d'environnement complet, les variables fixées, la base source et les capacités.",
+      "path": "495/changes/INC-0003/contracts/implementation.json",
+      "required": true
+    },
+    {
+      "g2_input": "conception",
+      "kind": "interface_contract",
+      "locator": "SRC-DESIGN §3.7, §4.1",
+      "note": "Autorisé, non exigé : produit si la conception dégage une frontière de module justifiant une description formelle au sens d'ADR-0004.",
+      "path": "495/changes/INC-0003/contracts/",
+      "required": false
+    }
+  ],
+  "phase": "conception",
+  "policy": {
+    "artifact_id": "ADR-0006",
+    "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+    "kind": "decision",
+    "revision": 6,
+    "schema_version": "0.1-draft"
+  },
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "revision": 1,
+  "rights": {
+    "external_effects": "interdit",
+    "network": "interdit",
+    "read": [
+      "495/",
+      "docs/"
+    ],
+    "write": [
+      "495/changes/INC-0003/"
+    ]
+  },
+  "schema_version": "0.1-draft"
+}

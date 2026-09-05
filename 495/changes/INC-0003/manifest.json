@@ -55,6 +55,17 @@
       "schema_version": "0.1-draft",
       "size": 2034,
       "type": "file"
+    },
+    {
+      "artifact_id": "INC-0003/contract-conception",
+      "digest": "sha256:a22f3832b584e566bced9a5f96bd5012efb50e79f2c2e5ee9be054ca92b56489",
+      "kind": "execution_contract",
+      "mode": "0o644",
+      "path": "contracts/phase-conception.json",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 8943,
+      "type": "file"
     }
   ],
   "bootstrap": {

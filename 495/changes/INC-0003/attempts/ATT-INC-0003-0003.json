@@ -1,0 +1,43 @@
+{
+  "attempt_id": "ATT-INC-0003-0003",
+  "concurrency": "ATT-INC-0003-0001 et ATT-INC-0003-0002 sont finished. Aucune autre tentative n'est running sur cette révision, conformément à la conséquence de SRC-ADR-0002.",
+  "contract_ref": {
+    "artifact_id": "INC-0003/contract-conception",
+    "digest": "sha256:a22f3832b584e566bced9a5f96bd5012efb50e79f2c2e5ee9be054ca92b56489",
+    "kind": "execution_contract",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  "entry": {
+    "entry_gate": "G1",
+    "gate_decision_ref": "GD-INC-0003-G1-1",
+    "locator": "SRC-ADR-0002, attempt_entry_conditions",
+    "required_contract": "Contrat de conception"
+  },
+  "expected_exit": {
+    "locator": "SRC-ADR-0002, attempt_exit_conditions, phase conception",
+    "note": "Un verdict FAIL ou INDETERMINATE de G2 ne termine pas la tentative : la correction reste possible sous le même contrat.",
+    "reason": "phase_completed",
+    "trigger": "ApplyGateDecision appliquant G2 avec PASS"
+  },
+  "history": [
+    {
+      "to": "running",
+      "trigger": "Contrat de phase scellé et condition d'entrée satisfaite : G1 franchie par GD-INC-0003-G1-1 (SRC-ADR-0002)"
+    }
+  ],
+  "increment_id": "INC-0003",
+  "increment_revision": 1,
+  "note": "État vivant, non scellé : l'état d'une tentative est mutable par nature. Seul le contrat qu'elle référence est scellé.",
+  "phase": "conception",
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "record_kind": "attempt_state",
+  "req13": "REQ-13 exige que le contrat de phase soit scellé et la condition d'entrée satisfaite avant la création de la tentative.",
+  "schema_version": "0.1-draft",
+  "state": "running",
+  "state_versions": {
+    "attempt_start_projected": 8,
+    "contract_seal_projected": 7,
+    "note": "Aucune commande n'est appliquée faute de contrôleur et de journal. state_version est un compteur conventionnel de mutations du registre ; les passages 6 → 7 et 7 → 8 projettent respectivement les effets attendus de SealArtifact et StartAttempt."
+  }
+}
