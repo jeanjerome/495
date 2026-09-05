@@ -1,0 +1,16 @@
+[
+  {
+    "artifact_id": "INC-0003/contract-clarification",
+    "digest": "sha256:b5fa7f581f624adbab7a25dab6d4825da5e5c952005e66e34bae98565f786cc8",
+    "kind": "execution_contract",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  {
+    "artifact_id": "INC-0003/proposal",
+    "digest": "sha256:c0533feb55ff7d3e37009b4dc300a5f38add13675e3f7adcd03ede3bb13307c6",
+    "kind": "proposal",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  }
+]

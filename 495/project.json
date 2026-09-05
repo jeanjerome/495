@@ -1,0 +1,188 @@
+{
+  "bootstrap": {
+    "controller": false,
+    "known_gaps": [
+      "Aucune tentative n'a été enregistrée pour INC-0002, clos sans reconstitution rétroactive. INC-0003 enregistre contrat de phase et tentative depuis sa création.",
+      "Les octets de la révision 1 du requirement_set sont perdus : le magasin d'objets n'existait pas encore.",
+      "SRC-DESIGN §4.2 n'offre aucun type d'artefact pour un profil de workflow. Le rattacher à un check_plan serait incorrect : le profil gouverne toutes les gates et précède ce plan. ADR-0006 sert de définition normative transitoire jusqu'à l'introduction d'un type `policy` (Q-15).",
+      "Les transitions appliquées avant l'introduction de state_version n'ont pas de expected_state_version. Les décisions de gate d'INC-0001 et INC-0002, incréments clos, portent engine.version et expected_state_version à null et restent inutilisables à ce titre ; elles ne sont pas réécrites."
+    ],
+    "note": "Aucune implémentation n'existe encore. Les phases et les gates sont tenues à la main ; les enregistrements sous 495/ sont des conventions publiques sans propriété de sécurité."
+  },
+  "changes": [
+    {
+      "close_reason": "exploration_complete",
+      "increment_id": "INC-0001",
+      "manifest_ref": "sha256:917e2ed96cf8372fc06eca086d8aef6ed07fcc2b9fc1b3156d06a3a59ac8af00",
+      "phase": "closed",
+      "profile": "exploration",
+      "title": "Définir la base du harnais"
+    },
+    {
+      "artifacts": {
+        "proposal": "sealed r1",
+        "requirements": "sealed r7"
+      },
+      "close_reason": "superseded",
+      "closure_ref": "495/changes/INC-0002/closure.json",
+      "decisions": [
+        "ADR-0001 r4",
+        "ADR-0002 r5",
+        "ADR-0003 r1",
+        "ADR-0004 r1",
+        "ADR-0005 r2"
+      ],
+      "depends_on": [
+        "INC-0001"
+      ],
+      "gates": [
+        {
+          "decision_ref": "495/changes/INC-0002/gates/G0.json",
+          "gate": "G0",
+          "reason": "engine.version et expected_state_version nuls (§5.2). Conservée telle quelle, non réécrite : l'incrément est clos.",
+          "usable": false,
+          "verdict": "PASS"
+        },
+        {
+          "decision_ref": "495/changes/INC-0002/gates/G1-6.json",
+          "earlier_attempts": [
+            "G1.json",
+            "G1-2.json",
+            "G1-3.json",
+            "G1-4.json",
+            "G1-5.json"
+          ],
+          "gate": "G1",
+          "reason": "engine.version et expected_state_version nuls (§5.2). Conservée telle quelle, non réécrite : l'incrément est clos.",
+          "usable": false,
+          "verdict": "PASS"
+        }
+      ],
+      "increment_id": "INC-0002",
+      "lot": "A",
+      "next": "Clos. Son évolution passe par INC-0003.",
+      "phase": "closed",
+      "profile": "standard",
+      "python_requires": ">=3.12",
+      "superseded_by": "INC-0003",
+      "title": "Noyau du domaine"
+    },
+    {
+      "artifacts": {
+        "contract-clarification": "sealed r1",
+        "proposal": "sealed r1",
+        "requirements": "repris par référence : INC-0002/requirements r7"
+      },
+      "attempts": [
+        {
+          "attempt_id": "ATT-INC-0003-0001",
+          "phase": "clarification",
+          "reason": "phase_completed",
+          "state": "finished"
+        },
+        {
+          "attempt_id": "ATT-INC-0003-0002",
+          "phase": "specification",
+          "reason": "phase_completed",
+          "state": "finished"
+        }
+      ],
+      "depends_on": [
+        "INC-0001"
+      ],
+      "gates": [
+        {
+          "decision_ref": "495/changes/INC-0003/gates/G0.json",
+          "digest": "sha256:5b154472ae8b05a54d216caf6eab5e1d2450d8d4187845d90d54191bfe309366",
+          "gate": "G0",
+          "reason": "engine.version et expected_state_version nuls (§5.2).",
+          "usable": false,
+          "verdict": "PASS"
+        },
+        {
+          "applied_at_state_version": 2,
+          "decision_ref": "495/changes/INC-0003/gates/G0-2.json",
+          "expected_state_version": 1,
+          "gate": "G0",
+          "usable": true,
+          "verdict": "PASS"
+        },
+        {
+          "applied_at_state_version": 6,
+          "decision_ref": "495/changes/INC-0003/gates/G1.json",
+          "expected_state_version": 5,
+          "gate": "G1",
+          "usable": true,
+          "verdict": "PASS"
+        }
+      ],
+      "increment_id": "INC-0003",
+      "lot": "A",
+      "next": "Phase designing : design.md, contracts/ et tasks.json, puis G2 — qui exigera l'observation du dispositif hôte.",
+      "open_questions": [],
+      "phase": "designing",
+      "policy": {
+        "artifact_id": "ADR-0006",
+        "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+        "kind": "decision",
+        "revision": 6,
+        "schema_version": "0.1-draft"
+      },
+      "profile": "self-hosting-bootstrap",
+      "python_requires": ">=3.12",
+      "supersedes": "INC-0002",
+      "title": "Noyau du domaine sous profil de bootstrap"
+    }
+  ],
+  "description": "Harnais encadrant le développement logiciel assisté par IA par une boucle de travail explicite et vérifiable",
+  "name": "495",
+  "paths": {
+    "approvals": "495/approvals.json",
+    "changes": "495/changes/",
+    "decisions": "495/decisions/",
+    "objects": "495/objects/sha256/",
+    "specs": "495/specs/"
+  },
+  "profiles": {
+    "exploration": {
+      "locator": "SRC-DESIGN §3.1",
+      "note": "Porte la clôture d'INC-0001 avec le motif exploration_complete."
+    },
+    "self-hosting-bootstrap": {
+      "approval_required": true,
+      "definition": {
+        "artifact_id": "ADR-0006",
+        "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+        "kind": "decision",
+        "revision": 6,
+        "schema_version": "0.1-draft"
+      },
+      "note": "L'état effectif d'approbation est dérivé de 495/approvals.json, seule autorité. Un incrément sous ce profil lie ce digest et le porte comme policy_digest dans ses décisions de gate."
+    },
+    "standard": {
+      "locator": "SRC-DESIGN §3.5"
+    }
+  },
+  "project_id": "495",
+  "resume": {
+    "authority": {
+      "approbations": "495/approvals.json",
+      "octets": "495/objects/sha256/ comparé aux manifestes",
+      "état": "495/project.json"
+    },
+    "blocking": "G2 exige une observation du dispositif hôte selon ADR-0006 r6 : identité et digest de configuration, refus réseau qualifié différentiellement contre un pair contrôlé, bornage de l'ensemble des chemins inscriptibles. Le mécanisme n'est pas choisi. Sans immutabilité qualifiée, G2 n'ouvre qu'une tentative limitée aux contrôles de progression et G4 reste INDETERMINATE.",
+    "next": "INC-0003, phase designing : produire design.md, contracts/ et tasks.json, puis évaluer G2.",
+    "rules": [
+      "Enregistrer le contrat de phase et ouvrir la tentative AVANT d'écrire le premier artefact d'une phase (REQ-13).",
+      "Toute décision de gate d'INC-0003 porte le policy_digest d'ADR-0006 r6, engine.version et expected_state_version.",
+      "Une approbation vise une référence complète : aucune approbation transitive (REQ-16).",
+      "Aucun état mutable dans un artefact scellé.",
+      "Un artefact scellé ne se modifie pas : nouvelle révision, ancienne conservée dans le magasin."
+    ],
+    "verify": "python3 tools/verify_state.py"
+  },
+  "schema_version": "0.1-draft",
+  "state_version": 6,
+  "state_version_note": "Version d'état du projet, monotone, incrémentée à chaque commande appliquée. Introduite à ce point : les transitions antérieures ont été appliquées sans suivi de version, ce qui est consigné dans known_gaps.",
+  "workflow_profile": "standard"
+}

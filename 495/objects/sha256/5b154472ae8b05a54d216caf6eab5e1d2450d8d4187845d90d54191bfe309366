@@ -1,0 +1,64 @@
+{
+  "attempt_ref": "ATT-INC-0003-0001",
+  "bootstrap": {
+    "controller": false,
+    "note": "Verdict établi par relecture. Le profil n'exige d'approbation humaine qu'à G2 et G4."
+  },
+  "candidate_ref": null,
+  "decision_id": "GD-INC-0003-G0-1",
+  "engine": {
+    "kind": "manual",
+    "version": null
+  },
+  "expected_state_version": null,
+  "gate": "G0",
+  "guarantee": "Le travail est cadré ; sa valeur économique n'est pas démontrée.",
+  "increment_id": "INC-0003",
+  "input_bundle_digest": "sha256:5f9467272808a69761498bb383c5f205f6004f2dcb06cf1be9d259d7b13e3c17",
+  "input_refs": [
+    {
+      "artifact_id": "INC-0003/contract-clarification",
+      "digest": "sha256:b5fa7f581f624adbab7a25dab6d4825da5e5c952005e66e34bae98565f786cc8",
+      "kind": "execution_contract",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0003/proposal",
+      "digest": "sha256:c0533feb55ff7d3e37009b4dc300a5f38add13675e3f7adcd03ede3bb13307c6",
+      "kind": "proposal",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  ],
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "policy_ref": {
+    "artifact_id": "ADR-0006",
+    "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+    "kind": "decision",
+    "revision": 6,
+    "schema_version": "0.1-draft"
+  },
+  "reasons": [
+    {
+      "evidence": "proposal.md, section Objectif",
+      "obligation": "OBL-G0-01",
+      "statement": "Objectif présent",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "proposal.md, autorité de cadrage",
+      "obligation": "OBL-G0-02",
+      "statement": "Acteur métier identifié",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "Q-16 est la seule question ouverte ; elle porte sur la disponibilité d'une approbation de spécification et bloque G1, non le cadrage.",
+      "obligation": "OBL-G0-03",
+      "statement": "Questions bloquantes résolues ou explicitement exclues du périmètre",
+      "status": "SATISFIED"
+    }
+  ],
+  "schema_version": "0.1-draft",
+  "verdict": "PASS"
+}

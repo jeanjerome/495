@@ -1,0 +1,25 @@
+# ADR-0001 — Un retour après G2 termine la tentative courante
+
+Statut : accepté. Remplace la formulation « termine ou suspend » de `SRC-DESIGN §3.3`.
+
+## Contexte
+
+La conception écrit qu'après G2, une modification du contrat « termine ou suspend la tentative courante et ouvre une nouvelle révision ». Deux comportements incompatibles sont proposés pour la même situation, sans règle de choix. Une exigence ne peut pas en dériver d'oracle.
+
+## Décision
+
+Deux opérations distinctes, qui ne se recouvrent pas :
+
+| Opération | Effet sur la tentative | Effet sur le contrat |
+| --- | --- | --- |
+| Suspendre l'exécution | La tentative est conservée | Le contrat scellé est conservé ; la reprise utilise exactement ce contrat |
+| Réviser l'incrément | La tentative courante est terminée avec un motif explicite | Une révision de travail est ouverte ; une nouvelle tentative attend la validation du nouveau contrat par G2 |
+
+Un retour vers `specifying` ou `designing` après franchissement de G2 **termine** donc systématiquement la tentative courante. La suspension ne sert jamais à changer les fondations d'une tentative.
+
+## Conséquences
+
+- L'alternative disparaît sans que la possibilité de faire une pause soit perdue.
+- Cohérent avec la précondition de `StartAttempt` en §3.4 : contrat de phase scellé et gate d'entrée satisfaite.
+- Le motif de terminaison est celui d'ADR-0002.
+- REQ-08 devient déterministe et cesse d'être bloquée.

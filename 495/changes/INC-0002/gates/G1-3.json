@@ -1,0 +1,125 @@
+{
+  "arbitration": {
+    "decision": "Ajouter une douzième commande StartIntegration",
+    "question": "Q-12",
+    "rejected": [
+      {
+        "because": "Aucune décision de gate ne porte accepted → integrating",
+        "option": "Attacher l'arête à ApplyGateDecision"
+      },
+      {
+        "because": "Contredirait INV-01",
+        "option": "Sortir la transition du domaine"
+      }
+    ],
+    "requirements": [
+      "Exiger la phase accepted, un PASS G4 courant sur le candidat exact, une destination attendue et aucune intégration non réconciliée",
+      "Enregistrer l'intention d'intégration et passer à integrating",
+      "Laisser ApplyGateDecision appliquer G5 après réception du reçu d'intégration"
+    ]
+  },
+  "bootstrap": {
+    "controller": false,
+    "note": "Verdict établi par relecture humaine."
+  },
+  "candidate_ref": null,
+  "confirmed": [
+    "Les neuf constats de GD-INC-0002-G1-2 sont corrigés",
+    "Treize objets correctement adressés",
+    "ADR-0005 r1 reste proposé : l'arbitrage n'approuve pas ses octets actuels"
+  ],
+  "decision_id": "GD-INC-0002-G1-3",
+  "engine": {
+    "kind": "manual",
+    "version": null
+  },
+  "expected_state_version": null,
+  "findings": [
+    {
+      "correction": "Révision 2 corrigeant le compte, retenant StartIntegration et déclarant le passage de onze à douze commandes",
+      "defect": "Reste en révision 1, sans StartIntegration ; annonce « sept franchissements de gate G0 à G5 » là où il y en a six ; ne remplace pas explicitement l'ensemble clos des onze commandes",
+      "finding_id": "F-22",
+      "target": "ADR-0005"
+    },
+    {
+      "correction": "ADR-0005 r2 reçoit sa propre approbation sur sa propre référence",
+      "defect": "Faire valoir l'approbation de requirements.json comme approbation d'ADR-0005 contredit REQ-16, qui attache une approbation à une référence complète d'artefact",
+      "finding_id": "F-23",
+      "target": "requirements.pending_decisions"
+    },
+    {
+      "correction": "Ajouter ces retours ou restreindre explicitement la précondition",
+      "defect": "Aucune arête ReviseIncrement depuis accepted ni integrating, alors que §3.4 l'autorise depuis tout incrément non intégré et non clos",
+      "finding_id": "F-24",
+      "target": "vocabulary.phase_transitions"
+    },
+    {
+      "correction": "Déclarer l'événement ou la commande portant chaque motif de terminaison",
+      "defect": "Affirmer que seules ReviseIncrement et CloseIncrement terminent une tentative rend integration_succeeded inaccessible, ainsi que definitive_failure et budget_exhausted",
+      "finding_id": "F-25",
+      "target": "AC-13-8"
+    },
+    {
+      "correction": "Séparer entry_gate et required_contract, ou renommer en attempt_entry_conditions",
+      "defect": "« contrat de revue » n'est pas une gate : le champ mêle deux types",
+      "finding_id": "F-26",
+      "target": "vocabulary.attempt_entry_gates"
+    }
+  ],
+  "gate": "G1",
+  "guarantee": "Aucune.",
+  "increment_id": "INC-0002",
+  "input_bundle_digest": "sha256:0a9f8c022e23abbe5f68a5e3df6f84459b36fe36684f028659e9ac755ad126a6",
+  "input_refs": [
+    {
+      "artifact_id": "INC-0002/proposal",
+      "digest": "sha256:d806edb9ad7867b7bb45018abb28afd52a9e2e4e10a3a070a57db5898f38c7af",
+      "kind": "proposal",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    },
+    {
+      "artifact_id": "INC-0002/requirements",
+      "digest": "sha256:65f3112d0be6b4790b8a688708cfe1efacbbcdc45ccb6c82a4afd6edc86fc4fd",
+      "kind": "requirement_set",
+      "revision": 4,
+      "schema_version": "0.1-draft"
+    }
+  ],
+  "note": "Ne remplace ni GD-INC-0002-G1-1 ni G1-2, chacune attachée à la révision qu'elle évaluait.",
+  "policy_ref": null,
+  "reasons": [
+    {
+      "evidence": "20 exigences, 86 critères uniques",
+      "obligation": "OBL-G1-01",
+      "statement": "Identifiants uniques",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "Huit sources exactes et résolubles",
+      "obligation": "OBL-G1-02",
+      "statement": "Références valides",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "Gherkin non utilisé",
+      "obligation": "OBL-G1-03",
+      "statement": "Syntaxe Gherkin valide si utilisée",
+      "status": "NOT_APPLICABLE"
+    },
+    {
+      "evidence": "REQ-07 est explicitement bloquée par Q-12",
+      "obligation": "OBL-G1-04",
+      "statement": "Méthode de vérification prévue pour chaque exigence obligatoire",
+      "status": "VIOLATED"
+    },
+    {
+      "evidence": "Refus de sha256:65f3112d…c4fd",
+      "obligation": "OBL-G1-05",
+      "statement": "Approbation du digest par l'autorité métier",
+      "status": "VIOLATED"
+    }
+  ],
+  "schema_version": "0.1-draft",
+  "verdict": "FAIL"
+}

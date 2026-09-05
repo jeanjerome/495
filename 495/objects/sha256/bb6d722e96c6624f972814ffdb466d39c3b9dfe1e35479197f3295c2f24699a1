@@ -1,0 +1,37 @@
+[
+  {
+    "artifact_id": "INC-0003/proposal",
+    "digest": "sha256:c0533feb55ff7d3e37009b4dc300a5f38add13675e3f7adcd03ede3bb13307c6",
+    "kind": "proposal",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  {
+    "artifact_id": "INC-0003/contract-specification",
+    "digest": "sha256:7d83974788472cfe9397af411e1a9576731c062c91920f2e3659264ad3c66507",
+    "kind": "execution_contract",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  {
+    "artifact_id": "INC-0003/observation-approval-applicability",
+    "digest": "sha256:238957dcfd94a75f63311316cc02bdc75605215b643d88f1e9acaa4f6b6a6d72",
+    "kind": "observation",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  {
+    "artifact_id": "INC-0002/requirements",
+    "digest": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+    "kind": "requirement_set",
+    "revision": 7,
+    "schema_version": "0.1-draft"
+  },
+  {
+    "artifact_id": "ADR-0006",
+    "digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+    "kind": "decision",
+    "revision": 6,
+    "schema_version": "0.1-draft"
+  }
+]

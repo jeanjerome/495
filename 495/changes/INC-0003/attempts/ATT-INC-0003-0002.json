@@ -1,0 +1,35 @@
+{
+  "attempt_id": "ATT-INC-0003-0002",
+  "contract_ref": {
+    "artifact_id": "INC-0003/contract-specification",
+    "digest": "sha256:7d83974788472cfe9397af411e1a9576731c062c91920f2e3659264ad3c66507",
+    "kind": "execution_contract",
+    "revision": 1,
+    "schema_version": "0.1-draft"
+  },
+  "finish": {
+    "decision_ref": "GD-INC-0003-G1-1",
+    "locator": "SRC-ADR-0002, attempt_exit_conditions, phase spécification",
+    "reason": "phase_completed"
+  },
+  "history": [
+    {
+      "to": "running",
+      "trigger": "Contrat de phase scellé et condition d'entrée satisfaite : G0 franchie par GD-INC-0003-G0-2 (SRC-ADR-0002)"
+    },
+    {
+      "reason": "phase_completed",
+      "to": "finished",
+      "trigger": "ApplyGateDecision appliquant G1 avec PASS (GD-INC-0003-G1-1)"
+    }
+  ],
+  "increment_id": "INC-0003",
+  "increment_revision": 1,
+  "note": "État vivant, non scellé.",
+  "phase": "specification",
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "record_kind": "attempt_state",
+  "req13": "REQ-13 exige qu'une tentative de spécification existe entre G0 et G1.",
+  "schema_version": "0.1-draft",
+  "state": "finished"
+}

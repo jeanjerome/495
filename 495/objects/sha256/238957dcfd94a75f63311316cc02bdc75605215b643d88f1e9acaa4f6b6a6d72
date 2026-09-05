@@ -1,0 +1,56 @@
+{
+  "artifact_id": "INC-0003/observation-approval-applicability",
+  "attempt_ref": "ATT-INC-0003-0002",
+  "comparison": [
+    {
+      "adopted_reference": "INC-0002/requirements",
+      "approval_target": "INC-0002/requirements",
+      "equal": true,
+      "field": "artifact_id"
+    },
+    {
+      "adopted_reference": 7,
+      "approval_target": 7,
+      "equal": true,
+      "field": "revision"
+    },
+    {
+      "adopted_reference": "requirement_set",
+      "approval_target": "requirement_set",
+      "equal": true,
+      "field": "kind"
+    },
+    {
+      "adopted_reference": "0.1-draft",
+      "approval_target": "0.1-draft",
+      "equal": true,
+      "field": "schema_version"
+    },
+    {
+      "adopted_reference": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "approval_target": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "equal": true,
+      "field": "digest"
+    }
+  ],
+  "increment_id": "INC-0003",
+  "kind": "observation",
+  "limits": [
+    "N'établit pas que GD-INC-0002-G1-6 s'applique à INC-0003 : une décision de gate n'est pas une approbation, et INC-0003 produit la sienne.",
+    "Le préfixe INC-0002/ de l'artifact_id exprime la lignée de l'artefact, non une restriction de ses consommateurs."
+  ],
+  "oracle": {
+    "locator": "INC-0002/requirements r7, REQ-16, AC-16-1 et AC-16-2",
+    "rule": "Une approbation vise une référence complète et n'est applicable qu'à une référence dont les cinq champs sont égaux."
+  },
+  "outcome": "APPLICABLE",
+  "policy_digest": "sha256:7ac71f73087f4122eb55b69b393970502b18d61fc6e87e602275857ed0e52ed2",
+  "revision": 1,
+  "schema_version": "0.1-draft",
+  "scope_check": {
+    "approval_scope": "Les vingt exigences et leurs quatre-vingt-dix-huit critères d'acceptation.",
+    "covers": "Les vingt exigences et les quatre-vingt-dix-huit critères du requirement set adopté.",
+    "satisfied": true
+  },
+  "subject": "Applicabilité d'APP-0008 à la référence adoptée par INC-0003"
+}

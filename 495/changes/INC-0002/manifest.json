@@ -1,0 +1,39 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "INC-0002/proposal",
+      "digest": "sha256:d806edb9ad7867b7bb45018abb28afd52a9e2e4e10a3a070a57db5898f38c7af",
+      "kind": "proposal",
+      "mode": "0o644",
+      "path": "proposal.md",
+      "revision": 1,
+      "schema_version": "0.1-draft",
+      "size": 6240,
+      "type": "file"
+    },
+    {
+      "approval": "APP-0008",
+      "artifact_id": "INC-0002/requirements",
+      "digest": "sha256:f503f82932ab6f6b5c172c5d7aeabb24cdf36291e2e50c0c3a207d79bb622c92",
+      "kind": "requirement_set",
+      "mode": "0o644",
+      "path": "requirements.json",
+      "revision": 7,
+      "schema_version": "0.1-draft",
+      "sealed_at_gate": "G1",
+      "size": 56991,
+      "type": "file"
+    }
+  ],
+  "bootstrap": {
+    "controlled_store": false,
+    "note": "Enregistrement public tenu à la main. Aucun contrôleur ne l'a produit et rien ne l'applique.",
+    "produced_by": "manual",
+    "serialization": "json, ensure_ascii=false, sort_keys=true, indent=2, newline finale, utf-8"
+  },
+  "drafts": [],
+  "increment_id": "INC-0002",
+  "schema_version": "0.1-draft",
+  "sealed_revision": 2,
+  "title": "Noyau du domaine"
+}

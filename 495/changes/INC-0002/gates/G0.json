@@ -1,0 +1,49 @@
+{
+  "bootstrap": {
+    "controller": false,
+    "note": "Verdict établi par relecture humaine, sans moteur ni politique. engine.version et policy_ref sont nuls parce que ni l'un ni l'autre n'existe : ce ne sont pas des valeurs manquantes à combler plus tard par défaut."
+  },
+  "candidate_ref": null,
+  "decision_id": "GD-INC-0002-G0-1",
+  "engine": {
+    "kind": "manual",
+    "version": null
+  },
+  "expected_state_version": null,
+  "gate": "G0",
+  "guarantee": "Le travail est cadré ; sa valeur économique n'est pas démontrée.",
+  "increment_id": "INC-0002",
+  "input_bundle_digest": "sha256:edb75f3c9fb9fa39116c1a2ae4532685d693b7671fe53d7b163b74a2cd21e32f",
+  "input_refs": [
+    {
+      "artifact_id": "INC-0002/proposal",
+      "digest": "sha256:d806edb9ad7867b7bb45018abb28afd52a9e2e4e10a3a070a57db5898f38c7af",
+      "kind": "proposal",
+      "revision": 1,
+      "schema_version": "0.1-draft"
+    }
+  ],
+  "policy_ref": null,
+  "reasons": [
+    {
+      "evidence": "proposal.md, section Objectif",
+      "obligation": "OBL-G0-01",
+      "statement": "Objectif présent",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "proposal.md, autorité de cadrage",
+      "obligation": "OBL-G0-02",
+      "statement": "Acteur métier identifié",
+      "status": "SATISFIED"
+    },
+    {
+      "evidence": "proposal.md, section Questions résolues, 7 sur 7",
+      "obligation": "OBL-G0-03",
+      "statement": "Questions bloquantes résolues ou explicitement exclues du périmètre",
+      "status": "SATISFIED"
+    }
+  ],
+  "schema_version": "0.1-draft",
+  "verdict": "PASS"
+}

@@ -1,0 +1,41 @@
+# ADR-0002 — Automate minimal de la tentative
+
+Révision 2. Statut : accepté. Complète `SRC-DESIGN §3.1`, qui définit la tentative sans automate, et respecte `SRC-DESIGN §3.7`.
+
+La révision 1 créait toute tentative après G2. C'était faux : §3.7 établit qu'une tentative d'IA existe **dans chaque phase**, chacune avec sa propre gate d'entrée. G2 n'est la gate d'entrée que de la tentative d'implémentation.
+
+## Contexte
+
+La conception définit une `Attempt` comme une tentative liée à un contrat scellé, sans fixer ses états ni ses transitions. Les statuts de §6.3 — `queued`, `running`, `succeeded`, `failed`, `cancelled`, `unknown` — sont ceux d'une opération d'adaptateur et relèvent du lot D ; les réutiliser confondrait deux niveaux.
+
+## Décision
+
+Une tentative est créée lorsque le contrôleur a scellé son **contrat de phase** et que la **gate d'entrée de cette phase** est satisfaite. Le tableau des gates d'entrée est celui de §3.7 :
+
+| Phase de la tentative | Gate d'entrée |
+| --- | --- |
+| Clarification | Aucune ; incrément et brief initial enregistrés |
+| Spécification | G0 |
+| Conception | G1 |
+| Implémentation | G2 |
+| Revue | Contrat de revue avec entrées scellées |
+
+L'automate est le même quelle que soit la phase :
+
+| État | Signification | Transitions |
+| --- | --- | --- |
+| `running` | Tentative en cours sous un contrat scellé | `suspended`, `finished` |
+| `suspended` | Exécution arrêtée temporairement, contrat conservé | `running`, `finished` |
+| `finished` | Tentative définitivement terminée | Aucune |
+
+La terminaison porte un motif obligatoire, **distinct de l'état** : `integration_succeeded`, `revision_requested`, `increment_closed`, `definitive_failure`, `budget_exhausted`.
+
+Un verdict `FAIL` de gate ne termine pas une tentative : une correction reste possible sous le même contrat. Changer ce contrat impose une nouvelle tentative.
+
+## Conséquences
+
+- L'automate est orthogonal à la phase de l'incrément et au statut opérationnel : trois dimensions indépendantes.
+- Les statuts d'opération de §6.3 restent au lot D.
+- Une tentative de clarification ou de conception existe sans que G2 soit franchie, conformément à §3.7.
+
+L'énumération des motifs de terminaison est fixée ici parce que la conception ne la donne pas. Les quatre premiers reprennent ceux nommés lors de l'arbitrage ; `budget_exhausted` est ajouté par cohérence avec §6.7, qui compte le budget par tentative.
