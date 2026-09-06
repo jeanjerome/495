@@ -117,6 +117,16 @@ une condition artificielle de réussite.
 | `pickle` pour des données externes ou persistées | **Retirée** | Un format sûr et interopérable est requis à ces frontières. |
 | SQLite pour une persistance locale transactionnelle | **Défaut** | Il remplace avantageusement un journal fichier construit sur mesure. |
 
+## Reprise de CodeServo
+
+| Règle | Statut | Application |
+| --- | --- | --- |
+| Boucle agent, contrôles, feedback et revue | **Obligatoire** | 495 préserve les comportements utiles déjà expérimentés par CodeServo dans `implementing` et `verifying`. |
+| Portage complet de l’architecture de CodeServo | **Retirée** | La reprise porte sur des comportements et des tests ciblés, pas sur l’arborescence historique. |
+| Confinement, capteurs privés et preuve exhaustive | **Conditionnelle** | Ces mécanismes exigent un risque ou une garantie explicite qui justifie leur coût. |
+| Générations, protocoles expérimentaux et auto-hébergement | **Retirée** | Ils ne servent pas le parcours ordinaire d’un changement dans une application. |
+| Réutilisation d’un composant historique | **Conditionnelle** | Le besoin courant, le comportement conservé et le coût résiduel doivent être identifiés. |
+
 ## Modèles écartés du socle
 
 Les mécanismes suivants ne sont plus considérés comme le modèle par défaut de
@@ -130,7 +140,8 @@ Les mécanismes suivants ne sont plus considérés comme le modèle par défaut 
 - version globale partagée entre tous les travaux ;
 - protocole d’adaptateurs à ports et opérations fixés ;
 - adaptateur simulé et kit de conformité sans intégration réelle ;
-- orchestrateur reliant ces composants sans interface utilisateur.
+- orchestrateur générique reliant des composants simulés sans agent réel ni
+  parcours utilisateur.
 
 Ils pourront inspirer une future implémentation, mais ne seront pas réintroduits
 sans parcours réel démontrant leur nécessité.

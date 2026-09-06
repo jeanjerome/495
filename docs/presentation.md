@@ -25,6 +25,13 @@ Le cycle d’un changement reste structuré par les états `clarifying`,
 explicites. Cette structure décrit le parcours du produit ; elle n’impose pas à
 elle seule une architecture complexe ni un document distinct par état.
 
+495 prolonge [CodeServo](https://github.com/jeanjerome/codeservo), qui a déjà
+exploré l’implémentation par agents, la vérification, le feedback et la revue.
+Il en reprend les comportements utiles sans importer par défaut son harnais
+expérimental, sa métrologie détaillée et ses mécanismes de preuve. Il élargit
+ensuite cette boucle à la clarification, la spécification, la conception,
+l’acceptation et l’intégration.
+
 Les agents peuvent utiliser les prompts, skills, hooks et autres outils
 disponibles dans leur environnement. Une exigence obligatoire ne peut
 cependant pas être ignorée ni déclarée satisfaite sur la seule affirmation de

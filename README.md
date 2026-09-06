@@ -22,6 +22,12 @@ vertébrale du produit. Il est défini par les
 [parcours utilisateur](docs/parcours-utilisateur.md), mais aucune
 implémentation courante ne l’applique encore.
 
+495 reprend la boucle `implementing`–`verifying` expérimentée dans
+[CodeServo](https://github.com/jeanjerome/codeservo), en conservant ses
+comportements utiles, en retirant sa complexité expérimentale par défaut et en
+l’étendant au cycle complet. La
+[stratégie de reprise](docs/reprise-de-codeservo.md) fixe cette frontière.
+
 La prochaine fonctionnalité partira des
 [parcours utilisateur](docs/parcours-utilisateur.md) avant de définir son
 modèle de domaine ou son architecture.
@@ -80,5 +86,7 @@ Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
 quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
 Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
 visés et les responsabilités laissées aux outils existants.
+La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
+comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le
 comportement disponible.

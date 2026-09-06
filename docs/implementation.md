@@ -7,12 +7,13 @@
 | `README.md` | Conservé et raccourci | Point d’entrée pour comprendre et utiliser le dépôt |
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
+| `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
 | `pyproject.toml` | Ajouté | Déclaration standard du projet Python et de ses dépendances |
 | `uv.lock` | Ajouté | Résolution reproductible de l’environnement Python |
 | `.python-version` | Ajouté | Sélection de Python 3.12 par `uv` |
-| Documents dédiés au domaine, aux gates, à la persistance, aux adaptateurs et à l’orchestrateur | Supprimés | Ils décrivaient des composants sans parcours utilisateur |
+| Documents dédiés au domaine, aux gates, à la persistance, aux adaptateurs et à l’orchestrateur | Supprimés | Ils imposaient des composants avant les comportements et intégrations réels |
 | `495/` | Supprimé | Archive redondante avec l’historique Git |
 | `bootstrap/runs/` | Supprimé | Résultats anciens sans rôle dans l’état courant |
 | `bootstrap/contract.json` | Conservé et simplifié | Configuration facultative d’une exécution liée à des fichiers |
@@ -102,3 +103,8 @@ opérations devront rester réutilisables par une future TUI ou interface web.
 Les modèles, adaptateurs et choix de persistance seront dérivés de ce
 comportement. Une dépendance tierce peut être adoptée si elle simplifie
 concrètement cette fonctionnalité.
+
+La [reprise de CodeServo](reprise-de-codeservo.md) guide l’implémentation de
+`implementing` et `verifying`. Elle autorise la réutilisation ciblée de son
+code et de ses tests, mais pas le portage préalable de son architecture
+complète.

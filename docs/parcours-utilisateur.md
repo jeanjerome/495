@@ -18,6 +18,10 @@ participer à toutes les étapes pour lesquelles ils disposent des capacités
 nécessaires : analyser le dépôt, clarifier, rédiger, concevoir, modifier,
 contrôler, relire et préparer l’intégration.
 
+La boucle `implementing`–`verifying` reprend les comportements expérimentés
+dans [CodeServo](reprise-de-codeservo.md). 495 les simplifie et les compose avec
+les étapes amont et aval au lieu de construire un second système autour d’eux.
+
 L’utilisateur entre dans le parcours en exprimant son besoin. 495 crée le
 changement correspondant et lance immédiatement `clarifying`. Il poursuit
 automatiquement tant que les conditions de passage sont satisfaites. Il rend
