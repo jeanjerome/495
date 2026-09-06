@@ -51,11 +51,12 @@ frameworks et chaînes d’outils. Elles conservent leurs propres conventions et
 leur architecture ; 495 orchestre les agents et les commandes qu’elles exposent
 sans leur imposer les choix techniques de son implémentation interne.
 
-La fonctionnalité en cours de validation est le
-[premier incrément vertical](docs/parcours-utilisateur.md#premier-incrément-vertical) :
+La fonctionnalité disponible est le
+[premier incrément vertical](docs/parcours-utilisateur.md#premier-incrément-vertical),
 recevoir une demande visant un dépôt local, invoquer un véritable client
 d’agent, identifier le candidat produit, exécuter les contrôles de l’application
-cible et restituer le résultat. Elle ne met pas encore en œuvre les états et
+cible et restituer le résultat, étendu par la configuration et la vérification
+réutilisables décrites ci-dessous. Elle ne met pas encore en œuvre les états et
 gates du workflow complet. Son architecture découle de l’étude des harnais
 d’agents de code et composants open source qui fournissent déjà le comportement
 recherché.
@@ -212,6 +213,15 @@ un exécutable de contrôle introuvable, une sandbox indisponible ou un contrat
 existant sans `--overwrite`. Le code `4` signale que tout était prêt mais
 qu’il n’y avait rien à vérifier ou rien à proposer.
 
+Les sorties capturées sont bornées : 495 conserve les premiers 4 MiB de chaque
+flux d’un processus et vide le reste sans le retenir, sans jamais bloquer le
+processus. Chaque contrôle rapporte `stdout_bytes`, `stderr_bytes`,
+`stdout_truncated` et `stderr_truncated` en plus du texte conservé ; le bloc
+`agent` rapporte les mêmes comptages sans restituer le flux JSONL. Le champ
+`output_limit_bytes` rappelle la borne dans chaque document. Un flux JSONL de
+l’agent qui dépasse cette borne ne permet pas de confirmer la fin du tour et
+produit `agent_failed`.
+
 ## Ce que fait le lanceur
 
 La configuration [bootstrap/contract.json](bootstrap/contract.json) déclare :
@@ -245,8 +255,8 @@ ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
 [conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
 parcours vertical, puis la
 [configuration et la vérification réutilisables](docs/chantiers/01-configuration-verification/conception.md),
-dont les commandes `verify` et `configure` sont implémentées et dont les
-bornes de taille des sorties restent à faire.
+dont les commandes `verify` et `configure` et les bornes de taille des sorties
+sont implémentées.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

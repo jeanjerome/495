@@ -195,6 +195,7 @@ class ConfigurationTest(unittest.TestCase):
         self.assertIn("n’atteste ni la pertinence", result["limitations"][0])
         self.assertEqual("read-only", result["agent"]["sandbox"]["filesystem"])
         self.assertEqual({"inherited": ["PATH"], "missing": []}, result["environment"])
+        self.assertEqual(4 * 1024 * 1024, result["output_limit_bytes"])
         self.assertTrue(agent.ready_checked)
         invocation = agent.invocations[0]
         self.assertEqual("read-only", invocation["filesystem"])
@@ -475,6 +476,7 @@ class ConfigurationTest(unittest.TestCase):
         self.assertEqual("495.json", result["contract_path"])
         self.assertTrue(result["contract_digest"].startswith("sha256:"))
         self.assertEqual({"name": "codex-sandbox", "version": "fake-runner 1"}, result["runner"])
+        self.assertEqual(4 * 1024 * 1024, result["output_limit_bytes"])
         self.assertEqual(["check"], list(result["commands"]))
         self.assertTrue(result["commands"]["check"].endswith("sh"))
         self.assertEqual([["read-only"]], runner.validated_profiles)

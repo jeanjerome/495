@@ -125,6 +125,11 @@ class CodexSandboxControlRunner:
             if process["exit_code"] == 0 and not process["timed_out"]
             else "FAIL",
             "stderr": process["stderr"],
+            "stderr_bytes": process["stderr_bytes"],
+            "stderr_truncated": process["stderr_truncated"],
             "stdout": process["stdout"],
+            "stdout_bytes": process["stdout_bytes"],
+            "stdout_truncated": process["stdout_truncated"],
             "timed_out": process["timed_out"],
+            "timeout_seconds": check["timeout_seconds"],
         }

@@ -24,7 +24,10 @@ silencieusement.
 
 ## Point de départ
 
-La commande `495` sait actuellement :
+Ce plan part de l’état atteint par le premier parcours vertical. L’[état de
+l’implémentation](../implementation.md) décrit ce qui est disponible depuis ;
+la section ci-dessous n’est pas mise à jour à chaque incrément. À ce point de
+départ, la commande `495` sait :
 
 - recevoir une demande, un dépôt Git propre et un contrat de contrôles ;
 - invoquer Codex CLI avec un environnement filtré ;
@@ -43,10 +46,10 @@ Ce socle couvre une seule intervention entre `implementing` et `verifying`. Il
 ne conduit pas encore le workflow, ne corrige pas un candidat défavorable, ne
 reprend pas un travail interrompu et n’intègre pas le résultat.
 
-Les limites techniques les plus proches sont l’exigence d’un dépôt initial
-propre, le support de Codex uniquement, l’absence de borne propre sur les
-sorties de processus et des garanties de confinement encore vérifiées
-principalement sur macOS.
+Les limites techniques les plus proches de ce point de départ sont l’exigence
+d’un dépôt initial propre, le support de Codex uniquement, l’absence de borne
+propre sur les sorties de processus et des garanties de confinement encore
+vérifiées principalement sur macOS. Le premier incrément lève la troisième.
 
 ## Cible fonctionnelle
 

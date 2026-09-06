@@ -10,7 +10,8 @@ from harness495.contract import AGENT_RESPONSE_SCHEMA, load_contract
 from harness495.controls import ControlRunner
 from harness495.environment import prepared_environment
 from harness495.serialization import sha256_bytes
-from harness495.verification import run_checks, validate_controls
+from harness495.process import OUTPUT_LIMIT_BYTES
+from harness495.verification import run_checks, runner_report, validate_controls
 from harness495.workspace import (
     observe_candidate,
     repository_root,
@@ -60,6 +61,9 @@ def run_change(
             repository=repository,
             environment=environment,
         )
+        runner = runner_report(
+            control_runner, repository=repository, environment=environment
+        )
         validate_controls(
             repository=repository,
             contract=contract,
@@ -89,8 +93,10 @@ def run_change(
             "head": head,
             "limitations": [],
             "outcome": "agent_failed",
+            "output_limit_bytes": OUTPUT_LIMIT_BYTES,
             "reference": "HEAD",
             "request_digest": request_digest,
+            "runner": runner,
             "version": 1,
             "violations": [],
         }

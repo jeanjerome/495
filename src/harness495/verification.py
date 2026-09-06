@@ -11,6 +11,7 @@ from harness495.contract import load_contract
 from harness495.controls import ControlRunner
 from harness495.environment import prepared_environment
 from harness495.errors import ChangeError
+from harness495.process import OUTPUT_LIMIT_BYTES
 from harness495.workspace import observe_candidate, repository_root, resolve_baseline
 
 
@@ -46,6 +47,17 @@ def resolve_commands(
             check["command"], repository=repository, environment=environment
         )
         for check in contract["checks"]
+    }
+
+
+def runner_report(
+    control_runner: ControlRunner, *, repository: Path, environment: dict[str, str]
+) -> dict[str, str]:
+    """Identifie le runtime des contrôles ; seule l’adaptation `codex sandbox` existe."""
+
+    return {
+        "name": "codex-sandbox",
+        "version": control_runner.version(repository=repository, environment=environment),
     }
 
 
@@ -145,6 +157,9 @@ def verify_candidate(
     with prepared_environment(
         contract["environment"], repository=repository, fixed={}
     ) as prepared:
+        runner = runner_report(
+            control_runner, repository=repository, environment=prepared.variables
+        )
         validate_controls(
             repository=repository,
             contract=contract,
@@ -162,7 +177,9 @@ def verify_candidate(
             "head": head,
             "limitations": [],
             "outcome": "no_candidate",
+            "output_limit_bytes": OUTPUT_LIMIT_BYTES,
             "reference": reference,
+            "runner": runner,
             "version": 1,
             "violations": [],
         }

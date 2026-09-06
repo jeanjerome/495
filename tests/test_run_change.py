@@ -138,6 +138,11 @@ if sys.argv[1] == "exec":
         print("not json")
         raise SystemExit(0)
     print(json.dumps({"type": "thread.started", "thread_id": "test"}))
+    if mode == "huge_events":
+        # Flux JSONL plus volumineux que la borne conservée par 495.
+        filler = json.dumps({"type": "item.completed", "item": {"text": "f" * 65536}})
+        for _ in range(4 * 1024 * 1024 // len(filler) + 2):
+            print(filler)
     print(json.dumps({
         "type": "item.completed",
         "item": {"type": "command_execution", "exit_code": 0},
@@ -256,7 +261,14 @@ class ChangeRunnerTest(unittest.TestCase):
         self.assertEqual([], result["limitations"])
         self.assertEqual(["result.txt"], [item["path"] for item in result["candidate"]["files"]])
         self.assertEqual("PASS", result["checks"][0]["status"])
+        self.assertEqual(3, result["checks"][0]["timeout_seconds"])
         self.assertTrue(result["contract_digest"].startswith("sha256:"))
+        self.assertEqual({"name": "codex-sandbox", "version": "codex-cli test"}, result["runner"])
+        self.assertEqual(4 * 1024 * 1024, result["output_limit_bytes"])
+        self.assertNotIn("stdout", result["agent"])
+        self.assertGreater(result["agent"]["stdout_bytes"], 0)
+        self.assertFalse(result["agent"]["stdout_truncated"])
+        self.assertFalse(result["agent"]["stderr_truncated"])
         self.assertEqual(1, result["agent"]["events"]["command_count"])
         self.assertEqual(
             {"input_tokens": 10, "output_tokens": 4},
@@ -308,6 +320,42 @@ class ChangeRunnerTest(unittest.TestCase):
         self.assertTrue(
             any("flux d’événements" in violation for violation in result["violations"])
         )
+
+    def test_truncated_event_stream_is_an_agent_failure(self) -> None:
+        result, exit_code = self.run_scenario("huge_events", agent_timeout=60)
+
+        self.assertEqual(3, exit_code)
+        self.assertEqual("agent_failed", result["outcome"])
+        self.assertTrue(result["agent"]["stdout_truncated"])
+        self.assertGreater(result["agent"]["stdout_bytes"], result["output_limit_bytes"])
+        self.assertIn("flux JSONL tronqué", result["agent"]["events_error"])
+        self.assertIsNone(result["agent"]["events"])
+        self.assertIn("flux d’événements du client invalide", result["violations"])
+        self.assertIsNotNone(result["candidate"])
+        self.assertEqual([], result["checks"])
+
+    def test_verbose_control_output_is_truncated_without_changing_the_verdict(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(b'v' * (4 * 1024 * 1024 + 1)); "
+            "sys.stderr.buffer.write(b'w' * 10)",
+        ]
+        self.contract["checks"][0]["timeout_seconds"] = 60
+        self.update_committed_contract()
+
+        result, exit_code = self.run_scenario()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual("candidate_verified", result["outcome"])
+        check = result["checks"][0]
+        self.assertEqual("PASS", check["status"])
+        self.assertTrue(check["stdout_truncated"])
+        self.assertEqual(4 * 1024 * 1024 + 1, check["stdout_bytes"])
+        self.assertEqual(4 * 1024 * 1024, len(check["stdout"]))
+        self.assertFalse(check["stderr_truncated"])
+        self.assertEqual("w" * 10, check["stderr"])
+        self.assertEqual(10, check["stderr_bytes"])
 
     def test_agent_timeout_kills_the_invocation(self) -> None:
         result, exit_code = self.run_scenario("timeout", agent_timeout=1)

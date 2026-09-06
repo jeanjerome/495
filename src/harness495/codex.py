@@ -13,7 +13,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 
 from harness495.contract import FILESYSTEM_PROFILES
 from harness495.errors import ChangeError
-from harness495.process import execute_process
+from harness495.process import OUTPUT_LIMIT_BYTES, execute_process
 from harness495.serialization import canonical_bytes, load_json
 
 
@@ -223,10 +223,18 @@ class CodexAgentClient:
         )
         event_summary: dict[str, Any] | None = None
         event_error: ChangeError | None = None
-        try:
-            event_summary = parse_events(process["stdout"])
-        except ChangeError as error:
-            event_error = error
+        if process["stdout_truncated"]:
+            # Un flux tronqué ne permet pas de confirmer la fin du tour.
+            event_error = ChangeError(
+                "agent_events",
+                f"flux JSONL tronqué : {process['stdout_bytes']} octets émis pour "
+                f"une borne de {OUTPUT_LIMIT_BYTES}",
+            )
+        else:
+            try:
+                event_summary = parse_events(process["stdout"])
+            except ChangeError as error:
+                event_error = error
 
         response: dict[str, Any] | None = None
         response_error: ChangeError | None = None
@@ -246,8 +254,6 @@ class CodexAgentClient:
             "limitations": [
                 "la politique de lecture et les sources de contexte dépendent "
                 "de la version de Codex",
-                "les sorties des processus ne possèdent pas encore de limite de taille "
-                "distincte du timeout",
             ],
             "response": response,
             "response_error": str(response_error) if response_error else None,
@@ -256,5 +262,9 @@ class CodexAgentClient:
                 "network_for_commands": "disabled",
             },
             "stderr": process["stderr"],
+            "stderr_bytes": process["stderr_bytes"],
+            "stderr_truncated": process["stderr_truncated"],
+            "stdout_bytes": process["stdout_bytes"],
+            "stdout_truncated": process["stdout_truncated"],
             "timed_out": process["timed_out"],
         }

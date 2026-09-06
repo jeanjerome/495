@@ -167,9 +167,15 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual("read-only", result["checks"][0]["sandbox"]["filesystem"])
         self.assertEqual([], result["violations"])
         self.assertEqual([], result["limitations"])
+        self.assertEqual({"name": "codex-sandbox", "version": "codex-cli test"}, result["runner"])
+        self.assertEqual(4 * 1024 * 1024, result["output_limit_bytes"])
+        self.assertFalse(result["checks"][0]["stdout_truncated"])
+        self.assertFalse(result["checks"][0]["stderr_truncated"])
+        self.assertEqual(0, result["checks"][0]["stdout_bytes"])
+        self.assertEqual(5, result["checks"][0]["timeout_seconds"])
         invocations = self.codex_invocations()
-        self.assertTrue(invocations)
-        self.assertTrue(all(call[0] == "sandbox" for call in invocations), invocations)
+        self.assertEqual(["--version"], invocations[0])
+        self.assertTrue(all(call[0] == "sandbox" for call in invocations[1:]), invocations)
         self.assertNotIn(["login", "status"], invocations)
 
     def test_verify_defaults_to_the_current_directory_and_its_contract(self) -> None:
@@ -210,9 +216,10 @@ class CommandLineTest(unittest.TestCase):
         self.assertIn(self.head(), result["limitations"][0])
         self.assertIn("HEAD~1", result["limitations"][0])
         invocations = self.codex_invocations()
-        self.assertTrue(invocations)
+        self.assertEqual(["--version"], invocations[0])
+        self.assertTrue(invocations[1:])
         self.assertTrue(
-            all(call[0] == "sandbox" and call[-2:] == ["-c", "pass"] for call in invocations),
+            all(call[0] == "sandbox" and call[-2:] == ["-c", "pass"] for call in invocations[1:]),
             invocations,
         )
 
@@ -294,7 +301,9 @@ class CommandLineTest(unittest.TestCase):
         result = self.single_document(completed)
         self.assertEqual("execution_impossible", result["outcome"])
         self.assertIn("sandbox read-only indisponible", result["error"]["message"])
-        self.assertEqual(1, len(self.codex_invocations()))
+        self.assertEqual(
+            ["--version", "sandbox"], [call[0] for call in self.codex_invocations()]
+        )
 
     def test_missing_codex_makes_execution_impossible(self) -> None:
         self.add_candidate()
@@ -620,7 +629,7 @@ class CommandLineTest(unittest.TestCase):
         result = self.single_document(completed)
         self.assertEqual("execution_impossible", result["outcome"])
         self.assertIn("exécutable de contrôle introuvable", result["error"]["message"])
-        self.assertEqual([], self.codex_invocations())
+        self.assertEqual([["--version"]], self.codex_invocations())
 
     def test_configure_write_records_a_proposal_reused_by_validate_and_verify(self) -> None:
         self.add_check_script()

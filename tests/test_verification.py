@@ -164,6 +164,8 @@ class VerificationTest(unittest.TestCase):
         self.assertEqual([], result["limitations"])
         self.assertNotIn("candidate_after_checks", result)
         self.assertTrue(result["contract_digest"].startswith("sha256:"))
+        self.assertEqual({"name": "codex-sandbox", "version": "fake-runner 1"}, result["runner"])
+        self.assertEqual(4 * 1024 * 1024, result["output_limit_bytes"])
         self.assertEqual({"inherited": ["PATH"], "missing": []}, result["environment"])
         environment = runner.environments[0]
         self.assertNotIn("CODEX_HOME", environment)

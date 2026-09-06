@@ -17,7 +17,8 @@ from harness495.controls import ControlRunner
 from harness495.environment import prepared_environment
 from harness495.errors import ChangeError, ConfigurationError
 from harness495.serialization import canonical_bytes, load_json, sha256_bytes
-from harness495.verification import resolve_commands, validate_controls
+from harness495.process import OUTPUT_LIMIT_BYTES
+from harness495.verification import resolve_commands, runner_report, validate_controls
 from harness495.workspace import observe_candidate, repository_root, resolve_baseline
 
 
@@ -193,6 +194,7 @@ def propose_configuration(
             "evidence": {},
             "limitations": [PROPOSAL_REMINDER],
             "outcome": "agent_failed",
+            "output_limit_bytes": OUTPUT_LIMIT_BYTES,
             "questions": [],
             "version": 1,
             "violations": [],
@@ -258,8 +260,8 @@ def _validated_document(
     with prepared_environment(
         contract["environment"], repository=repository, fixed={}
     ) as prepared:
-        runner_version = control_runner.version(
-            repository=repository, environment=prepared.variables
+        runner = runner_report(
+            control_runner, repository=repository, environment=prepared.variables
         )
         commands = validate_controls(
             repository=repository,
@@ -274,7 +276,8 @@ def _validated_document(
             "contract_path": _relative_contract_path(contract_path, repository),
             "environment": prepared.report,
             "limitations": [],
-            "runner": {"name": "codex-sandbox", "version": runner_version},
+            "output_limit_bytes": OUTPUT_LIMIT_BYTES,
+            "runner": runner,
             "version": 1,
         }
 

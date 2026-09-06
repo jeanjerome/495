@@ -11,7 +11,7 @@
 | `docs/etat-de-l-art.md` | Ajouté | Comparaison durable des clients, harnais et runtimes examinés |
 | `docs/chantiers/00-parcours-vertical/etat-de-l-art.md` | Ajouté | Étude ciblée et essais du premier parcours vertical |
 | `docs/chantiers/00-parcours-vertical/conception.md` | Ajouté | Choix d’intégration appliqués au premier parcours vertical |
-| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; ses commandes `verify` et `configure` sont implémentées, les bornes de taille des sorties ne le sont pas |
+| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de la configuration et de la vérification réutilisables ; ses commandes `verify` et `configure` et ses bornes de sortie sont implémentées |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -95,11 +95,13 @@ suggère une référence antérieure comme `HEAD~1`. Sinon, chaque contrôle est
 exécuté une fois dans l’ordre déclaré, le candidat est observé de nouveau après
 chacun et une modification de l’état Git visible interrompt la suite avec une
 violation. Le document restitué porte `command`, `reference`, `baseline`,
-`head`, `contract_digest`, `environment`, `candidate`, `checks`, `violations` et
-`limitations`. Cette opération n’a besoin ni d’un `CODEX_HOME` utilisateur ni
-d’une authentification : le runner reçoit un `CODEX_HOME` jetable sous le
-`HOME` temporaire et `codex login status` n’est jamais appelé. Le binaire
-`codex` reste requis pour les profils sandbox.
+`head`, `contract_digest`, `environment`, `runner`, `output_limit_bytes`,
+`candidate`, `checks`, `violations` et `limitations`. `runner` nomme
+l’adaptation `codex-sandbox` et la sortie de `codex --version`, obtenue avant
+les préconditions des contrôles. Cette opération n’a besoin ni d’un
+`CODEX_HOME` utilisateur ni d’une authentification : le runner reçoit un
+`CODEX_HOME` jetable sous le `HOME` temporaire et `codex login status` n’est
+jamais appelé. Le binaire `codex` reste requis pour les profils sandbox.
 
 La résolution des exécutables, `verification.validate_controls`, est
 appliquée par `verify`, par `change` avant l’intervention de l’agent et par
@@ -141,7 +143,8 @@ est rapportée comme violation. Le document restitué porte `baseline`,
 exactement lorsque l’issue n’est pas `proposal_ready` ; `evidence` associe
 chaque nom de contrôle à la chaîne fournie par l’agent ; `commands` associe
 chaque nom à l’exécutable résolu, ou à `null` lorsqu’il est introuvable, à
-titre d’information. `limitations` rappelle toujours que la proposition
+titre d’information ; `output_limit_bytes` rappelle la borne appliquée aux
+flux du client. `limitations` rappelle toujours que la proposition
 n’atteste ni la pertinence ni l’exécutabilité des contrôles. Un client expiré,
 non nul, un flux JSONL invalide, une réponse non conforme, une réponse
 `blocked`, un dépôt modifié pendant l’inspection ou une proposition qui viole
@@ -165,7 +168,8 @@ avec `--overwrite`, le contenu est écrit dans un fichier temporaire du même
 répertoire puis renommé atomiquement. Les deux opérations restituent
 `contract_path`, relatif à la racine du dépôt, `contract_digest`,
 `environment`, `runner`, avec le nom du runner et la sortie de
-`codex --version`, et `commands`, sans valeur `null` ; `write` ajoute
+`codex --version`, `output_limit_bytes` et `commands`, sans valeur `null` ;
+`write` ajoute
 `overwritten`, vrai seulement lorsqu’un fichier a été remplacé sur demande.
 Aucun commit n’est créé.
 
@@ -285,14 +289,15 @@ digest incorpore le commit initial, le patch suivi et le contenu non suivi.
 Les contrôles sont exécutés par la même opération que la vérification sans
 agent, de sorte qu’un candidat produit par l’agent et un candidat déjà présent
 reçoivent le même verdict et les mêmes diagnostics. Ils sont séquentiels. Leur
-code, leur durée, leur timeout et leurs sorties sont restitués. Si un contrôle modifie l’état Git visible, 495 arrête la
-suite, conserve les fichiers et signale une violation au lieu de vérifier un
-candidat différent de celui qu’il avait observé.
+code, leur durée, leur timeout, leur profil sandbox et leurs sorties sont
+restitués. Si un contrôle modifie l’état Git visible, 495 arrête la suite,
+conserve les fichiers et signale une violation au lieu de vérifier un candidat
+différent de celui qu’il avait observé.
 
 Le document de `change` porte en outre `command`, `reference`, toujours
-`HEAD`, `head` et `limitations`. Les issues sont `candidate_verified`,
-`candidate_failed`, `agent_failed`, `execution_impossible` et
-`configuration_invalid`. Un client non nul, bloqué ou expiré, un flux JSONL
+`HEAD`, `head`, `runner`, `output_limit_bytes` et `limitations`. Les issues
+sont `candidate_verified`, `candidate_failed`, `agent_failed`,
+`execution_impossible` et `configuration_invalid`. Un client non nul, bloqué ou expiré, un flux JSONL
 incomplet, une réponse invalide et une absence de candidat sont distingués des
 échecs des contrôles.
 
@@ -302,6 +307,26 @@ favorable, l’absence de `CODEX_HOME` dans les commandes de l’agent et le ref
 réseau de l’agent comme des contrôles. Les tests automatisés couvrent en plus
 les issues défavorables sans consommer de quota.
 
+## Bornes des sorties
+
+`process.execute_process` capture chaque flux d’un processus enfant dans un
+lecteur dédié qui conserve ses premiers `4 194 304` octets, constante unique
+`OUTPUT_LIMIT_BYTES`, et continue de vider le flux jusqu’à sa fermeture en
+comptant les octets écartés. Le processus n’est donc jamais bloqué sur un tube
+plein, et la terminaison du groupe de processus après timeout reste inchangée.
+Le préfixe est décodé en UTF-8 après suppression d’une éventuelle séquence
+multi-octets coupée à la borne, avec remplacement des octets invalides
+restants ; aucun marqueur n’est inséré dans le texte.
+
+Chaque contrôle rapporte `stdout`, `stderr`, `stdout_bytes`, `stderr_bytes`,
+`stdout_truncated` et `stderr_truncated`. Le bloc `agent` rapporte les quatre
+champs de comptage et de troncature ainsi que `stderr`, mais ne restitue pas le
+texte du flux JSONL. Un flux JSONL tronqué ne permet pas de confirmer la fin du
+tour : il est rapporté dans `events_error` et produit `agent_failed`, le
+candidat restant inspectable. Les documents de `verify`, `change` et des trois
+opérations de `configure` portent `output_limit_bytes` ; la borne n’est pas
+configurable et n’apparaît pas dans le document d’exécution impossible.
+
 ## Comportements absents
 
 Le projet ne fournit pas encore de passage par les états du workflow complet,
@@ -309,14 +334,21 @@ de boucle de correction, de stockage applicatif, de reprise, de mécanisme
 d’approbation ni d’intégration Git. Le premier incrément ne prend en charge que
 Codex CLI, un dépôt initial propre et une seule intervention.
 
-La [conception de l’incrément en cours](chantiers/01-configuration-verification/conception.md)
-est disponible pour ses commandes `verify`, `configure` et `change`. Les
-bornes de taille des sorties ne sont pas implémentées : le champ
-`output_limit_bytes` et les champs de troncature sont absents des documents,
-et le champ `runner` n’apparaît que dans les documents de `configure validate`
-et `configure write`. `495 verify` a été exécuté sur cette machine avec Codex
-CLI `0.153.3`, sans `CODEX_HOME`, sur un dépôt dont l’unique contrôle est un
-script shell : il a restitué `no_candidate` sur l’arbre propre,
+La [conception de la configuration et de la vérification réutilisables](chantiers/01-configuration-verification/conception.md)
+est implémentée pour ses commandes `verify`, `configure` et `change` et pour
+ses bornes de sortie. Les essais réels ci-dessous ont été menés avant l’ajout
+des bornes et des champs `runner` et `output_limit_bytes`. Un essai local
+ultérieur, avec Codex CLI `0.153.3`, sans `CODEX_HOME` ni réseau, sur un dépôt
+shell dont l’unique contrôle émet 4 300 001 octets, a restitué
+`configuration_valid` puis `no_candidate` avec `runner` à `codex-cli 0.153.3`,
+puis `candidate_failed` et `candidate_verified` avec `stdout_bytes` à
+4 300 001, `stdout_truncated` vrai et un texte conservé de 4 194 304
+caractères ; le dépôt est resté intact. Le parcours `change` n’a pas fait
+l’objet d’un nouvel essai réel depuis l’ajout des bornes : ses champs sont
+couverts par les tests avec le double de Codex. `495 verify` a été exécuté sur
+cette machine avec Codex CLI `0.153.3`, sans `CODEX_HOME`, sur un dépôt dont
+l’unique contrôle est un script shell : il a restitué `no_candidate` sur
+l’arbre propre,
 `candidate_verified` après l’ajout du fichier attendu et `candidate_failed`
 après une modification du script. Sur un dépôt du même type, une proposition
 écrite à la main a ensuite été enregistrée par `configure write`, refusée une
@@ -357,8 +389,11 @@ effectivement possibles. Les diagnostics des outils peuvent contenir des
 informations sensibles et sont remis localement sans persistance automatique.
 Codex peut néanmoins écrire ses caches et fichiers d’état propres dans le
 `CODEX_HOME` dédié, que 495 ne supprime pas lorsqu’il appartient à l’utilisateur.
-Les sorties des processus sont bornées par leur timeout, mais pas encore par une
-taille maximale indépendante.
+La troncature des sorties conserve un préfixe et non la fin d’une sortie. Un
+contrôle dont le contrat laisse `timeout_seconds` à `null` n’est pas borné en
+durée ; seule sa sortie retenue l’est. Un processus qui échappe au groupe de
+processus de son contrôle et garde un tube ouvert retarde la fin de la capture
+jusqu’à la fermeture de ce tube.
 
 ## Règle d’évolution
 
