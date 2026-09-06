@@ -108,17 +108,23 @@ la licence, la maintenance, les plateformes, la stabilité de l’interface et l
 coût d’exploitation. La décision indique brièvement ce qui est configuré,
 composé, adapté ou développé dans 495.
 
-La prochaine implémentation doit suivre les
-[parcours utilisateur](parcours-utilisateur.md) et faire traverser à un
-changement simple le workflow de `clarifying` à `integrated`. Ce parcours part
-d’un besoin exprimé par l’utilisateur et fait intervenir un agent réel dès la
-clarification. Chaque intervention construit un contexte ciblé, confine l’agent
-et ses processus enfants, puis valide le résultat JSON attendu. Les premières
-décisions peuvent rester légères et les outils existants peuvent assurer
-l’intégration. La CLI est la première interface ; ses opérations devront rester
-réutilisables par une future TUI ou interface web. Les modèles, adaptateurs et
-choix de persistance seront dérivés de ce comportement. Une dépendance tierce
-peut être adoptée si elle simplifie concrètement cette fonctionnalité.
+La prochaine implémentation doit réaliser le
+[premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical).
+Elle reçoit une demande visant un dépôt local propre, invoque un véritable
+client d’agent, identifie le candidat obtenu, exécute les contrôles déclarés par
+l’application cible et restitue leurs résultats. Elle ne prétend pas encore
+faire traverser au changement les états et gates du workflow complet.
+
+Cette intégration construit un contexte ciblé, utilise des environnements
+d’exécution dont les permissions sont explicites et valide le résultat JSON
+attendu. Le confinement de l’agent peut être celui du client retenu si ses
+propriétés observables satisfont le besoin. Les contrôles qui exécutent le
+candidat doivent bénéficier de garanties équivalentes, sans supposer qu’ils
+sont couverts par la sandbox du client. 495 n’ajoute pas une couche redondante
+lorsque l’environnement retenu couvre déjà le processus concerné. La CLI est la
+première interface. Les modèles, adaptateurs et choix de persistance seront
+dérivés de ce comportement plutôt que définis au préalable. Une dépendance
+tierce peut être adoptée si elle simplifie concrètement cette fonctionnalité.
 
 La [reprise de CodeServo](reprise-de-codeservo.md) guide l’implémentation de
 `implementing` et `verifying`. Elle autorise la réutilisation ciblée de son

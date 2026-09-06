@@ -241,6 +241,132 @@ L’utilisateur peut aussi être relecteur. Un agent peut effectuer une revue ou
 proposer une décision, mais il ne peut pas déclarer seul satisfaite une
 exigence dont il est également l’unique source de preuve.
 
+## Premier incrément vertical
+
+Cette section spécifie la prochaine capacité à implémenter. Elle ne décrit pas
+un comportement actuellement disponible et ne suppose pas que 495 exécute déjà
+les états ou les gates du workflow de référence.
+
+### Résultat recherché
+
+Depuis un dépôt applicatif local, un utilisateur confie une demande de
+modification à 495. Le harnais invoque un véritable client d’agent de code,
+identifie le candidat produit, exécute les contrôles déclarés par l’application
+cible et restitue un résultat qui relie la demande, le candidat et les
+observations.
+
+Ce premier parcours rend observable une chaîne complète
+`demande → agent → candidat → contrôles → résultat`. Il ne cherche pas encore à
+automatiser la clarification, la conception, la correction ou l’intégration.
+
+### Préconditions
+
+- l’application cible est un dépôt Git local dont l’état initial est propre ;
+- un client d’agent pris en charge est installé, configuré et authentifié ;
+- au moins une commande de contrôle est déclarée par l’application cible ;
+- l’utilisateur a autorisé les modifications locales demandées ;
+- les permissions nécessaires à l’agent et aux contrôles peuvent être exprimées
+  et appliquées par leurs environnements d’exécution.
+
+Un prérequis absent produit un diagnostic avant l’invocation de l’agent. 495 ne
+modifie pas silencieusement le dépôt pour fabriquer ces préconditions.
+
+### Parcours exact
+
+1. L’utilisateur fournit la demande et désigne le dépôt cible.
+2. 495 vérifie les préconditions, relève l’identité de l’état initial et
+   indique le client, les permissions et les contrôles qui seront utilisés.
+3. 495 construit l’entrée de l’agent à partir de la demande, des instructions
+   applicables au dépôt et des seules informations nécessaires à cette
+   intervention.
+4. 495 invoque le client réel dans une sandbox avec les permissions annoncées.
+   Le confinement de cette intervention peut être délégué au client si son
+   comportement satisfait la politique attendue.
+5. Le client peut modifier le dépôt. Sa réponse destinée à 495 est validée par
+   un JSON Schema minimal qui porte seulement le statut, le résumé et les
+   éventuelles questions ou limites que le harnais doit interpréter.
+6. 495 observe le dépôt après l’intervention et identifie le candidat par
+   rapport à l’état initial. L’identité du candidat ne repose pas sur la seule
+   déclaration de l’agent.
+7. Si un candidat existe, 495 exécute une fois chaque contrôle configuré sur ce
+   candidat, dans un environnement appliquant les permissions annoncées, et
+   recueille son code de sortie, sa durée, son éventuel timeout et ses
+   diagnostics utiles. La sandbox du client ne couvre cette exécution que si
+   les contrôles sont effectivement lancés sous la même garantie.
+8. 495 restitue l’issue, l’identité du candidat, les fichiers modifiés, la
+   réponse structurée de l’agent, les contrôles exécutés et les limites du
+   résultat. Il laisse le candidat localement inspectable.
+
+### Issues observables
+
+- **Candidat vérifié** : un candidat identifiable existe et tous les contrôles
+  configurés réussissent.
+- **Candidat en échec** : le candidat reste inspectable et chaque contrôle
+  défavorable fournit son diagnostic ; 495 ne présente pas cet état comme une
+  réussite.
+- **Échec de l’agent** : l’absence de candidat, l’échec du client ou une réponse
+  JSON invalide est distingué d’un échec des contrôles applicatifs.
+- **Exécution impossible** : une précondition, une permission ou une capacité
+  manque ; aucun résultat ambigu n’est produit.
+
+Le premier incrément effectue une seule intervention d’agent. En cas d’échec,
+il fournit les éléments nécessaires à une correction, mais ne relance pas
+encore automatiquement l’agent.
+
+### Répartition des responsabilités
+
+495 construit l’entrée, invoque le client, observe le candidat, déclenche les
+contrôles et compose le résultat. Il reste responsable de vérifier qu’une
+politique de confinement s’applique à chaque processus qu’il déclenche, sans
+nécessairement implémenter lui-même cette politique. Le client d’agent gère
+l’accès au modèle, ses outils et, lorsque ses garanties conviennent, le
+confinement de son exécution. L’application cible reste l’autorité sur ses
+instructions, ses langages, ses dépendances et ses commandes de contrôle.
+
+### Critères d’acceptation
+
+Le parcours est accepté lorsqu’une démonstration de bout en bout établit que :
+
+1. une demande réelle est transmise à un client d’agent pris en charge ;
+2. le contexte transmis exclut les informations sans rapport identifiées par
+   le scénario de démonstration ;
+3. les permissions effectives de l’agent et des contrôles correspondent à
+   celles annoncées ;
+4. une réponse conforme au schéma est acceptée et une réponse non conforme
+   produit un échec explicite ;
+5. les modifications observées sont reliées à l’état initial du dépôt sans se
+   fier au résumé de l’agent ;
+6. les commandes du projet cible sont exécutées sur ce candidat, quel que soit
+   le langage employé par ce projet ;
+7. un contrôle favorable et un contrôle défavorable donnent les deux issues
+   attendues avec leurs diagnostics ;
+8. un timeout ou un échec du client ne peut pas être confondu avec un candidat
+   vérifié ;
+9. aucun commit, publication ou autre effet externe n’est effectué sans une
+   demande distincte.
+
+Les tests automatisés peuvent remplacer le client par un double pour provoquer
+les erreurs difficiles à reproduire, mais l’acceptation du parcours exige aussi
+au moins une exécution de bout en bout avec le véritable client retenu.
+
+### Hors périmètre
+
+Cet incrément ne comprend pas encore :
+
+- l’exécution automatique de `clarifying`, `specifying`, `designing` ou de
+  leurs gates ;
+- une boucle automatique de correction à partir du feedback ;
+- plusieurs clients, plusieurs agents ou une abstraction générale de leurs
+  capacités ;
+- la découverte automatique des contrôles de l’application cible ;
+- la prise en charge d’un dépôt initialement modifié ou la reprise d’une
+  exécution interrompue ;
+- la revue, l’acceptation, le commit, l’intégration ou la publication du
+  candidat ;
+- une sandbox construite par 495 lorsque les environnements retenus couvrent
+  déjà l’agent et les contrôles avec les propriétés requises ;
+- une TUI, une interface web, une intégration CI ou un historique persistant.
+
 ## Parcours principal : apporter un changement
 
 **Situation.** L’utilisateur veut obtenir un changement dans sa base de code,

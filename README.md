@@ -45,11 +45,14 @@ frameworks et chaînes d’outils. Elles conservent leurs propres conventions et
 leur architecture ; 495 orchestre les agents et les commandes qu’elles exposent
 sans leur imposer les choix techniques de son implémentation interne.
 
-La prochaine fonctionnalité partira des
-[parcours utilisateur](docs/parcours-utilisateur.md) avant de définir son
-modèle de domaine ou son architecture. Toute décision significative sur
-l’implémentation de 495 commence par examiner les harnais d’agents de code et
-composants open source qui fournissent déjà le comportement recherché.
+La prochaine fonctionnalité est le
+[premier incrément vertical](docs/parcours-utilisateur.md#premier-incrément-vertical) :
+recevoir une demande visant un dépôt local, invoquer un véritable client
+d’agent, identifier le candidat produit, exécuter les contrôles de l’application
+cible et restituer le résultat. Elle ne met pas encore en œuvre les états et
+gates du workflow complet. Avant de choisir son architecture ou un composant,
+l’implémentation de 495 examine les harnais d’agents de code et composants open
+source qui fournissent déjà le comportement recherché.
 
 ## Utilisation
 

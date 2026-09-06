@@ -34,6 +34,22 @@ Préserve les modifications utilisateur sans rapport avec la demande. N’ajoute
 pas de mécanisme destiné à un usage hypothétique : pars d’un parcours
 utilisateur observable et introduis seulement les abstractions qu’il exige.
 
+## Amorçage et dogfooding
+
+Le workflow décrit pour 495 est une cible du produit. Tant qu’un comportement
+n’est pas implémenté, ne présente pas ses états, ses contrôles ou ses portes
+comme des opérations réellement exécutées par 495 et ne prétends pas utiliser
+495 pour construire 495.
+
+L’implémentation initiale suit le travail ordinaire du dépôt : échanges avec
+l’utilisateur, modifications versionnées et contrôles disponibles. Le
+vocabulaire du workflow cible peut aider à structurer ou vérifier ce travail,
+mais son emploi documentaire ne constitue pas une exécution de 495.
+
+495 peut être utilisé sur son propre dépôt seulement lorsqu’un parcours
+vertical fonctionnel le permet. Ce dogfooding doit être explicite et ne
+constitue pas une condition préalable à l’amorçage du produit.
+
 ## Dépendances
 
 `uv` est l’unique gestionnaire du projet et des dépendances Python. Déclare les
@@ -43,7 +59,7 @@ fichier `requirements.txt` ou de configuration propre à un autre gestionnaire.
 
 Les dépendances tierces sont autorisées lorsqu’elles apportent une valeur
 concrète. Évalue leur maintenance, leur licence et leur coût d’exploitation.
-Le lockfile est versionné pour rendre l’environnement de l’application
+Le lockfile est versionné pour rendre l’environnement de 495
 reproductible.
 
 L’absence de dépendance n’est pas un objectif en soi.
