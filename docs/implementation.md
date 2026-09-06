@@ -7,6 +7,7 @@
 | `README.md` | Conservé et raccourci | Point d’entrée pour comprendre et utiliser le dépôt |
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
+| `docs/etat-de-l-art.md` | Ajouté | Solutions existantes pertinentes pour le premier incrément |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -107,6 +108,10 @@ des tests, des garanties documentées et des limites connues. Elle compare aussi
 la licence, la maintenance, les plateformes, la stabilité de l’interface et le
 coût d’exploitation. La décision indique brièvement ce qui est configuré,
 composé, adapté ou développé dans 495.
+
+L’[état de l’art du premier incrément](etat-de-l-art.md) remplit cette exigence
+pour l’orientation actuelle. Toute propriété encore incertaine doit être
+confirmée par un essai sur les versions réellement intégrées.
 
 La prochaine implémentation doit réaliser le
 [premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical).

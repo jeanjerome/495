@@ -108,6 +108,8 @@ Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
 quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
 Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
 visés et les responsabilités laissées aux outils existants.
+L’[état de l’art](docs/etat-de-l-art.md) compare les clients, harnais et
+runtimes pertinents pour le premier incrément.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le
