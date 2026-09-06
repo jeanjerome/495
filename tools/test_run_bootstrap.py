@@ -1,29 +1,24 @@
 from __future__ import annotations
 
-import copy
 import contextlib
+import copy
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parent
-REPOSITORY = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
 
 import run_bootstrap  # noqa: E402
 
 
 class BootstrapRunnerTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.contract = json.loads(
-            (REPOSITORY / "bootstrap/contract.json").read_text(encoding="utf-8")
-        )
-
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -32,113 +27,112 @@ class BootstrapRunnerTest(unittest.TestCase):
         run_bootstrap.ROOT = self.root
         self.addCleanup(setattr, run_bootstrap, "ROOT", previous_root)
 
-        directories = {
-            "bootstrap",
-            "docs",
-            *self.contract["candidate"]["roots"],
+        (self.root / "bootstrap").mkdir()
+        (self.root / "tools").mkdir()
+        (self.root / "tools/check.py").write_text("value = 1\n", encoding="utf-8")
+        self.contract = {
+            "checks": [
+                {
+                    "command": ["{python}", "-c", "raise SystemExit(0)"],
+                    "name": "tests",
+                    "timeout_seconds": 5,
+                }
+            ],
+            "files": ["bootstrap/contract.json", "tools/*.py"],
+            "report_directory": ".495/runs",
+            "version": 1,
         }
-        for check in self.contract["checks"]:
-            arguments = check["argv"]
-            directories.add(arguments[arguments.index("-s") + 1])
-        for path in sorted(directories):
-            (self.root / path).mkdir(parents=True, exist_ok=True)
-        for path in (
-            "src/domain/__init__.py",
-            "tests/__init__.py",
-        ):
-            (self.root / path).write_text("", encoding="utf-8")
-        for check in self.contract["checks"]:
-            arguments = check["argv"]
-            start = self.root / arguments[arguments.index("-s") + 1]
-            (start / "__init__.py").write_text("", encoding="utf-8")
-
         self.contract_path = self.root / "bootstrap/contract.json"
-        self.contract_raw = run_bootstrap.canonical_bytes(self.contract)
-        self.contract_path.write_bytes(self.contract_raw)
-        self.contract_digest = run_bootstrap.sha256_bytes(self.contract_raw)
+        self.write_contract()
 
-    def authorize(self) -> None:
-        work_document = self.root / self.contract["work_document"]
-        work_document.parent.mkdir(parents=True, exist_ok=True)
-        work_document.write_text(
-            "AUTORISÉ — contrat "
-            f"{self.contract_digest} — test-local — 2026-09-06\n",
-            encoding="utf-8",
-        )
+    def write_contract(self) -> None:
+        self.contract_path.write_bytes(run_bootstrap.canonical_bytes(self.contract))
 
-    def add_passing_tests(self) -> None:
-        for check in self.contract["checks"]:
-            arguments = check["argv"]
-            start = self.root / arguments[arguments.index("-s") + 1]
-            coverage = (
-                "        print('COVERAGE sample 1/1', file=sys.stderr)\n"
-                if check["expected"].get("coverage_equality")
-                else ""
-            )
-            (start / f"test_smoke_{check['id']}.py").write_text(
-                "import sys\n"
-                "import unittest\n\n"
-                "class SmokeTest(unittest.TestCase):\n"
-                "    def test_true(self):\n"
-                f"{coverage}"
-                "        self.assertTrue(True)\n",
-                encoding="utf-8",
-            )
-
-    def run_silently(self) -> int:
+    def run_silently(self, *, save_report: bool = False) -> int:
         with contextlib.redirect_stdout(io.StringIO()):
             with contextlib.redirect_stderr(io.StringIO()):
-                return run_bootstrap.run_command(self.contract_path)
+                return run_bootstrap.run_command(
+                    self.contract_path, save_report=save_report
+                )
 
-    def test_run_requires_exact_contract_authorization(self) -> None:
-        self.assertEqual(2, self.run_silently())
-        self.assertFalse((self.root / "bootstrap/runs").exists())
+    def test_contract_has_a_canonical_digest(self) -> None:
+        compact = json.dumps(self.contract, ensure_ascii=False).encode("utf-8")
+        self.contract_path.write_bytes(compact)
 
-    def test_passing_checks_generate_progress_report(self) -> None:
-        self.authorize()
-        self.add_passing_tests()
+        loaded, raw = run_bootstrap.load_contract(self.contract_path)
 
+        self.assertEqual(self.contract, loaded)
+        self.assertEqual(run_bootstrap.canonical_bytes(self.contract), raw)
+
+    def test_unknown_contract_field_is_rejected(self) -> None:
+        self.contract["security"] = {"network": "disabled"}
+
+        with self.assertRaises(run_bootstrap.ContractError):
+            run_bootstrap.validate_contract(self.contract)
+
+    def test_each_file_pattern_must_match(self) -> None:
+        self.contract["files"].append("missing/*.py")
+
+        with self.assertRaises(run_bootstrap.ContractError):
+            run_bootstrap.candidate_manifest(self.contract)
+
+    def test_success_does_not_create_a_report_by_default(self) -> None:
         self.assertEqual(0, self.run_silently())
+        self.assertFalse((self.root / ".495").exists())
 
-        reports = list((self.root / "bootstrap/runs").glob("*.json"))
+    def test_report_is_created_only_when_requested(self) -> None:
+        self.assertEqual(0, self.run_silently(save_report=True))
+
+        reports = list((self.root / ".495/runs").glob("*.json"))
         self.assertEqual(1, len(reports))
         report = json.loads(reports[0].read_text(encoding="utf-8"))
         self.assertEqual("PASS", report["status"])
-        self.assertEqual("progress", report["qualification"])
-        self.assertFalse(report["acceptance_eligible"])
-        self.assertEqual(
-            [1] * len(self.contract["checks"]),
-            [item["test_count"] for item in report["checks"]],
-        )
-        enumeration = next(
-            item for item in report["checks"] if item["id"] == "enumeration"
-        )
-        self.assertEqual(
-            [{"covered": 1, "declared": 1, "domain": "sample"}],
-            enumeration["coverage"],
-        )
+        self.assertEqual(1, report["version"])
+        self.assertEqual([], report["violations"])
 
-    def test_candidate_scope_rejects_unmatched_file(self) -> None:
-        (self.root / "tests/unexpected.txt").write_text(
-            "hors périmètre", encoding="utf-8"
-        )
+    def test_failed_command_keeps_its_output(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            "{python}",
+            "-c",
+            "import sys; print('sortie'); print('erreur', file=sys.stderr); sys.exit(3)",
+        ]
+        self.write_contract()
 
-        _, violations = run_bootstrap.candidate_manifest(self.contract)
+        self.assertEqual(1, self.run_silently(save_report=True))
 
-        self.assertIn(
-            "fichier candidat hors périmètre : tests/unexpected.txt",
-            violations,
-        )
+        report_path = next((self.root / ".495/runs").glob("*.json"))
+        result = json.loads(report_path.read_text(encoding="utf-8"))["checks"][0]
+        self.assertEqual("FAIL", result["status"])
+        self.assertEqual(3, result["exit_code"])
+        self.assertEqual("sortie\n", result["stdout"])
+        self.assertEqual("erreur\n", result["stderr"])
 
-    def test_qualified_security_requires_a_mechanism(self) -> None:
-        contract = copy.deepcopy(self.contract)
-        contract["security"]["network_restriction"] = {
-            "mechanism": "none",
-            "qualified": True,
-        }
+    def test_commands_inherit_the_current_environment(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            "{python}",
+            "-c",
+            "import os; raise SystemExit(os.environ.get('RUNNER_TEST') != 'visible')",
+        ]
+        self.write_contract()
+
+        with mock.patch.dict(os.environ, {"RUNNER_TEST": "visible"}):
+            self.assertEqual(0, self.run_silently())
+
+    def test_candidate_change_makes_the_result_fail(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            "{python}",
+            "-c",
+            "from pathlib import Path; Path('tools/generated.py').write_text('x')",
+        ]
+        self.write_contract()
+
+        self.assertEqual(1, self.run_silently())
+
+    def test_duplicate_check_names_are_rejected(self) -> None:
+        self.contract["checks"].append(copy.deepcopy(self.contract["checks"][0]))
 
         with self.assertRaises(run_bootstrap.ContractError):
-            run_bootstrap.validate_contract(contract)
+            run_bootstrap.validate_contract(self.contract)
 
 
 if __name__ == "__main__":

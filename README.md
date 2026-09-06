@@ -1,154 +1,67 @@
 # 495
 
-**495** encadre le développement logiciel assisté par IA par une boucle de
-travail explicite, vérifiable et bornée.
+495 explore une manière simple d’encadrer le développement logiciel assisté
+par IA : rendre explicites le travail demandé, les contrôles exécutés et les
+fichiers auxquels un résultat se rapporte.
 
-Le nom vient de la constante de Kaprekar pour les nombres à trois chiffres. En
-ordonnant les chiffres d’un nombre dans les deux sens, puis en soustrayant le
-plus petit du plus grand de façon répétée, on atteint 495 :
-`954 − 459 = 495`.
+Le nom vient de la constante de Kaprekar pour les nombres à trois chiffres. Il
+évoque une progression guidée par des règles, sans promettre que la production
+d’un agent est déterministe ni qu’elle converge automatiquement.
 
-Cette convergence illustre l’objectif du projet : faire progresser une
-production variable vers un résultat dont la conformité peut être contrôlée.
-Elle ne promet ni un code déterministe, ni une convergence automatique.
+## État actuel
 
-## État du projet
+Le seul point d’entrée actif est un lanceur minimal de contrôles. Les anciens
+modèles de workflow, gates, tentatives, persistance, adaptateurs et
+orchestration ont été retirés : ils anticipaient des usages qui n’étaient
+exposés par aucune interface utilisateur.
 
-Le dépôt contient un bootstrap minimal, le noyau de domaine, le moteur de
-décision déterministe, la persistance locale et CSAP 1.0 avec son kit de
-conformité. Le prochain candidat est l’orchestrateur local décrit dans
-`docs/local-orchestrator.md`.
-
-Le bootstrap avancé expérimenté sous `495/` est conservé comme archive. Aucun
-contrôleur ne l’applique et ses registres ne décrivent plus l’état courant.
-
-Le bootstrap actif repose sur trois éléments :
-
-| Élément | Rôle |
-| --- | --- |
-| [`docs/local-orchestrator.md`](docs/local-orchestrator.md) | Objectif, périmètre, critères, limites et décisions humaines du candidat courant |
-| [`bootstrap/contract.json`](bootstrap/contract.json) | Droits, périmètre du candidat et commandes exécutables |
-| `bootstrap/runs/*.json` | Rapports générés et liés au contrat et au candidat |
-
-La [proposition de simplification](docs/proposition-simplification.md) explique
-ce choix et les garanties différées.
-
-## Workflow minimal
-
-Le bootstrap ne conserve que deux décisions humaines.
-
-### Autorisation
-
-Avant toute écriture sous `src/` ou `tests/` :
-
-1. le document de travail expose l’objectif et les limites ;
-2. le contrat est concret et validable ;
-3. une personne autorise le digest exact du contrat.
-
-Une modification du contrat change son digest et requiert une nouvelle
-autorisation.
-
-### Acceptation
-
-Une exécution produit un nouveau rapport. Une acceptation exige :
-
-- tous les contrôles obligatoires favorables ;
-- aucune violation de périmètre ;
-- le même contrat et le même candidat que ceux du rapport ;
-- des mécanismes de sécurité qualifiés ;
-- une décision humaine visant le digest exact du rapport.
-
-En l’absence d’isolation ou d’immutabilité qualifiée, un rapport favorable reste
-une information de progression.
+La prochaine fonctionnalité devra partir d’un parcours réel avant de définir
+son modèle de domaine ou son architecture.
 
 ## Utilisation
 
-Le bootstrap requiert Python 3.12 ou ultérieur et uniquement sa bibliothèque
-standard.
-
-Valider le contrat sans exécuter le candidat :
+Valider la configuration :
 
 ```sh
 python3 tools/run_bootstrap.py validate
 ```
 
-La commande affiche le digest à viser dans la décision d’autorisation.
-
-Après autorisation et présence du candidat, exécuter les contrôles :
+Exécuter les contrôles :
 
 ```sh
 python3 tools/run_bootstrap.py run
 ```
 
-Le programme :
-
-- contrôle le périmètre fermé du candidat ;
-- résout l’interpréteur effectif ;
-- exécute les commandes une seule fois, sans shell ;
-- relève les tests découverts et les compteurs `unittest` ;
-- compare le candidat et le contrat avant et après l’exécution ;
-- écrit un rapport inédit sous `bootstrap/runs/`.
-
-Le programme refuse l’exécution si le document désigné par
-`work_document` dans le contrat ne contient pas une autorisation visant le
-digest courant du contrat.
-
-## Candidat courant
-
-Le noyau de domaine fournit déjà :
-
-- références et révisions ;
-- scellement ;
-- phases et commandes ;
-- tentatives ;
-- liens et invalidation ;
-- état immutable et résultats explicites.
-
-Le code du domaine et du moteur de décision reste déterministe et sans
-entrée-sortie. La persistance locale fournit le magasin d’objets, le journal
-chaîné, l’idempotence et la reconstruction. CSAP fournit les enveloppes, le
-cycle des opérations et le kit de conformité. Le candidat courant relie ces
-composants dans un orchestrateur local. Les adaptateurs réels, les workers et
-la CLI restent hors périmètre.
-
-## Archive historique
-
-`495/` conserve les artefacts de l’expérimentation documentaire précédente,
-y compris les exigences et la conception détaillée. Ces fichiers sont en
-lecture seule.
-
-Leur cohérence historique peut être inspectée avec :
+Conserver exceptionnellement un rapport JSON :
 
 ```sh
-python3 tools/verify_state.py
+python3 tools/run_bootstrap.py run --report
 ```
 
-Cette commande ne valide ni le contrat minimal, ni un candidat, ni une
-acceptation.
+Sans `--report`, aucune archive d’exécution n’est créée. Les rapports demandés
+sont écrits sous `.495/runs/` et ignorés par Git.
 
-## Garanties non revendiquées
+## Ce que fait le lanceur
 
-Le bootstrap minimal ne revendique pas :
+La configuration [bootstrap/contract.json](bootstrap/contract.json) déclare :
 
-- l’immutabilité de Git ;
-- une identité humaine authentifiée ;
-- une isolation universelle ;
-- l’absence de réseau sans mécanisme hôte qualifié ;
-- la reproductibilité bit à bit de l’environnement ;
-- une preuve opposable à un tiers.
+- les motifs des fichiers contrôlés ;
+- les commandes à exécuter, sous forme de liste d’arguments ;
+- un timeout par commande ;
+- le répertoire facultatif des rapports.
 
-Ces propriétés appartiennent au contrôleur cible. Elles ne deviennent
-obligatoires dans le workflow que lorsqu’un mécanisme peut réellement les
-appliquer ou les vérifier.
+Le lanceur calcule le digest du contenu contrôlé, exécute chaque commande une
+fois sans shell et vérifie que la configuration et les fichiers contrôlés ne
+changent pas pendant l’exécution. Une commande est favorable lorsque son code
+de sortie vaut zéro.
 
-## Documents
+Il hérite de l’environnement courant et n’essaie pas de restreindre le réseau,
+les secrets ou le système de fichiers. Un rapport ne prétend donc fournir
+aucune garantie de sécurité.
 
-- [Présentation](docs/presentation.md)
-- [Travail d’implémentation](docs/implementation.md)
-- [Moteur de décision](docs/decision-engine.md)
-- [Persistance locale](docs/local-persistence.md)
-- [Protocole d’adaptateurs](docs/adapter-protocol.md)
-- [Orchestrateur local](docs/local-orchestrator.md)
-- [Simplification du bootstrap](docs/proposition-simplification.md)
-- [Conception historique](495/changes/INC-0003/design.md)
-- [Exigences historiques](495/changes/INC-0002/requirements.json)
+## Règles du projet
+
+Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
+quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
+L’[état de l’implémentation](docs/implementation.md) décrit précisément le
+comportement disponible.

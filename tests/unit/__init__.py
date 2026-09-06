@@ -1,1 +1,0 @@
-"""Contrôles comportementaux du domaine."""

@@ -1,231 +1,31 @@
 {
-  "candidate": {
-    "include": [
-      "src/application/*.py",
-      "src/application/**/*.py",
-      "src/csap/*.py",
-      "src/csap/**/*.py",
-      "src/domain/*.py",
-      "src/domain/**/*.py",
-      "src/persistence/*.py",
-      "src/persistence/**/*.py",
-      "src/policy/*.py",
-      "src/policy/**/*.py",
-      "src/validation/*.py",
-      "src/validation/**/*.py",
-      "tests/*.py",
-      "tests/**/*.py"
-    ],
-    "roots": [
-      "src/application",
-      "src/csap",
-      "src/domain",
-      "src/persistence",
-      "src/policy",
-      "src/validation",
-      "tests"
-    ],
-    "symlinks": false
-  },
   "checks": [
     {
-      "argv": [
+      "command": [
         "{python}",
         "-B",
         "-m",
         "unittest",
         "discover",
         "-s",
-        "tests/unit",
-        "-t",
-        ".",
+        "tools",
+        "-p",
+        "test_*.py",
         "-v"
       ],
-      "expected": {
-        "exit_code": 0,
-        "minimum_test_count": 1,
-        "zero_counters": [
-          "skipped",
-          "expected failures",
-          "unexpected successes"
-        ]
-      },
-      "id": "unit",
-      "required": true,
-      "timeout_seconds": 300,
-      "working_directory": "."
-    },
-    {
-      "argv": [
-        "{python}",
-        "-B",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tests/enumeration",
-        "-t",
-        ".",
-        "-v"
-      ],
-      "expected": {
-        "coverage_equality": true,
-        "exit_code": 0,
-        "minimum_test_count": 1,
-        "zero_counters": [
-          "skipped",
-          "expected failures",
-          "unexpected successes"
-        ]
-      },
-      "id": "enumeration",
-      "required": true,
-      "timeout_seconds": 300,
-      "working_directory": "."
-    },
-    {
-      "argv": [
-        "{python}",
-        "-B",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tests/persistence",
-        "-t",
-        ".",
-        "-v"
-      ],
-      "expected": {
-        "exit_code": 0,
-        "minimum_test_count": 1,
-        "zero_counters": [
-          "skipped",
-          "expected failures",
-          "unexpected successes"
-        ]
-      },
-      "id": "persistence",
-      "required": true,
-      "timeout_seconds": 300,
-      "working_directory": "."
-    },
-    {
-      "argv": [
-        "{python}",
-        "-B",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tests/csap",
-        "-t",
-        ".",
-        "-v"
-      ],
-      "expected": {
-        "exit_code": 0,
-        "minimum_test_count": 1,
-        "zero_counters": [
-          "skipped",
-          "expected failures",
-          "unexpected successes"
-        ]
-      },
-      "id": "csap",
-      "required": true,
-      "timeout_seconds": 300,
-      "working_directory": "."
-    },
-    {
-      "argv": [
-        "{python}",
-        "-B",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tests/application",
-        "-t",
-        ".",
-        "-v"
-      ],
-      "expected": {
-        "exit_code": 0,
-        "minimum_test_count": 1,
-        "zero_counters": [
-          "skipped",
-          "expected failures",
-          "unexpected successes"
-        ]
-      },
-      "id": "application",
-      "required": true,
-      "timeout_seconds": 300,
-      "working_directory": "."
+      "name": "bootstrap",
+      "timeout_seconds": 300
     }
   ],
-  "environment": {
-    "inherit": [
-      "LANG",
-      "LC_ALL"
-    ],
-    "set": {
-      "PYTHONDONTWRITEBYTECODE": "1",
-      "PYTHONHASHSEED": "0",
-      "PYTHONPATH": "src",
-      "TMPDIR": "bootstrap/output"
-    }
-  },
-  "objective": "Implémenter et vérifier l’orchestrateur local de 495.",
-  "permissions": {
-    "external_effects": false,
-    "network": false,
-    "read": [
-      "495/",
-      "bootstrap/contract.json",
-      "docs/",
-      "src/",
-      "tests/"
-    ],
-    "secrets": false,
-    "write": [
-      "bootstrap/output/",
-      "bootstrap/runs/",
-      "src/application/",
-      "src/csap/",
-      "tests/"
-    ]
-  },
-  "report": {
-    "directory": "bootstrap/runs",
-    "qualification_without_enforcement": "progress"
-  },
-  "runtime": {
-    "command_token": "{python}",
-    "python_requires": ">=3.12"
-  },
-  "schema_version": "bootstrap-1",
-  "security": {
-    "candidate_immutability": {
-      "mechanism": "none",
-      "qualified": false
-    },
-    "network_restriction": {
-      "mechanism": "none",
-      "qualified": false
-    },
-    "write_restriction": {
-      "mechanism": "post_run_workspace_snapshot",
-      "qualified": false
-    }
-  },
-  "stop_on": [
-    "candidate_scope_violation",
-    "contract_change",
-    "network_access",
-    "secret_access",
-    "write_outside_allowed_paths"
+  "files": [
+    ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "bootstrap/contract.json",
+    "docs/*.md",
+    "tools/*.py"
   ],
-  "work_document": "docs/local-orchestrator.md"
+  "report_directory": ".495/runs",
+  "version": 1
 }

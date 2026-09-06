@@ -1,7 +1,15 @@
-**495** tire son nom de la ***constante de Kaprekar*** pour les nombres à trois chiffres. À partir d’un nombre dont au moins deux chiffres sont différents, on ordonne ses chiffres dans les deux sens, puis on soustrait le plus petit nombre du plus grand. En répétant cette opération et en conservant les zéros initiaux, on atteint toujours **495**. Le processus se stabilise alors : **954 − 459 = 495**.
+# Présentation de 495
 
-Cette convergence illustre l’ambition du projet : **encadrer le développement logiciel avec l’IA par une boucle de travail explicite, vérifiable et maîtrisée**. À chaque incrément, les spécifications définissent le résultat attendu, la conception structure la solution et les validations confrontent l’implémentation aux exigences. Les écarts observés orientent les corrections jusqu’à satisfaire les critères d’acceptation — ou à rendre nécessaire une décision humaine.
+495 vise à rendre le développement assisté par IA plus facile à comprendre et
+à contrôler. Une exécution utile doit permettre de répondre simplement à trois
+questions : quels fichiers ont été considérés, quelles commandes ont été
+exécutées et quel résultat ont-elles produit ?
 
-La référence à Kaprekar exprime une conviction : la fiabilité dépend des règles qui organisent le processus, des contrôles appliqués et des conditions d’arrêt. Elle ne promet pas que l’IA produira toujours le même code ni qu’elle convergera inévitablement. Elle donne une direction : **faire progresser une production variable vers un résultat dont la conformité peut être vérifiée**.
+Le nom vient de la constante de Kaprekar pour les nombres à trois chiffres : en
+réordonnant puis en soustrayant leurs chiffres, le calcul atteint 495. Cette
+image évoque une progression guidée par des règles explicites ; elle ne promet
+ni déterminisme du code produit, ni convergence automatique.
 
-Court, mémorable et indépendant des technologies utilisées, **495** se prononce « quatre neuf cinq » et devient naturellement la commande du projet : `495 init`, `495 run`, `495 verify`.
+Le projet privilégie désormais les parcours utilisateur réels. Les modèles de
+workflow, les protocoles d’adaptateurs ou la persistance ne seront introduits
+que lorsqu’une fonctionnalité observable en aura besoin.
