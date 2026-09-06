@@ -46,11 +46,12 @@ qualité qu’un modèle plus puissant ne peut la compenser.
 
 ## Complexité non reprise par défaut
 
-CodeServo a combiné le produit, un harnais expérimental et un système de preuve
-détaillé. Cette combinaison a rendu chaque évolution coûteuse. 495 ne reprend
-donc pas automatiquement :
+CodeServo a combiné un harnais d’agents, une plateforme expérimentale et un
+système de preuve détaillé. Cette combinaison a rendu chaque évolution coûteuse.
+495 reste un harnais d’agents de code, mais ne reprend donc pas automatiquement :
 
-- le confinement système obligatoire de chaque agent et de chaque commande ;
+- un profil de confinement unique appliqué indistinctement à chaque agent et à
+  chaque commande, sans tenir compte de leurs besoins ;
 - l’interdiction générale du réseau, des skills, des hooks, de la mémoire ou
   des outils proposés par les agents ;
 - l’exigence d’un dépôt propre et d’un checkout isolé pour toute modification ;
@@ -66,8 +67,9 @@ donc pas automatiquement :
 - une couche, un port ou une taxonomie fermée avant qu’un second cas réel ne
   rende l’abstraction nécessaire.
 
-Ces mécanismes ne sont pas tous incorrects. Ils deviennent conditionnels : une
-évaluation avec capteur secret peut exiger un confinement vérifiable ; une
+Ces mécanismes ne sont pas tous incorrects. Les garanties qui dépassent le
+socle deviennent conditionnelles : une évaluation avec capteur secret peut
+exiger un profil de confinement renforcé et une preuve d’isolation ; une
 exécution distante peut exiger davantage de provenance ; une interface
 persistante peut exiger une base transactionnelle. Le parcours concerné doit
 alors démontrer leur valeur et supporter leur coût.
@@ -83,8 +85,16 @@ alors démontrer leur valeur et supporter leur coût.
   gates, sans imposer un document séparé pour chaque état ;
 - les commandes et formats standards du projet cible sont utilisés directement
   lorsqu’ils suffisent ;
-- l’environnement courant est utilisé par défaut ; l’isolation est ajoutée
-  pour un risque ou une garantie identifiés ;
+- les commandes ordinaires peuvent utiliser l’environnement courant ; chaque
+  agent et ses processus descendants utilisent une sandbox avec les seules
+  permissions nécessaires à leur intervention ;
+- sous Linux, le choix entre Bubblewrap, Landlock et les namespaces évalue
+  aussi l’ajout d’un filtre seccomp ; sous macOS, l’étude couvre Seatbelt et les
+  solutions d’isolation prises en charge ;
+- le contexte de chaque agent est construit à partir de l’état courant et du
+  dernier feedback, sans transmettre par défaut les informations sans rapport ;
+- le résultat remis par un agent à l’orchestrateur est du JSON validé par le
+  JSON Schema de l’opération ;
 - Git porte le contenu et l’historique du changement ; 495 ne construit pas un
   second magasin de versions ;
 - la persistance et les rapports se limitent aux informations nécessaires pour
@@ -107,24 +117,26 @@ frontière :
 | `clarifying` | La tâche était déjà rédigée avant l’exécution. | Partir de l’expression initiale et utiliser les agents pour lever les ambiguïtés. |
 | `specifying` | Les critères d’acceptation alimentaient les contrôles et la revue. | Aider à produire les exigences et vérifier qu’elles couvrent tous les niveaux applicables. |
 | `designing` | La constitution et la configuration existaient avant l’agent. | Faire produire et examiner une conception proportionnée au changement. |
-| `implementing` | Actionneurs Codex et Claude Code, contexte, feedback et itérations. | Réutiliser ces comportements avec moins de confinement et de métrologie par défaut. |
+| `implementing` | Actionneurs Codex et Claude Code, contexte, feedback et itérations. | Réutiliser ces comportements avec un contexte ciblé, un confinement explicite et moins de métrologie par défaut. |
 | `verifying` | Gates, observations, cliquets et revue sémantique. | Conserver les oracles utiles et simplifier leur déclaration et leur restitution. |
 | `accepted` | Verdict calculé sur le candidat. | Relier G4 à toutes les exigences du changement et aux décisions humaines réellement nécessaires. |
 | `integrating` | Une commande appliquait le patch et créait un commit. | Orchestrer l’effet adapté au projet et rendre ses erreurs récupérables. |
 | `integrated` | Le commit d’intégration était enregistré. | Vérifier par G5 que la destination contient bien le candidat accepté. |
 
-## Règle de réutilisation
+## Règle de réutilisation dans 495
 
 Le code de CodeServo est une réserve d’implémentations et de tests, pas le
-squelette imposé de 495. Avant de reprendre un composant, il faut établir :
+squelette imposé de 495 ni l’unique source à examiner. Avant de concevoir ou de
+reprendre un composant interne à 495, l’étude inclut les autres harnais d’agents
+de code et outils open source qui fournissent le même comportement. Il faut
+établir :
 
 1. le parcours utilisateur courant qui en a besoin ;
 2. le comportement précis à préserver ;
 3. le risque concret évité ;
-4. l’absence d’une solution plus directe fournie par Python, l’agent ou le
-   projet cible ;
+4. l’absence d’une solution plus directe fournie par Python, le client d’agent
+   ou un projet open source maintenu ;
 5. le coût de maintenance restant après retrait des garanties expérimentales.
 
 Un composant peut être copié, extrait ou réécrit selon la solution la plus
 simple. Sa structure historique ne constitue pas une contrainte de conception.
-

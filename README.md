@@ -1,9 +1,17 @@
 # 495
 
-495 orchestre des agents d’IA pour faire progresser un changement logiciel du
-besoin initial à son intégration. Il automatise le workflow autant que possible
-tout en rendant explicites les exigences, les décisions, les contrôles exécutés
-et les fichiers auxquels un résultat se rapporte.
+495 est un harnais d’agents de code qui fait progresser un changement logiciel
+du besoin initial à son intégration. Ses contrôles en amont (*feedforward*)
+déterminent ce que l’agent tente, avec quel contexte, quels outils et quelles
+permissions. Ses contrôles en retour (*feedback*) observent le candidat produit
+et fournissent à l’agent un écart précis à corriger.
+
+Le produit vise ainsi à automatiser le workflow tout en rendant explicites les
+exigences, les décisions, les contrôles exécutés et les fichiers auxquels un
+résultat se rapporte. Le contexte de chaque agent est limité aux informations
+utiles à son intervention, son exécution est confinée par une sandbox et le
+résultat remis à l’orchestrateur possède une forme JSON validée par JSON
+Schema.
 
 Le nom vient de la constante de Kaprekar pour les nombres à trois chiffres. Il
 évoque une progression guidée par des règles, sans promettre que la production
@@ -15,6 +23,10 @@ Le seul point d’entrée actif est un lanceur minimal de contrôles. Les ancien
 implémentations du domaine, des décisions, des tentatives, de la persistance,
 des adaptateurs et de l’orchestration ont été retirées : elles anticipaient des
 usages qui n’étaient exposés par aucune interface utilisateur.
+
+Le harnais, l’intégration d’agents, la construction de leur contexte, leur
+confinement et leur contrat de réponse ne sont donc pas encore implémentés. Ils
+décrivent la cible fonctionnelle, pas les garanties du lanceur actuel.
 
 Le workflow `clarifying` → `specifying` → `designing` → `implementing` →
 `verifying` → `accepted` → `integrating` → `integrated` reste la colonne
@@ -28,9 +40,16 @@ comportements utiles, en retirant sa complexité expérimentale par défaut et e
 l’étendant au cycle complet. La
 [stratégie de reprise](docs/reprise-de-codeservo.md) fixe cette frontière.
 
+Les applications confiées à 495 peuvent employer n’importe quels langages,
+frameworks et chaînes d’outils. Elles conservent leurs propres conventions et
+leur architecture ; 495 orchestre les agents et les commandes qu’elles exposent
+sans leur imposer les choix techniques de son implémentation interne.
+
 La prochaine fonctionnalité partira des
 [parcours utilisateur](docs/parcours-utilisateur.md) avant de définir son
-modèle de domaine ou son architecture.
+modèle de domaine ou son architecture. Toute décision significative sur
+l’implémentation de 495 commence par examiner les harnais d’agents de code et
+composants open source qui fournissent déjà le comportement recherché.
 
 ## Utilisation
 

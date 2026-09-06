@@ -85,7 +85,9 @@ Un rapport contient uniquement :
 
 Le projet ne fournit pas encore de commande utilisateur `495`, de workflow
 métier, de stockage applicatif, d’intégration avec un agent ou un dépôt, ni de
-mécanisme d’approbation.
+mécanisme d’approbation. Il ne construit donc pas encore de contexte d’agent,
+n’exécute aucun agent dans une sandbox et ne valide aucune réponse d’agent avec
+JSON Schema.
 
 Il ne contrôle pas le réseau, les secrets ou les écritures du processus. Le
 lockfile rend la résolution des dépendances reproductible, mais ne rend pas à
@@ -93,16 +95,30 @@ lui seul le système d’exploitation ni l’exécution hermétiques.
 
 ## Règle d’évolution
 
+Cette section gouverne l’évolution du harnais 495. Elle ne demande pas aux
+applications cibles d’utiliser Python, `uv`, les dépendances ou l’architecture
+de 495.
+
+Avant d’introduire un composant ou une abstraction dans 495, la conception
+examine les clients d’agents, les autres harnais de code et les bibliothèques
+open source qui fournissent déjà le comportement recherché. Pour une décision
+structurante, cette étude consulte les parties pertinentes de l’implémentation,
+des tests, des garanties documentées et des limites connues. Elle compare aussi
+la licence, la maintenance, les plateformes, la stabilité de l’interface et le
+coût d’exploitation. La décision indique brièvement ce qui est configuré,
+composé, adapté ou développé dans 495.
+
 La prochaine implémentation doit suivre les
 [parcours utilisateur](parcours-utilisateur.md) et faire traverser à un
 changement simple le workflow de `clarifying` à `integrated`. Ce parcours part
 d’un besoin exprimé par l’utilisateur et fait intervenir un agent réel dès la
-clarification. Les premières décisions peuvent rester légères et les outils
-existants peuvent assurer l’intégration. La CLI est la première interface ; ses
-opérations devront rester réutilisables par une future TUI ou interface web.
-Les modèles, adaptateurs et choix de persistance seront dérivés de ce
-comportement. Une dépendance tierce peut être adoptée si elle simplifie
-concrètement cette fonctionnalité.
+clarification. Chaque intervention construit un contexte ciblé, confine l’agent
+et ses processus enfants, puis valide le résultat JSON attendu. Les premières
+décisions peuvent rester légères et les outils existants peuvent assurer
+l’intégration. La CLI est la première interface ; ses opérations devront rester
+réutilisables par une future TUI ou interface web. Les modèles, adaptateurs et
+choix de persistance seront dérivés de ce comportement. Une dépendance tierce
+peut être adoptée si elle simplifie concrètement cette fonctionnalité.
 
 La [reprise de CodeServo](reprise-de-codeservo.md) guide l’implémentation de
 `implementing` et `verifying`. Elle autorise la réutilisation ciblée de son

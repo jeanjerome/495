@@ -12,11 +12,23 @@ sur ces modifications, puis décider de la suite en connaissance de cause.
 
 ## Positionnement
 
-495 orchestre des agents d’IA pour automatiser autant que possible le workflow
-d’un changement logiciel. Codex, Claude Code ou un agent local doivent pouvoir
-participer à toutes les étapes pour lesquelles ils disposent des capacités
-nécessaires : analyser le dépôt, clarifier, rédiger, concevoir, modifier,
-contrôler, relire et préparer l’intégration.
+495 est un harnais d’agents de code qui automatise autant que possible le
+workflow d’un changement logiciel. Codex, Claude Code ou un agent local doivent
+pouvoir participer à toutes les étapes pour lesquelles ils disposent des
+capacités nécessaires : analyser le dépôt, clarifier, rédiger, concevoir,
+modifier, contrôler, relire et préparer l’intégration.
+
+495 et l’application cible sont deux systèmes distincts. 495 possède son propre
+code, ses adaptateurs et ses dépendances ; l’application cible conserve ses
+langages, frameworks, conventions, architecture et chaîne de développement.
+Les parcours ci-dessous décrivent comment 495 agit sur cette application sans
+lui imposer les choix techniques du harnais.
+
+Le harnais combine deux familles de contrôles. Le *feedforward* construit la
+tentative : objectif, contraintes, contexte sélectionné, outils, permissions et
+forme du résultat. Le *feedback* observe ce que l’agent et ses outils ont
+effectivement produit, puis transforme les écarts en diagnostics assez précis
+pour guider la correction suivante.
 
 La boucle `implementing`–`verifying` reprend les comportements expérimentés
 dans [CodeServo](reprise-de-codeservo.md). 495 les simplifie et les compose avec
@@ -132,6 +144,82 @@ agent :
 normalise leurs résultats. Il respecte les permissions de l’environnement et
 ne transforme pas la disponibilité d’un outil en autorisation de l’utiliser.
 
+### Construire le contexte (*context engineering*)
+
+Le contexte est un contrôle du comportement, pas un simple remplissage de la
+fenêtre du modèle. Pour chaque intervention, 495 part de l’état courant et
+assemble seulement les éléments utiles : demande, exigences, décisions encore
+valides, extraits du dépôt, conventions, outils autorisés et feedback de la
+tentative précédente.
+
+Limiter le contexte ne signifie pas rechercher le moins de jetons possible. Une
+information nécessaire à une décision correcte doit être présente ; un fichier,
+un historique, une instruction ou un secret sans rapport doit rester absent.
+La sélection, l’ordre et la formulation influencent les décisions de l’agent :
+495 distingue donc les instructions, les faits observés et les contenus non
+fiables, et rend visibles les hypothèses ou omissions matérielles.
+
+### Confiner l’exécution
+
+Chaque agent et les processus qu’il lance s’exécutent dans une sandbox. Son
+profil accorde explicitement les fichiers, commandes, variables, secrets et
+accès réseau requis par l’intervention. Le reste n’est pas accessible. Une
+liste de fichiers modifiés calculée après l’exécution permet d’expliquer le
+résultat, mais ne remplace pas ce confinement préventif.
+
+Le mécanisme reste propre à la plateforme. Sous Linux, les candidats à évaluer
+incluent [Bubblewrap](https://github.com/containers/bubblewrap), les namespaces
+du noyau et [Landlock](https://docs.kernel.org/userspace-api/landlock.html).
+[seccomp](https://docs.kernel.org/userspace-api/seccomp_filter.html) complète
+ces mécanismes en filtrant les appels système ; il ne remplace pas à lui seul
+la politique portant sur les fichiers, les processus, le réseau et les secrets.
+L’étude doit donc comparer des assemblages comme Bubblewrap avec seccomp ou
+Landlock avec seccomp, ainsi que leur compatibilité avec les chaînes d’outils
+des projets cibles.
+
+Sous macOS, la sandbox du système couramment appelée Seatbelt fait partie des
+mécanismes à évaluer. `sandbox-exec` permet encore de lui fournir un profil,
+mais cet outil est déprécié par sa page de manuel ; il peut servir à un
+prototype sans constituer le choix durable par défaut. L’étude doit aussi
+examiner les interfaces macOS prises en charge et, si elles ne conviennent pas
+à un agent en ligne de commande, l’isolation par conteneur ou machine virtuelle.
+
+Une sandbox retenue doit notamment être testée sur les lectures et écritures
+interdites, l’accès réseau, la transmission des secrets, les appels système
+sensibles et l’héritage des restrictions par les processus enfants.
+
+### Structurer le résultat
+
+La réponse qu’un agent remet à 495 est un document JSON conforme à un JSON
+Schema connu de l’opération. Le schéma décrit uniquement ce que l’orchestrateur
+doit interpréter, par exemple le statut, les questions bloquantes, les
+diagnostics, les fichiers concernés et la suite proposée. Il ne cherche ni à
+capturer un raisonnement interne, ni à convertir les sorties brutes des outils.
+
+Cette frontière structurée est utile parce qu’une décision de workflow ne doit
+pas dépendre de l’analyse fragile d’une prose libre. 495 utilise la production
+contrainte d’un fournisseur lorsqu’elle existe et valide toujours le document
+reçu. Une réponse invalide entraîne une correction bornée ou un échec technique
+explicite ; elle n’est pas interprétée silencieusement.
+
+### Produire un feedback exploitable
+
+Pendant `implementing` et `verifying`, 495 privilégie les oracles déjà
+reconnus par le projet cible. Selon sa chaîne d’outils, le feedback peut venir :
+
+- du compilateur ou du système de build ;
+- des linters, formateurs et analyseurs statiques ;
+- du vérificateur de types ;
+- des diagnostics et fonctions de navigation d’un serveur LSP ;
+- des suites de tests ;
+- de la couverture de tests et des tests de mutation ;
+- d’une observation fonctionnelle ou d’une revue sémantique.
+
+495 n’impose pas tous ces contrôles à chaque projet. Il choisit ceux qui
+mesurent les exigences applicables, conserve leur diagnostic utile et le relie
+au candidat observé. Le prochain essai reçoit l’écart à corriger plutôt qu’un
+simple verdict favorable ou défavorable.
+
 La première implémentation doit intégrer un agent réel. Une interface commune
 à plusieurs agents sera extraite à partir de cette intégration, puis éprouvée
 avec un second agent, au lieu de définir à l’avance un protocole exhaustif.
@@ -167,8 +255,9 @@ pas administrer un workflow.
 3. Les agents font progresser automatiquement la spécification et la conception
    jusqu’à G2. 495 sollicite l’utilisateur seulement lorsqu’un choix ayant un
    impact matériel ne peut pas être déduit.
-4. Un agent réalise le changement. Le candidat franchit G3 lorsqu’il est
-   identifiable et vérifiable.
+4. Un agent réalise le changement dans une sandbox, à partir du contexte et des
+   permissions préparés pour `implementing`. Le candidat franchit G3 lorsqu’il
+   est identifiable et vérifiable.
 5. Les contrôles exécutables et les revues adaptées évaluent toutes les
    exigences obligatoires. Un échec déclenche une correction ou une révision ;
    un résultat suffisant permet de franchir G4.
@@ -241,11 +330,12 @@ d’informations amont nécessaire pour que G3 et G4 conservent un sens.
 
 **Situation.** G2 autorise la réalisation du changement demandé.
 
-**Parcours.** 495 transmet la demande, la spécification, la conception et les
-outils utiles à un agent. Il suit l’opération, laisse l’agent modifier le dépôt
-dans le périmètre demandé, puis présente le candidat à G3 avant sa vérification.
-Une question n’interrompt le travail que si une réponse est nécessaire pour
-éviter un résultat matériellement différent de l’intention exprimée.
+**Parcours.** 495 construit le contexte nécessaire à partir de la demande, de
+la spécification, de la conception et du dernier feedback. Il lance l’agent et
+ses outils dans une sandbox adaptée aux permissions accordées, valide sa réponse
+JSON, puis présente le candidat à G3 avant sa vérification. Une question
+n’interrompt le travail que si une réponse est nécessaire pour éviter un
+résultat matériellement différent de l’intention exprimée.
 
 **Résultat observable.** Le dépôt contient un candidat inspectable accompagné
 du résultat des contrôles. Les effets externes ou difficiles à inverser restent
@@ -293,9 +383,10 @@ Git comme source d’historique.
 
 **Situation.** Un contrôle échoue ou le relecteur identifie un écart.
 
-**Parcours.** L’utilisateur ou l’agent reçoit le diagnostic disponible,
-utilise `StartAttempt` si la conception reste valable, ou `ReviseIncrement` si
-une décision amont change, puis relance la vérification sur le nouvel état.
+**Parcours.** 495 transforme le diagnostic disponible en feedback ciblé pour
+l’agent. Il utilise `StartAttempt` si la conception reste valable, ou
+`ReviseIncrement` si une décision amont change, puis reconstruit le contexte et
+relance la vérification sur le nouvel état.
 
 **Résultat observable.** Chaque résultat indique clairement le contenu auquel
 il se rapporte. 495 ne choisit pas une exécution favorable parmi plusieurs et
@@ -363,6 +454,8 @@ ne maintient sa propre interprétation du changement.
 
 495 ne doit pas, par défaut :
 
+- imposer à l’application cible le langage, les dépendances ou l’architecture
+  utilisés pour construire 495 ;
 - remplacer Git pour créer des branches, conserver l’historique, fusionner ou
   publier des modifications ;
 - remplacer le gestionnaire de paquets, le runner de tests ou le système de
@@ -382,7 +475,8 @@ duplique leur état que lorsqu’un parcours observable l’exige.
 
 L’implémentation devrait progresser par valeur démontrable :
 
-1. confier à un agent réel un besoin exprimé au début de `clarifying` et faire
+1. confier à un agent réel confiné un besoin exprimé au début de `clarifying`,
+   lui construire un contexte ciblé et valider sa réponse JSON, puis faire
    traverser le workflow complet à ce changement local simple ;
 2. rendre l’avancement, les questions, les décisions et les preuves faciles à
    examiner depuis la CLI et sous forme JSON ;

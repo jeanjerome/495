@@ -15,6 +15,21 @@ Les termes employés sont :
 | **Conditionnelle** | S’applique seulement lorsqu’un usage ou un risque identifié la déclenche. |
 | **Retirée** | Ne gouverne plus le projet. |
 
+## Périmètres
+
+Deux systèmes ne doivent pas être confondus :
+
+- l’**implémentation de 495**, constituée par ce dépôt, son code Python, ses
+  dépendances, ses adaptateurs et ses choix d’architecture ;
+- l’**application cible**, confiée à 495 pour qu’il y orchestre un changement,
+  avec ses propres langages, frameworks, conventions et outils.
+
+Sauf mention explicite de l’application cible, les règles d’architecture, de
+dépendances, d’étude de l’existant et de réutilisation gouvernent seulement
+l’implémentation de 495. Les règles de workflow, de contexte, de confinement et
+de feedback décrivent ce que 495 orchestre autour de l’application cible ; elles
+n’imposent pas à celle-ci une architecture ou une technologie.
+
 ## Évaluer une contrainte
 
 Une contrainte n’est adoptée que si les questions suivantes ont une réponse
@@ -53,8 +68,11 @@ une condition artificielle de réussite.
 
 | Règle | Statut | Application |
 | --- | --- | --- |
+| Harnais fondé sur feedforward et feedback | **Obligatoire** | Les contrôles en amont cadrent la tentative de l’agent ; les observations du candidat lui donnent ensuite un écart précis à corriger. |
 | Intervention d’agents à toutes les étapes utiles | **Défaut** | 495 délègue clarification, spécification, conception, implémentation et revue lorsque les capacités disponibles le permettent. |
 | Prompts, skills, hooks et outils disponibles | **Défaut** | Ils sont utilisables dans les limites des permissions et du besoin courant. |
+| Ingénierie de contexte pour chaque intervention | **Obligatoire** | 495 fournit les instructions, faits, fichiers et résultats nécessaires à la décision courante, sans transmettre par défaut le dépôt, l’historique ou les secrets sans rapport. |
+| Résultat d’agent structuré à la frontière de l’orchestrateur | **Obligatoire** | Toute réponse consommée par 495 est un document JSON validé par un JSON Schema explicite ; les flux d’outils et le texte destiné à l’humain peuvent conserver leur format natif. |
 | Affirmation de l’agent comme preuve suffisante | **Retirée** | Une exigence utilise un oracle adapté : contrôle exécutable, observation, revue indépendante ou décision humaine. |
 | Première intégration avec un agent réel | **Obligatoire** | L’interface commune est dérivée d’un comportement observable plutôt que d’un protocole spéculatif. |
 | CLI comme première interface | **Défaut** | Elle rend les opérations accessibles et automatisables avant une TUI ou une interface web. |
@@ -91,28 +109,37 @@ une condition artificielle de réussite.
 
 | Règle | Statut | Application |
 | --- | --- | --- |
-| Environnement courant hérité | **Défaut** | Il correspond à l’usage local ordinaire. |
+| Environnement courant hérité par les commandes ordinaires | **Défaut** | Il correspond à l’usage local hors agent ; une exécution d’agent reçoit au contraire un environnement filtré. |
+| Agent et processus descendants exécutés dans une sandbox | **Obligatoire** | Le confinement empêche techniquement les accès non accordés ; une observation a posteriori des fichiers ne suffit pas. |
+| Permissions minimales et explicites de la sandbox | **Obligatoire** | Les lectures, écritures, exécutions, accès réseau, variables et secrets sont accordés selon le besoin de l’intervention et hérités par ses processus enfants. |
+| Mécanisme de confinement propre à la plateforme | **Défaut** | L’implémentation peut différer entre macOS, Linux et un environnement distant, mais doit satisfaire la même politique observable. |
+| Défense Linux composée | **Défaut** | Les namespaces, Bubblewrap ou Landlock limitent les ressources visibles et accessibles ; seccomp complète cette politique en filtrant les appels système lorsqu’un profil compatible peut être maintenu. Son omission laisse explicite le risque non couvert. |
 | Environnement hermétique | **Conditionnelle** | Une revendication de reproductibilité doit le justifier et le vérifier. |
 | `TMPDIR` imposé par le contrat | **Retirée** | Les tests choisissent leurs propres emplacements temporaires. |
 | Interdiction globale du réseau | **Retirée** | Elle empêchait des intégrations légitimes sans fournir d’isolation. |
 | Besoin de réseau, secret ou service externe annoncé | **Obligatoire** | Il permet une décision informée avant l’effet. |
-| Restriction réseau technique | **Conditionnelle** | Elle exige un risque identifié et un mécanisme vérifiable. |
+| Accès réseau d’un agent contrôlé par sa sandbox | **Obligatoire** | Le profil refuse ou autorise explicitement cet accès ; une interdiction uniforme n’est pas imposée à tous les usages. |
 | Bibliothèque standard uniquement | **Retirée** | L’absence de dépendance n’est pas une garantie suffisante. |
 | Dépendance tierce évaluée et déclarée | **Défaut** | Sa valeur, sa maintenance et sa licence doivent être acceptables. |
 | `uv` comme gestionnaire du projet Python | **Défaut** | Il porte l’environnement, la résolution et l’exécution sans dupliquer ces responsabilités. |
 | Dépendances déclarées dans `pyproject.toml` | **Obligatoire** | Ce fichier est l’autorité lisible et standard du projet Python. |
-| `uv.lock` versionné | **Obligatoire** | Il fixe l’environnement résolu de l’application. |
+| `uv.lock` versionné | **Obligatoire** | Il fixe l’environnement résolu de 495. |
 | Gestionnaire d’outils ou de paquets système supplémentaire | **Conditionnelle** | Une dépendance non Python ou une chaîne multi-runtime doit en démontrer le besoin. |
 
 ## Architecture et données
 
 | Règle | Statut | Application |
 | --- | --- | --- |
+| État de l’art ciblé avant une implémentation de 495 | **Obligatoire** | Toute réflexion susceptible d’introduire un composant ou une abstraction dans 495 examine d’abord les clients d’agents, harnais de code et bibliothèques open source qui portent déjà le comportement recherché. La profondeur de l’étude reste proportionnée à la décision. |
+| Inspection du comportement réel des candidats pour 495 | **Obligatoire** | La comparaison s’appuie sur l’implémentation, les tests, les garanties documentées et les limites pertinentes ; une liste de fonctionnalités ou un README ne suffit pas pour une décision structurante de 495. |
+| Réutilisation avant développement interne | **Défaut** | 495 configure ou compose une capacité maintenue avant de la réimplémenter dans son propre code, si sa licence, sa maintenance, ses garanties et son coût d’exploitation sont acceptables. |
+| Décision de réutilisation interne traçable | **Obligatoire** | La conception de 495 cite les solutions pertinentes examinées et explique ce qui est réutilisé, adapté ou développé dans 495. |
 | Architecture en couches imposée avant l’usage | **Retirée** | La structure découle du premier parcours vertical. |
 | Domaine sans entrée-sortie | **Défaut** | Utile lorsque de vraies règles métier doivent être isolées. |
 | Immutabilité universelle | **Retirée** | Elle ajoute du cérémonial aux objets qui n’en bénéficient pas. |
 | Résultats métier explicites | **Défaut** | Les exceptions restent adaptées aux erreurs techniques inattendues. |
 | Champs inconnus refusés | **Défaut** | Ce choix concerne surtout les frontières versionnées ; une interface interne peut évoluer plus librement. |
+| JSON Schema limité aux décisions consommées par une machine | **Défaut** | Le schéma porte les statuts, questions, diagnostics et références utiles sans tenter de structurer tout le raisonnement ni toutes les sorties brutes. |
 | Sérialisation canonique | **Conditionnelle** | Elle est utile lorsqu’un digest ou une signature dépend des octets. |
 | `pickle` pour des données externes ou persistées | **Retirée** | Un format sûr et interopérable est requis à ces frontières. |
 | SQLite pour une persistance locale transactionnelle | **Défaut** | Il remplace avantageusement un journal fichier construit sur mesure. |
@@ -123,7 +150,8 @@ une condition artificielle de réussite.
 | --- | --- | --- |
 | Boucle agent, contrôles, feedback et revue | **Obligatoire** | 495 préserve les comportements utiles déjà expérimentés par CodeServo dans `implementing` et `verifying`. |
 | Portage complet de l’architecture de CodeServo | **Retirée** | La reprise porte sur des comportements et des tests ciblés, pas sur l’arborescence historique. |
-| Confinement, capteurs privés et preuve exhaustive | **Conditionnelle** | Ces mécanismes exigent un risque ou une garantie explicite qui justifie leur coût. |
+| Confinement de l’agent | **Obligatoire** | La simplification de CodeServo ne retire pas la frontière qui limite les effets de l’agent et de ses outils. |
+| Capteurs privés et preuve exhaustive | **Conditionnelle** | Ces mécanismes exigent un risque ou une garantie explicite qui justifie leur coût. |
 | Générations, protocoles expérimentaux et auto-hébergement | **Retirée** | Ils ne servent pas le parcours ordinaire d’un changement dans une application. |
 | Réutilisation d’un composant historique | **Conditionnelle** | Le besoin courant, le comportement conservé et le coût résiduel doivent être identifiés. |
 
@@ -157,6 +185,8 @@ Le socle obligatoire se limite à :
    décisions qui permettent de poursuivre ;
 4. une documentation qui décrit honnêtement le comportement disponible ;
 5. des contrôles pertinents avec un résultat observable ;
-6. pour un rapport formel, une configuration, un manifeste, des digests et des
+6. un contexte ciblé, une sandbox et une réponse JSON validée pour chaque
+   intervention d’agent orchestrée ;
+7. pour un rapport formel, une configuration, un manifeste, des digests et des
    commandes bornées par un timeout ;
-7. aucune revendication de sécurité sans mécanisme et preuve correspondants.
+8. aucune revendication de sécurité sans mécanisme et preuve correspondants.
