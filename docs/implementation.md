@@ -333,8 +333,15 @@ posé la question. Le document a donc restitué `agent_failed`, `contract` à
 `null` et la question dans `questions`. Cet essai a montré qu’un timeout
 n’est presque jamais attesté par un dépôt ; le prompt demande depuis de le
 laisser à `null` dans ce cas et l’option `--timeout-seconds` a été ajoutée.
-Ce comportement est couvert par le double déterministe, mais n’a pas encore
-été rejoué avec Codex authentifié.
+Un second essai sur le même dépôt, sans `--timeout-seconds`, a restitué
+`proposal_ready` en 35 secondes : un contrôle `make check` en `read-only`,
+`timeout_seconds` à `null`, une attestation citant le README et le Makefile,
+`gmake` résolu dans `commands`, une question sur la provenance de
+`result.txt` et la limitation signalant l’absence de borne de durée. Le dépôt
+est resté intact. Cette proposition a ensuite été enregistrée telle quelle par
+`configure write`, relue par `configure validate`, puis utilisée par `verify`
+pour un verdict défavorable puis favorable, le tout sans authentification. Le
+parcours `change` n’a pas été rejoué sur ce dépôt.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de
