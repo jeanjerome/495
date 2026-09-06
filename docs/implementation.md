@@ -7,6 +7,7 @@
 | `README.md` | Conservé et raccourci | Point d’entrée pour comprendre et utiliser le dépôt |
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
+| `docs/plan-global.md` | Ajouté | Ordre des capacités futures et impacts attendus sur l’architecture applicative |
 | `docs/etat-de-l-art.md` | Ajouté | Solutions existantes pertinentes pour le premier incrément |
 | `docs/conception-premier-increment.md` | Ajouté | Choix d’intégration appliqués au premier incrément |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |

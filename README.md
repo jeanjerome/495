@@ -152,6 +152,8 @@ Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
 quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
 Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
 visés et les responsabilités laissées aux outils existants.
+Le [plan global d’évolution](docs/plan-global.md) ordonne les fonctionnalités à
+ajouter et leurs impacts sur l’architecture applicative.
 L’[état de l’art](docs/etat-de-l-art.md) compare les clients, harnais et
 runtimes pertinents pour le premier incrément.
 La [conception du premier incrément](docs/conception-premier-increment.md)

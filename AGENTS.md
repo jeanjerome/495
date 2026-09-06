@@ -11,6 +11,8 @@ disponibles.
 - `README.md` décrit l’état et l’utilisation du dépôt.
 - `docs/principes-et-contraintes.md` porte les règles de décision.
 - `docs/parcours-utilisateur.md` décrit les usages visés et leurs frontières.
+- `docs/plan-global.md` ordonne les capacités futures et leurs impacts
+  architecturaux.
 - `docs/etat-de-l-art.md` consigne les solutions examinées avant la conception.
 - `docs/reprise-de-codeservo.md` définit l’héritage fonctionnel à simplifier.
 - `docs/conception-premier-increment.md` décrit les choix du premier parcours.
