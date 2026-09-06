@@ -13,6 +13,8 @@ disponibles.
 - `docs/parcours-utilisateur.md` décrit les usages visés et leurs frontières.
 - `docs/etat-de-l-art.md` consigne les solutions examinées avant la conception.
 - `docs/reprise-de-codeservo.md` définit l’héritage fonctionnel à simplifier.
+- `docs/conception-premier-increment.md` conçoit la prochaine capacité sans la
+  présenter comme disponible.
 - `docs/implementation.md` décrit le comportement implémenté.
 - `pyproject.toml` déclare le projet Python et ses dépendances.
 - `uv.lock` verrouille l’environnement Python résolu.

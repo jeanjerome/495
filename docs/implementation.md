@@ -8,6 +8,7 @@
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
 | `docs/etat-de-l-art.md` | Ajouté | Solutions existantes pertinentes pour le premier incrément |
+| `docs/conception-premier-increment.md` | Ajouté | Choix d’intégration appliqués au premier incrément |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -18,8 +19,10 @@
 | `495/` | Supprimé | Archive redondante avec l’historique Git |
 | `bootstrap/runs/` | Supprimé | Résultats anciens sans rôle dans l’état courant |
 | `bootstrap/contract.json` | Conservé et simplifié | Configuration facultative d’une exécution liée à des fichiers |
-| `tools/run_bootstrap.py` | Conservé et simplifié | Seul parcours exécutable utile |
+| `tools/run_bootstrap.py` | Conservé et simplifié | Contrôles propres au dépôt 495 |
 | `tools/test_run_bootstrap.py` | Conservé et simplifié | Vérification directe du lanceur |
+| `tools/run_change.py` | Ajouté | Parcours exécutable entre demande, Codex, candidat et contrôles cible |
+| `tools/test_run_change.py` | Ajouté | Vérification du parcours avec un double de Codex et des dépôts temporaires |
 | `tools/verify_state.py` | Supprimé | Ne contrôlait que l’archive retirée |
 | `src/domain/`, `src/validation/` et `src/policy/` | Supprimés | Modèle fermé conçu avant un usage réel |
 | `src/persistence/` | Supprimé | Infrastructure sur mesure sans consommateur réel |
@@ -28,8 +31,7 @@
 
 ## Comportement disponible
 
-Le seul point d’entrée exécutable du projet est actuellement
-`tools/run_bootstrap.py`. Il offre deux commandes :
+`tools/run_bootstrap.py` offre deux commandes pour contrôler 495 lui-même :
 
 - `validate` valide une configuration et résout les fichiers qu’elle désigne ;
 - `run` exécute les contrôles et retourne un code de sortie favorable seulement
@@ -43,7 +45,23 @@ crée si nécessaire un environnement `.venv` ignoré par Git et le synchronise
 avec `uv.lock`. Le projet est déclaré non packagé tant qu’aucune commande
 utilisateur `495` n’existe ; aucun backend de build n’est donc imposé.
 
-## Configuration
+`tools/run_change.py` expose le premier parcours vers une application cible. Il
+exige une demande dans un fichier, la racine d’un dépôt Git propre avec un
+`HEAD`, un contrat cible et un `CODEX_HOME` dédié. Il exécute une intervention
+de `codex exec`, observe l’état Git obtenu, puis lance chaque contrôle avec
+`codex sandbox`. La demande est transmise au client par l’entrée standard et
+les commandes sont toujours des listes d’arguments sans shell.
+
+Le runner crée ses schémas, réponses intermédiaires et répertoires personnels
+temporaires hors du dépôt cible. Il fournit au processus Codex uniquement les
+variables nommées par le contrat, son identité dédiée et ces chemins
+temporaires. La politique des commandes de l’agent exclut `CODEX_HOME`, refuse
+les noms ressemblant à des clés, secrets ou jetons, et désactive le réseau du
+sandbox `workspace-write`. Les personnalisations utilisateur et skills
+personnelles ne sont pas chargées ; les instructions et skills du dépôt restent
+disponibles.
+
+## Configuration du lanceur de contrôles
 
 `bootstrap/contract.json` utilise quatre champs :
 
@@ -63,7 +81,20 @@ jeton `{python}` désigne l’interpréteur qui exécute le lanceur. Le processu
 hérite de l’environnement et utilise la racine du dépôt comme répertoire de
 travail.
 
-## Résultat
+## Contrat de l’application cible
+
+Le contrat reçu par `run_change.py` contient exactement `version`,
+`environment` et `checks`. `environment` énumère les variables ordinaires que
+495 peut transmettre ; `HOME`, `TMPDIR`, `CODEX_HOME` et les noms contenant
+`KEY`, `SECRET` ou `TOKEN` sont refusés.
+
+Chaque contrôle possède un nom unique, une commande non vide, un timeout
+strictement positif et un accès fichiers `read-only` ou `workspace-write`. Ces
+deux valeurs utilisent respectivement les profils Codex `:read-only` et
+`:workspace`. Le runner ajoute une interdiction réseau explicite à chaque
+invocation.
+
+## Résultat du lanceur de contrôles
 
 Une commande réussit lorsque son code de sortie vaut zéro avant le timeout. En
 cas d’échec, ses sorties standard et d’erreur sont affichées et peuvent être
@@ -82,17 +113,53 @@ Un rapport contient uniquement :
 - les commandes, durées, codes de sortie et timeouts ;
 - le résultat global et les éventuelles violations de stabilité.
 
+## Résultat d’un changement
+
+`run_change.py` écrit un unique document JSON sur sa sortie standard. Il relie
+le digest de la demande, le commit initial, la version du client, la réponse de
+l’agent, le candidat observé, l’environnement nommé et les contrôles. Les
+artefacts temporaires ne sont pas conservés.
+
+La réponse de l’agent est contrainte et revalidée avec le même JSON Schema au
+moyen de la bibliothèque `jsonschema`. Elle contient un statut, un résumé, des
+questions et des limites, mais ne décide ni des chemins modifiés ni du verdict.
+Le candidat est calculé à partir du diff Git et des fichiers non suivis ; son
+digest incorpore le commit initial, le patch suivi et le contenu non suivi.
+
+Les contrôles sont séquentiels. Leur code, leur durée, leur timeout et leurs
+sorties sont restitués. Si un contrôle modifie l’état Git visible, 495 arrête la
+suite, conserve les fichiers et signale une violation au lieu de vérifier un
+candidat différent de celui qu’il avait observé.
+
+Les issues sont `candidate_verified`, `candidate_failed`, `agent_failed` et
+`execution_impossible`. Un client non nul, bloqué ou expiré, un flux JSONL
+incomplet, une réponse invalide et une absence de candidat sont distingués des
+échecs des contrôles.
+
+Le parcours complet a été exécuté avec Codex CLI `0.153.3` sur macOS. Le dépôt
+d’essai a confirmé la réponse structurée, le candidat unique, le contrôle
+favorable, l’absence de `CODEX_HOME` dans les commandes de l’agent et le refus
+réseau de l’agent comme des contrôles. Les tests automatisés couvrent en plus
+les issues défavorables sans consommer de quota.
+
 ## Comportements absents
 
-Le projet ne fournit pas encore de commande utilisateur `495`, de workflow
-métier, de stockage applicatif, d’intégration avec un agent ou un dépôt, ni de
-mécanisme d’approbation. Il ne construit donc pas encore de contexte d’agent,
-n’exécute aucun agent dans une sandbox et ne valide aucune réponse d’agent avec
-JSON Schema.
+Le projet ne fournit pas encore de commande installée `495`, de passage par les
+états du workflow complet, de boucle de correction, de stockage applicatif, de
+reprise, de mécanisme d’approbation ni d’intégration Git. Le premier incrément
+ne prend en charge que Codex CLI, un dépôt initial propre et une seule
+intervention.
 
-Il ne contrôle pas le réseau, les secrets ou les écritures du processus. Le
-lockfile rend la résolution des dépendances reproductible, mais ne rend pas à
-lui seul le système d’exploitation ni l’exécution hermétiques.
+Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
+pas une sandbox. Le runner de changement délègue le confinement à la version de
+Codex installée : il configure et observe cette frontière, mais ne rend pas le
+système d’exploitation hermétique et ne prouve pas encore les lectures
+effectivement possibles. Les diagnostics des outils peuvent contenir des
+informations sensibles et sont remis localement sans persistance automatique.
+Codex peut néanmoins écrire ses caches et fichiers d’état propres dans le
+`CODEX_HOME` dédié, que 495 ne supprime pas lorsqu’il appartient à l’utilisateur.
+Les sorties des processus sont bornées par leur timeout, mais pas encore par une
+taille maximale indépendante.
 
 ## Règle d’évolution
 
@@ -113,12 +180,12 @@ L’[état de l’art du premier incrément](etat-de-l-art.md) remplit cette exi
 pour l’orientation actuelle. Toute propriété encore incertaine doit être
 confirmée par un essai sur les versions réellement intégrées.
 
-La prochaine implémentation doit réaliser le
-[premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical).
-Elle reçoit une demande visant un dépôt local propre, invoque un véritable
-client d’agent, identifie le candidat obtenu, exécute les contrôles déclarés par
-l’application cible et restitue leurs résultats. Elle ne prétend pas encore
-faire traverser au changement les états et gates du workflow complet.
+La [conception du premier incrément](conception-premier-increment.md) retient
+Codex CLI et son runner sandboxé comme composants à adapter. `run_change.py`
+applique cette conception au
+[premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical)
+sans prétendre faire traverser au changement les états et gates du workflow
+complet.
 
 Cette intégration construit un contexte ciblé, utilise des environnements
 d’exécution dont les permissions sont explicites et valide le résultat JSON

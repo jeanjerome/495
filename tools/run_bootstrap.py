@@ -141,7 +141,7 @@ def manifest_digest(manifest: list[dict[str, Any]]) -> str:
 
 
 def command_arguments(check: dict[str, Any]) -> list[str]:
-    python = str(Path(sys.executable).resolve())
+    python = sys.executable
     return [python if argument == "{python}" else argument for argument in check["command"]]
 
 
@@ -188,7 +188,7 @@ def execute_check(check: dict[str, Any]) -> dict[str, Any]:
 def interpreter_record() -> dict[str, str]:
     return {
         "implementation": platform.python_implementation(),
-        "path": str(Path(sys.executable).resolve()),
+        "path": sys.executable,
         "version": platform.python_version(),
     }
 

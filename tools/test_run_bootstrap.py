@@ -118,6 +118,12 @@ class BootstrapRunnerTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"RUNNER_TEST": "visible"}):
             self.assertEqual(0, self.run_silently())
 
+    def test_python_token_keeps_the_active_environment(self) -> None:
+        with mock.patch.object(run_bootstrap.sys, "executable", "/tmp/venv/bin/python"):
+            command = run_bootstrap.command_arguments(self.contract["checks"][0])
+
+        self.assertEqual("/tmp/venv/bin/python", command[0])
+
     def test_candidate_change_makes_the_result_fail(self) -> None:
         self.contract["checks"][0]["command"] = [
             "{python}",

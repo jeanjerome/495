@@ -19,14 +19,16 @@ d’un agent est déterministe ni qu’elle converge automatiquement.
 
 ## État actuel
 
-Le seul point d’entrée actif est un lanceur minimal de contrôles. Les anciennes
-implémentations du domaine, des décisions, des tentatives, de la persistance,
-des adaptateurs et de l’orchestration ont été retirées : elles anticipaient des
-usages qui n’étaient exposés par aucune interface utilisateur.
+Deux points d’entrée Python sont actifs : le lanceur minimal de contrôles du
+dépôt et le runner du premier incrément vertical. Ce dernier sait invoquer
+Codex CLI sur un dépôt Git propre, observer le candidat, exécuter les contrôles
+de l’application avec `codex sandbox` et restituer un JSON validé.
 
-Le harnais, l’intégration d’agents, la construction de leur contexte, leur
-confinement et leur contrat de réponse ne sont donc pas encore implémentés. Ils
-décrivent la cible fonctionnelle, pas les garanties du lanceur actuel.
+Cette intégration est couverte avec un double déterministe du client. Un parcours
+réel complet avec Codex CLI `0.153.3` valide en plus la skill de projet, la
+sortie structurée, l’environnement filtré, le refus réseau de l’agent et des
+contrôles ainsi que leur sandbox sur macOS. La portée exacte des lectures et le
+comportement Linux restent à vérifier.
 
 Le workflow `clarifying` → `specifying` → `designing` → `implementing` →
 `verifying` → `accepted` → `integrating` → `integrated` reste la colonne
@@ -45,14 +47,14 @@ frameworks et chaînes d’outils. Elles conservent leurs propres conventions et
 leur architecture ; 495 orchestre les agents et les commandes qu’elles exposent
 sans leur imposer les choix techniques de son implémentation interne.
 
-La prochaine fonctionnalité est le
+La fonctionnalité en cours de validation est le
 [premier incrément vertical](docs/parcours-utilisateur.md#premier-incrément-vertical) :
 recevoir une demande visant un dépôt local, invoquer un véritable client
 d’agent, identifier le candidat produit, exécuter les contrôles de l’application
 cible et restituer le résultat. Elle ne met pas encore en œuvre les états et
-gates du workflow complet. Avant de choisir son architecture ou un composant,
-l’implémentation de 495 examine les harnais d’agents de code et composants open
-source qui fournissent déjà le comportement recherché.
+gates du workflow complet. Son architecture découle de l’étude des harnais
+d’agents de code et composants open source qui fournissent déjà le comportement
+recherché.
 
 ## Utilisation
 
@@ -84,6 +86,46 @@ automatiquement lorsque cela est nécessaire.
 Sans `--report`, aucune archive d’exécution n’est créée. Les rapports demandés
 sont écrits sous `.495/runs/` et ignorés par Git.
 
+### Exécuter un changement avec Codex
+
+L’application cible doit être un dépôt Git propre avec un commit initial. Son
+contrat JSON, suivi dans ce dépôt, déclare ses contrôles et l’environnement
+transmis :
+
+```json
+{
+  "version": 1,
+  "environment": ["PATH", "LANG"],
+  "checks": [
+    {
+      "name": "tests",
+      "command": ["uv", "run", "pytest"],
+      "timeout_seconds": 300,
+      "filesystem": "workspace-write"
+    }
+  ]
+}
+```
+
+Le client utilise un `CODEX_HOME` dédié, déjà authentifié et dépourvu de skills
+personnelles. L’appel réel contacte le service Codex et peut consommer un quota.
+Une demande enregistrée dans un fichier est exécutée ainsi :
+
+```sh
+uv run python tools/run_change.py \
+  --repository /chemin/vers/application \
+  --contract /chemin/vers/application/495.json \
+  --codex-home /chemin/vers/codex-home-495 \
+  --request-file /chemin/vers/demande.md
+```
+
+Le résultat JSON est écrit sur la sortie standard. Le code vaut `0` pour un
+candidat vérifié, `1` pour un candidat dont un contrôle échoue, `2` pour une
+exécution impossible et `3` pour un échec du client ou de sa réponse. 495 ne
+crée aucun commit et ne conserve pas les événements ou rapports temporaires.
+Codex peut toutefois créer ses propres caches et fichiers d’état dans le
+`CODEX_HOME` dédié ; ce répertoire reste sous le contrôle de l’utilisateur.
+
 ## Ce que fait le lanceur
 
 La configuration [bootstrap/contract.json](bootstrap/contract.json) déclare :
@@ -110,6 +152,9 @@ Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
 visés et les responsabilités laissées aux outils existants.
 L’[état de l’art](docs/etat-de-l-art.md) compare les clients, harnais et
 runtimes pertinents pour le premier incrément.
+La [conception du premier incrément](docs/conception-premier-increment.md)
+définit l’interface et les composants retenus sans les présenter comme déjà
+disponibles.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

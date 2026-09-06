@@ -1,0 +1,378 @@
+from __future__ import annotations
+
+import copy
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import textwrap
+import unittest
+from pathlib import Path
+from unittest import mock
+
+
+TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))
+
+import run_change  # noqa: E402
+
+
+FAKE_CODEX = r"""
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def option(name):
+    return sys.argv[sys.argv.index(name) + 1]
+
+
+if sys.argv[1:] == ["--version"]:
+    print("codex-cli test")
+    raise SystemExit(0)
+
+if sys.argv[1:] == ["login", "status"]:
+    if os.environ.get("FAKE_CODEX_MODE") == "unauthenticated":
+        print("Not logged in", file=sys.stderr)
+        raise SystemExit(1)
+    print("Logged in using test credentials")
+    raise SystemExit(0)
+
+if sys.argv[1] == "exec":
+    mode = os.environ.get("FAKE_CODEX_MODE", "success")
+    repository = Path(option("-C"))
+    response_path = Path(option("--output-last-message"))
+    request = sys.stdin.read()
+    if "Demande :" not in request:
+        print("request missing", file=sys.stderr)
+        raise SystemExit(8)
+    if mode == "timeout":
+        time.sleep(5)
+    if mode != "no_candidate":
+        (repository / "result.txt").write_text("candidate\n", encoding="utf-8")
+    response = {
+        "status": "completed",
+        "summary": "candidate created",
+        "questions": [],
+        "limitations": [],
+    }
+    if mode == "invalid_response":
+        response.pop("questions")
+    if mode == "blocked":
+        response["status"] = "blocked"
+        response["questions"] = ["Need a decision"]
+    response_path.write_text(json.dumps(response), encoding="utf-8")
+    if mode == "malformed_events":
+        print("not json")
+        raise SystemExit(0)
+    print(json.dumps({"type": "thread.started", "thread_id": "test"}))
+    print(json.dumps({
+        "type": "item.completed",
+        "item": {"type": "command_execution", "exit_code": 0},
+    }))
+    print(json.dumps({
+        "type": "turn.completed",
+        "usage": {"input_tokens": 10, "output_tokens": 4},
+    }))
+    if mode == "agent_failure":
+        print("client failed", file=sys.stderr)
+        raise SystemExit(9)
+    raise SystemExit(0)
+
+if sys.argv[1] == "sandbox":
+    if os.environ.get("FAKE_CODEX_MODE") == "sandbox_unavailable":
+        print("sandbox unavailable", file=sys.stderr)
+        raise SystemExit(125)
+    separator = sys.argv.index("--")
+    repository = Path(option("-C"))
+    completed = subprocess.run(sys.argv[separator + 1 :], cwd=repository)
+    raise SystemExit(completed.returncode)
+
+print("unexpected fake invocation", file=sys.stderr)
+raise SystemExit(64)
+"""
+
+
+class ChangeRunnerTest(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.repository = self.base / "application"
+        self.repository.mkdir()
+        self.codex_home = self.base / "codex-home"
+        self.codex_home.mkdir()
+        self.fake_codex = self.base / "codex"
+        self.fake_codex.write_text(
+            f"#!{sys.executable}\n" + textwrap.dedent(FAKE_CODEX),
+            encoding="utf-8",
+        )
+        self.fake_codex.chmod(0o755)
+
+        self.contract = {
+            "version": 1,
+            "environment": ["FAKE_CODEX_MODE", "PATH"],
+            "checks": [
+                {
+                    "name": "tests",
+                    "command": [sys.executable, "-c", "print('control passed')"],
+                    "timeout_seconds": 3,
+                    "filesystem": "read-only",
+                }
+            ],
+        }
+        self.contract_path = self.repository / "495.json"
+        (self.repository / "README.md").write_text("fixture\n", encoding="utf-8")
+        self.write_contract()
+        self.git("init", "-b", "main")
+        self.git("add", "README.md", "495.json")
+        self.git(
+            "-c",
+            "user.name=495 tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "-m",
+            "test: initialize fixture",
+        )
+
+    def git(self, *arguments: str) -> str:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=self.repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    def write_contract(self) -> None:
+        self.contract_path.write_text(json.dumps(self.contract), encoding="utf-8")
+
+    def run_scenario(self, mode: str = "success", *, agent_timeout: int = 3):
+        with mock.patch.object(run_change, "find_codex", return_value=self.fake_codex):
+            with mock.patch.dict(os.environ, {"FAKE_CODEX_MODE": mode}):
+                return run_change.run_change(
+                    repository=self.repository,
+                    contract_path=self.contract_path,
+                    request="Create the result file.",
+                    codex_home=self.codex_home,
+                    agent_timeout_seconds=agent_timeout,
+                )
+
+    def update_committed_contract(self) -> None:
+        self.write_contract()
+        self.git("add", "495.json")
+        self.git(
+            "-c",
+            "user.name=495 tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "-m",
+            "test: update fixture",
+        )
+
+    def test_valid_candidate_and_control_are_verified(self) -> None:
+        result, exit_code = self.run_scenario()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual("candidate_verified", result["outcome"])
+        self.assertEqual(["result.txt"], [item["path"] for item in result["candidate"]["files"]])
+        self.assertEqual("PASS", result["checks"][0]["status"])
+        self.assertTrue(result["contract_digest"].startswith("sha256:"))
+        self.assertEqual(1, result["agent"]["events"]["command_count"])
+        self.assertEqual(
+            {"input_tokens": 10, "output_tokens": 4},
+            result["agent"]["events"]["usage"],
+        )
+        command = result["agent"]["command"]
+        include_only = command[command.index("shell_environment_policy.inherit=all") + 2]
+        self.assertIn("FAKE_CODEX_MODE", include_only)
+        self.assertNotIn("CODEX_HOME", include_only)
+        self.assertNotIn(str(self.codex_home), json.dumps(result))
+
+    def test_invalid_agent_response_is_distinct_from_control_failure(self) -> None:
+        result, exit_code = self.run_scenario("invalid_response")
+
+        self.assertEqual(3, exit_code)
+        self.assertEqual("agent_failed", result["outcome"])
+        self.assertIn("non conforme", result["agent"]["response_error"])
+        self.assertEqual([], result["checks"])
+        self.assertIsNotNone(result["candidate"])
+
+    def test_absence_of_candidate_is_an_agent_failure(self) -> None:
+        result, exit_code = self.run_scenario("no_candidate")
+
+        self.assertEqual(3, exit_code)
+        self.assertEqual("agent_failed", result["outcome"])
+        self.assertIn("aucun candidat observé", result["violations"])
+        self.assertEqual([], result["checks"])
+
+    def test_nonzero_agent_keeps_partial_candidate_without_controls(self) -> None:
+        result, exit_code = self.run_scenario("agent_failure")
+
+        self.assertEqual(3, exit_code)
+        self.assertEqual(9, result["agent"]["exit_code"])
+        self.assertIsNotNone(result["candidate"])
+        self.assertEqual([], result["checks"])
+
+    def test_blocked_agent_does_not_run_controls(self) -> None:
+        result, exit_code = self.run_scenario("blocked")
+
+        self.assertEqual(3, exit_code)
+        self.assertIn("agent bloqué", result["violations"])
+        self.assertEqual([], result["checks"])
+
+    def test_malformed_event_stream_is_an_agent_failure(self) -> None:
+        result, exit_code = self.run_scenario("malformed_events")
+
+        self.assertEqual(3, exit_code)
+        self.assertIn("JSONL invalide", result["agent"]["events_error"])
+        self.assertTrue(
+            any("flux d’événements" in violation for violation in result["violations"])
+        )
+
+    def test_agent_timeout_kills_the_invocation(self) -> None:
+        result, exit_code = self.run_scenario("timeout", agent_timeout=1)
+
+        self.assertEqual(3, exit_code)
+        self.assertTrue(result["agent"]["timed_out"])
+        self.assertIsNone(result["agent"]["exit_code"])
+        self.assertIsNone(result["candidate"])
+
+    def test_failed_control_keeps_diagnostics(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            sys.executable,
+            "-c",
+            "import sys; print('bad candidate', file=sys.stderr); raise SystemExit(7)",
+        ]
+        self.update_committed_contract()
+
+        result, exit_code = self.run_scenario()
+
+        self.assertEqual(1, exit_code)
+        self.assertEqual("candidate_failed", result["outcome"])
+        self.assertEqual(7, result["checks"][0]["exit_code"])
+        self.assertEqual("bad candidate\n", result["checks"][0]["stderr"])
+
+    def test_control_timeout_is_not_a_verified_candidate(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(5)",
+        ]
+        self.contract["checks"][0]["timeout_seconds"] = 1
+        self.update_committed_contract()
+
+        result, exit_code = self.run_scenario()
+
+        self.assertEqual(1, exit_code)
+        self.assertTrue(result["checks"][0]["timed_out"])
+        self.assertIsNone(result["checks"][0]["exit_code"])
+
+    def test_control_that_changes_git_state_is_reported(self) -> None:
+        self.contract["checks"][0]["command"] = [
+            sys.executable,
+            "-c",
+            "from pathlib import Path; Path('control-output.txt').write_text('changed')",
+        ]
+        self.contract["checks"][0]["filesystem"] = "workspace-write"
+        self.update_committed_contract()
+
+        result, exit_code = self.run_scenario()
+
+        self.assertEqual(1, exit_code)
+        self.assertEqual("candidate_failed", result["outcome"])
+        self.assertIn("a modifié l’état Git visible", result["violations"][0])
+        self.assertIsNotNone(result["candidate_after_checks"])
+
+    def test_dirty_repository_is_rejected_before_agent(self) -> None:
+        (self.repository / "local.txt").write_text("dirty\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(run_change.ChangeError, "doit être propre"):
+            self.run_scenario()
+
+    def test_contract_rejects_ambient_home_variables(self) -> None:
+        contract = copy.deepcopy(self.contract)
+        contract["environment"].append("HOME")
+
+        with self.assertRaisesRegex(run_change.ChangeError, "défini par 495"):
+            run_change.validate_contract(contract)
+
+    def test_contract_rejects_secret_environment_variables(self) -> None:
+        contract = copy.deepcopy(self.contract)
+        contract["environment"].append("SERVICE_TOKEN")
+
+        with self.assertRaisesRegex(run_change.ChangeError, "ressemble à un secret"):
+            run_change.validate_contract(contract)
+
+    def test_contract_rejects_environment_patterns(self) -> None:
+        contract = copy.deepcopy(self.contract)
+        contract["environment"].append("PREFIX_*")
+
+        with self.assertRaisesRegex(run_change.ChangeError, "nom invalide"):
+            run_change.validate_contract(contract)
+
+    def test_missing_authentication_is_rejected_before_agent(self) -> None:
+        with self.assertRaisesRegex(run_change.ChangeError, "Not logged in"):
+            self.run_scenario("unauthenticated")
+
+        self.assertEqual("", self.git("status", "--short"))
+
+    def test_missing_control_sandbox_is_rejected_before_agent(self) -> None:
+        with self.assertRaisesRegex(run_change.ChangeError, "sandbox read-only indisponible"):
+            self.run_scenario("sandbox_unavailable")
+
+        self.assertEqual("", self.git("status", "--short"))
+
+    def test_codex_home_with_user_skills_is_rejected(self) -> None:
+        (self.codex_home / "skills" / "personal").mkdir(parents=True)
+
+        with self.assertRaisesRegex(run_change.ChangeError, "skills utilisateur"):
+            self.run_scenario()
+
+    def test_cli_prints_one_json_result(self) -> None:
+        request_path = self.base / "request.md"
+        request_path.write_text("Create the result file.\n", encoding="utf-8")
+        environment = os.environ.copy()
+        environment["PATH"] = f"{self.base}{os.pathsep}{environment['PATH']}"
+        environment["FAKE_CODEX_MODE"] = "success"
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(TOOLS / "run_change.py"),
+                "--repository",
+                str(self.repository),
+                "--contract",
+                str(self.contract_path),
+                "--codex-home",
+                str(self.codex_home),
+                "--request-file",
+                str(request_path),
+            ],
+            cwd=TOOLS.parent,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual("candidate_verified", result["outcome"])
+        self.assertEqual("", completed.stderr)
+
+    def test_error_result_is_valid_json_output(self) -> None:
+        result = run_change.error_result(run_change.ChangeError("precondition", "missing"))
+        encoded = run_change.canonical_bytes(result)
+
+        self.assertEqual(result, json.loads(encoded))
+
+
+if __name__ == "__main__":
+    unittest.main()
