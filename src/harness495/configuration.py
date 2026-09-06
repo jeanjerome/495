@@ -34,7 +34,7 @@ PROPOSAL_RESPONSE_SCHEMA: dict[str, Any] = {
                 "properties": {
                     "name": {"type": "string"},
                     "command": {"type": "array", "items": {"type": "string"}},
-                    "timeout_seconds": {"type": "integer"},
+                    "timeout_seconds": {"type": ["integer", "null"]},
                     "filesystem": {
                         "type": "string",
                         "enum": sorted(FILESYSTEM_PROFILES),
@@ -77,11 +77,13 @@ def proposal_prompt() -> str:
         "continue, instructions du README ou du fichier d’instructions du dépôt. "
         "Pour chaque contrôle, `evidence` cite le fichier ou la convention qui "
         "l’atteste. Un choix que le dépôt ne permet pas de trancher, par exemple "
-        "entre deux gestionnaires de paquets ou pour un timeout sans indication, "
-        "devient une entrée de `questions` ; n’invente jamais une valeur.\n\n"
+        "entre deux gestionnaires de paquets, devient une entrée de `questions` ; "
+        "n’invente jamais une valeur.\n\n"
         "Chaque contrôle a un `name` unique, une `command` sous forme de liste "
         "d’arguments exécutée sans shell depuis la racine du dépôt, un "
-        "`timeout_seconds` entier positif et un `filesystem` qui vaut `read-only` "
+        "`timeout_seconds` entier positif seulement lorsque le dépôt l’atteste, "
+        "par exemple dans sa configuration d’intégration continue, et `null` "
+        "sinon, ainsi qu’un `filesystem` qui vaut `read-only` "
         "sauf lorsque tu constates que la commande écrit dans l’espace de travail, "
         "auquel cas il vaut `workspace-write`. `environment` énumère les seules "
         "variables ordinaires nécessaires aux contrôles, par exemple PATH ou LANG ; "
@@ -111,12 +113,44 @@ def contract_from_response(response: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def apply_timeout(
+    contract: dict[str, Any], timeout_seconds: int | None
+) -> str | None:
+    """Complète les contrôles sans timeout avec la valeur fournie par l’utilisateur.
+
+    Retourne la limitation à rapporter, ou `None` lorsque tous les contrôles
+    portaient déjà un timeout attesté. Sans valeur fournie, les contrôles
+    restent sans borne de durée : ni l’agent ni 495 n’inventent ce délai.
+    """
+
+    unbounded = [
+        check["name"] for check in contract["checks"] if check["timeout_seconds"] is None
+    ]
+    if not unbounded:
+        return None
+    names = ", ".join(unbounded)
+    if timeout_seconds is None:
+        return (
+            f"aucun timeout n’est attesté par le dépôt pour {names} et aucune "
+            "valeur n’a été passée avec --timeout-seconds : ces contrôles ne sont "
+            "pas bornés dans le temps"
+        )
+    for check in contract["checks"]:
+        if check["timeout_seconds"] is None:
+            check["timeout_seconds"] = timeout_seconds
+    return (
+        f"le timeout de {names} vaut {timeout_seconds} s, valeur passée avec "
+        "--timeout-seconds et non attestée par le dépôt"
+    )
+
+
 def propose_configuration(
     *,
     repository: Path,
     agent_client: AgentClient,
     agent_timeout_seconds: int,
     client_environment: dict[str, str],
+    timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     """Fait inspecter le dépôt par l’agent en lecture seule et restitue une proposition.
 
@@ -188,6 +222,9 @@ def propose_configuration(
             return result
 
         contract = contract_from_response(response)
+        timeout_limitation = apply_timeout(contract, timeout_seconds)
+        if timeout_limitation is not None:
+            result["limitations"].append(timeout_limitation)
         try:
             validate_contract(contract)
         except ConfigurationError as error:

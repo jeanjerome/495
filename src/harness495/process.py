@@ -24,9 +24,11 @@ def execute_process(
     *,
     cwd: Path,
     environment: dict[str, str],
-    timeout_seconds: int,
+    timeout_seconds: int | None,
     stdin: str | None = None,
 ) -> dict[str, Any]:
+    """Exécute une commande sans shell ; `timeout_seconds` à `None` ne borne pas sa durée."""
+
     started = time.monotonic()
     try:
         process = subprocess.Popen(

@@ -68,6 +68,7 @@ def propose_with_codex(
     repository: Path,
     codex_home: Path,
     agent_timeout_seconds: int,
+    timeout_seconds: int | None = None,
     executable: Path | None = None,
 ) -> dict[str, Any]:
     """Fait proposer une configuration par Codex en lecture seule, sans écriture."""
@@ -80,6 +81,7 @@ def propose_with_codex(
         agent_client=CodexAgentClient(executable),
         agent_timeout_seconds=agent_timeout_seconds,
         client_environment={"CODEX_HOME": str(codex_home)},
+        timeout_seconds=timeout_seconds,
     )
 
 

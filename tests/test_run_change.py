@@ -67,7 +67,7 @@ def proposal(repository, mode):
         checks.append({
             "name": "check",
             "command": ["sh", "scripts/check.sh"],
-            "timeout_seconds": 60,
+            "timeout_seconds": 60 if mode == "attested_timeout" else None,
             "filesystem": "read-only",
             "evidence": "scripts/check.sh est le script de contrôle du dépôt",
         })

@@ -121,6 +121,15 @@ def build_parser() -> argparse.ArgumentParser:
     add_repository_option(propose)
     propose.add_argument("--codex-home", required=True, type=Path)
     propose.add_argument("--agent-timeout-seconds", type=int, default=900)
+    propose.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=None,
+        help=(
+            "timeout appliqué aux contrôles que le dépôt n’atteste pas ; "
+            "sans cette option, ils restent sans borne de durée"
+        ),
+    )
 
     validate = operations.add_parser(
         "validate",
@@ -210,10 +219,15 @@ def verify_command(options: argparse.Namespace) -> dict[str, Any]:
 def configure_command(options: argparse.Namespace) -> dict[str, Any]:
     if options.operation == "propose":
         require_positive_agent_timeout(options)
+        if options.timeout_seconds is not None and options.timeout_seconds <= 0:
+            raise ChangeError(
+                "configuration", "le timeout des contrôles doit être positif"
+            )
         return propose_with_codex(
             repository=options.repository,
             codex_home=options.codex_home,
             agent_timeout_seconds=options.agent_timeout_seconds,
+            timeout_seconds=options.timeout_seconds,
         )
     if options.operation == "validate":
         return validate_with_codex_sandbox(

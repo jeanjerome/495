@@ -371,7 +371,9 @@ class CommandLineTest(unittest.TestCase):
         self.git("add", "scripts/check.sh")
         self.commit("test: add the check script")
 
-    def propose(self, mode: str = "success") -> subprocess.CompletedProcess[str]:
+    def propose(
+        self, mode: str = "success", *extra: str
+    ) -> subprocess.CompletedProcess[str]:
         codex_home = self.base / "codex-home"
         codex_home.mkdir(exist_ok=True)
         return self.run_cli(
@@ -381,6 +383,7 @@ class CommandLineTest(unittest.TestCase):
             str(self.repository),
             "--codex-home",
             str(codex_home),
+            *extra,
             mode=mode,
         )
 
@@ -410,7 +413,7 @@ class CommandLineTest(unittest.TestCase):
                         "command": ["sh", "scripts/check.sh"],
                         "filesystem": "read-only",
                         "name": "check",
-                        "timeout_seconds": 60,
+                        "timeout_seconds": None,
                     }
                 ],
                 "environment": ["PATH"],
@@ -426,6 +429,7 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual([], result["questions"])
         self.assertEqual([], result["violations"])
         self.assertIn("n’atteste ni la pertinence", result["limitations"][0])
+        self.assertIn("ne sont pas bornés dans le temps", result["limitations"][1])
         self.assertEqual("read-only", result["agent"]["sandbox"]["filesystem"])
         self.assertEqual(
             ["only scripts/ was inspected"], result["agent"]["response"]["limitations"]
@@ -437,6 +441,26 @@ class CommandLineTest(unittest.TestCase):
         exec_call = next(call for call in invocations if call[0] == "exec")
         self.assertEqual("read-only", exec_call[exec_call.index("--sandbox") + 1])
         self.assertNotIn("sandbox", [call[0] for call in invocations])
+
+    def test_configure_propose_applies_the_user_timeout(self) -> None:
+        self.add_check_script()
+
+        completed = self.propose("success", "--timeout-seconds", "45")
+        attested = self.propose("attested_timeout", "--timeout-seconds", "45")
+        rejected = self.propose("success", "--timeout-seconds", "0")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual(45, result["contract"]["checks"][0]["timeout_seconds"])
+        self.assertIn("le timeout de check vaut 45 s", result["limitations"][1])
+        self.assertEqual(0, attested.returncode, attested.stderr)
+        result = self.single_document(attested)
+        self.assertEqual(60, result["contract"]["checks"][0]["timeout_seconds"])
+        self.assertEqual(1, len(result["limitations"]))
+        self.assertEqual(2, rejected.returncode, rejected.stderr)
+        result = self.single_document(rejected)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertIn("timeout des contrôles", result["error"]["message"])
 
     def test_configure_propose_reports_an_agent_that_writes(self) -> None:
         self.add_check_script()

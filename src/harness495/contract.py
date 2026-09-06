@@ -99,9 +99,11 @@ def validate_contract(value: Any) -> dict[str, Any]:
                 f"{field}.filesystem doit valoir read-only ou workspace-write",
             )
         timeout = check["timeout_seconds"]
-        if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout <= 0:
+        if timeout is not None and (
+            not isinstance(timeout, int) or isinstance(timeout, bool) or timeout <= 0
+        ):
             raise ConfigurationError(
-                f"{field}.timeout_seconds doit être un entier positif",
+                f"{field}.timeout_seconds doit être un entier positif ou null",
             )
     return value
 

@@ -53,6 +53,7 @@ héritage d’environnement et son absence de sandbox répondent à un autre bes
 | contrat par défaut | `495.json` à la racine du dépôt cible | `configure` l’enregistre à cet endroit ; un chemin explicite reste possible |
 | proposition de configuration | produite par Codex en lecture seule, restituée sans écriture | l’agent propose, l’utilisateur décide, 495 valide et écrit sur action explicite |
 | écriture du contrat | sous-commande `write` distincte, refus d’écraser sans `--overwrite` | l’enregistrement et le remplacement sont deux effets distincts |
+| timeout non attesté | `null` dans la réponse de l’agent, complété seulement par `--timeout-seconds` ; sans cette option, le contrôle n’est pas borné | ni l’agent ni 495 n’inventent une borne ; l’essai réel a montré qu’un dépôt n’atteste presque jamais un délai |
 | exécutabilité | résolution de chaque exécutable et sonde des profils sandbox avant tout contrôle | un outil absent est une précondition manquante, pas un candidat défavorable |
 | bornes des sorties | préfixe de 4 MiB par flux, troncature signalée par des champs dédiés | mémoire et taille du résultat bornées ; le texte capturé reste verbatim |
 | sorties JSON | un document par exécution, indenté, UTF-8, clés triées | lisible par un humain qui relit une proposition ; le contenu ne change pas |
@@ -78,7 +79,7 @@ accepte un dépôt modifié : c’est précisément ce qu’elle vérifie.
 ### `495 configure`
 
 ```sh
-495 configure propose  [--repository .] --codex-home <répertoire> [--agent-timeout-seconds 900]
+495 configure propose  [--repository .] --codex-home <répertoire> [--agent-timeout-seconds 900] [--timeout-seconds <secondes>]
 495 configure validate [--repository .] [--contract <dépôt>/495.json]
 495 configure write    [--repository .] --proposal <fichier> [--contract <dépôt>/495.json] [--overwrite]
 ```
@@ -292,14 +293,18 @@ configuration de CI, instructions du `README` ou du fichier d’instructions du
 dépôt. Chaque contrôle cite son attestation. Un choix que le dépôt ne permet pas
 de trancher devient une question, jamais une valeur inventée. L’agent choisit
 `read-only` sauf lorsqu’il constate que la commande écrit dans l’espace de
-travail.
+travail. Il ne donne un `timeout_seconds` que lorsque le dépôt l’atteste, par
+exemple dans sa configuration d’intégration continue, et `null` sinon ; 495
+complète ces contrôles avec la valeur de `--timeout-seconds` lorsqu’elle est
+passée, et les laisse sans borne de durée sinon, en le signalant dans
+`limitations`.
 
 Le schéma de réponse contient :
 
 - `status`, avec `completed` ou `blocked` ;
 - `summary`, une chaîne ;
-- `checks`, une liste d’objets `name`, `command`, `timeout_seconds`,
-  `filesystem` et `evidence` ;
+- `checks`, une liste d’objets `name`, `command`, `timeout_seconds`, entier
+  ou `null`, `filesystem` et `evidence` ;
 - `environment`, une liste de noms de variables ;
 - `questions` et `limitations`, des listes de chaînes.
 

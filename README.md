@@ -158,7 +158,7 @@ identique à la référence, aucun contrôle n’est lancé et l’issue vaut
 Aucune n’écrit dans le dépôt sans `write`.
 
 ```sh
-uv run 495 configure propose  [--repository .] --codex-home <répertoire> [--agent-timeout-seconds 900]
+uv run 495 configure propose  [--repository .] --codex-home <répertoire> [--agent-timeout-seconds 900] [--timeout-seconds <secondes>]
 uv run 495 configure validate [--repository .] [--contract <dépôt>/495.json]
 uv run 495 configure write    [--repository .] --proposal <fichier> [--contract <dépôt>/495.json] [--overwrite]
 ```
@@ -170,8 +170,12 @@ un quota. Le document contient le contrat proposé, au même format que celui
 consommé par `verify`, l’attestation citée par l’agent pour chaque contrôle
 dans `evidence`, les choix qu’il n’a pas pu trancher dans `questions` et
 l’exécutable résolu de chaque contrôle dans `commands`, `null` lorsqu’il est
-introuvable. Une proposition n’est jamais une preuve : elle est relue par une
-personne, qui reste responsable de la pertinence des contrôles. Une
+introuvable. Un timeout n’est proposé que lorsque le dépôt l’atteste ; sinon
+l’agent le laisse à `null`, et 495 ne complète ces contrôles qu’avec la valeur
+passée par `--timeout-seconds`. Sans cette option, ils restent sans borne de
+durée, ce que `limitations` signale. Une proposition n’est jamais une preuve :
+elle est relue par une personne, qui reste responsable de la pertinence des
+contrôles. Une
 proposition qui viole le format du contrat, un agent qui modifie le dépôt
 malgré la lecture seule ou une réponse bloquée produisent `agent_failed` ;
 une inspection qui ne détecte aucun contrôle attesté produit

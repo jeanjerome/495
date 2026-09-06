@@ -123,12 +123,17 @@ l’opération et un schéma de réponse propre à l’opération,
 se limite à `PATH`, à `CODEX_HOME` et aux chemins temporaires. Le prompt
 demande de ne proposer que des commandes attestées par le dépôt lui-même, de
 citer cette attestation dans `evidence`, de transformer tout choix
-indécidable en question et de choisir `read-only` sauf écriture constatée. La
-réponse contient `status`, `summary`, `checks`, `environment`, `questions` et
-`limitations`, tous obligatoires, sans champ inconnu.
+indécidable en question, de ne donner un `timeout_seconds` que lorsque le
+dépôt l’atteste et `null` sinon, et de choisir `read-only` sauf écriture
+constatée. La réponse contient `status`, `summary`, `checks`, `environment`,
+`questions` et `limitations`, tous obligatoires, sans champ inconnu.
 
 495 construit le contrat à partir de `checks` et `environment`, sans le
-corriger, puis lui applique la validation ordinaire du contrat. Le candidat
+corriger. Les contrôles dont le timeout vaut `null` reçoivent la valeur de
+l’option `--timeout-seconds` lorsqu’elle est passée ; sans elle, ils restent
+sans borne de durée. Dans les deux cas, `limitations` nomme ces contrôles et
+l’origine de leur timeout, car ni l’agent ni 495 n’inventent ce délai. Le
+contrat passe ensuite par la validation ordinaire. Le candidat
 est observé par rapport à `HEAD` avant et après l’inspection ; une différence
 est rapportée comme violation. Le document restitué porte `baseline`,
 `client_version`, `environment`, `agent`, `contract`, `evidence`,
@@ -239,7 +244,8 @@ Le contrat reçu par la commande `495` contient exactement `version`,
 `KEY`, `SECRET` ou `TOKEN` sont refusés.
 
 Chaque contrôle possède un nom unique, une commande non vide, un timeout
-strictement positif et un accès fichiers `read-only` ou `workspace-write`. Ces
+strictement positif ou `null`, auquel cas sa durée n’est pas bornée, et un
+accès fichiers `read-only` ou `workspace-write`. Ces
 deux valeurs utilisent respectivement les profils Codex `:read-only` et
 `:workspace`. Le runner ajoute une interdiction réseau explicite à chaque
 invocation.
@@ -317,9 +323,18 @@ après une modification du script. Sur un dépôt du même type, une proposition
 seconde fois sans `--overwrite`, relue par `configure validate` avec
 `codex-cli 0.153.3` comme version de runner, puis utilisée par `verify` pour
 un verdict défavorable et un verdict favorable, le tout sans `CODEX_HOME` ni
-authentification. L’essai de `configure propose` avec Codex authentifié prévu
-par la conception n’a pas encore été réalisé : il nécessite le réseau et un
-quota, et attend une autorisation explicite.
+authentification. `configure propose` a ensuite été exécuté avec Codex
+authentifié sur un dépôt shell comparable, doté d’un `Makefile` dont la cible
+`check` appelle le script et d’un README prescrivant `make check`. L’agent a
+identifié ce contrôle, sa commande et son profil `read-only`, n’a modifié
+aucun fichier et n’a exécuté aucun contrôle, mais a répondu `blocked` : le
+dépôt n’indiquant aucun délai, il a refusé d’inventer `timeout_seconds` et a
+posé la question. Le document a donc restitué `agent_failed`, `contract` à
+`null` et la question dans `questions`. Cet essai a montré qu’un timeout
+n’est presque jamais attesté par un dépôt ; le prompt demande depuis de le
+laisser à `null` dans ce cas et l’option `--timeout-seconds` a été ajoutée.
+Ce comportement est couvert par le double déterministe, mais n’a pas encore
+été rejoué avec Codex authentifié.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de

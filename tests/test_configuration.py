@@ -5,6 +5,7 @@ import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from collections.abc import Callable
@@ -22,6 +23,7 @@ from harness495.configuration import (
 )
 from harness495.contract import load_contract, write_contract
 from harness495.errors import ChangeError, ConfigurationError
+from harness495.process import execute_process
 from harness495.verification import resolve_executable
 
 from tests.test_verification import FakeRunner
@@ -134,12 +136,15 @@ class ConfigurationTest(unittest.TestCase):
     def status(self) -> str:
         return self.git("status", "--porcelain")
 
-    def propose(self, agent: FakeAgent, timeout: int = 3) -> dict[str, Any]:
+    def propose(
+        self, agent: FakeAgent, timeout: int = 3, timeout_seconds: int | None = None
+    ) -> dict[str, Any]:
         return propose_configuration(
             repository=self.repository,
             agent_client=agent,
             agent_timeout_seconds=timeout,
             client_environment={"CODEX_HOME": str(self.base / "codex-home")},
+            timeout_seconds=timeout_seconds,
         )
 
     def write_proposal(self, contract: Any) -> Path:
@@ -199,6 +204,81 @@ class ConfigurationTest(unittest.TestCase):
         self.assertNotIn("CODEX_HOME", invocation["environment"].get("PATH", ""))
         self.assertEqual("", self.status())
         self.assertFalse(self.contract_path.exists())
+
+    def test_unattested_timeout_stays_null_without_a_user_value(self) -> None:
+        response = proposal_response()
+        response["checks"][0]["timeout_seconds"] = None
+        agent = FakeAgent(response)
+
+        result = self.propose(agent)
+
+        self.assertEqual("proposal_ready", result["outcome"])
+        self.assertIsNone(result["contract"]["checks"][0]["timeout_seconds"])
+        self.assertEqual([], result["questions"])
+        self.assertEqual(2, len(result["limitations"]))
+        self.assertIn("aucun timeout n’est attesté par le dépôt pour check", result["limitations"][1])
+        self.assertIn("--timeout-seconds", result["limitations"][1])
+
+    def test_user_timeout_completes_only_unattested_checks(self) -> None:
+        response = proposal_response()
+        response["checks"][0]["timeout_seconds"] = None
+        response["checks"].append(
+            {
+                "name": "lint",
+                "command": ["sh", "scripts/check.sh"],
+                "timeout_seconds": 30,
+                "filesystem": "read-only",
+                "evidence": "ci.yml fixe 30 s",
+            }
+        )
+        agent = FakeAgent(response)
+
+        result = self.propose(agent, timeout_seconds=120)
+
+        self.assertEqual("proposal_ready", result["outcome"])
+        self.assertEqual(
+            [120, 30], [check["timeout_seconds"] for check in result["contract"]["checks"]]
+        )
+        self.assertEqual(2, len(result["limitations"]))
+        self.assertIn("le timeout de check vaut 120 s", result["limitations"][1])
+        self.assertNotIn("lint", result["limitations"][1])
+
+    def test_attested_timeouts_leave_no_timeout_limitation(self) -> None:
+        result = self.propose(FakeAgent(proposal_response()), timeout_seconds=120)
+
+        self.assertEqual("proposal_ready", result["outcome"])
+        self.assertEqual(60, result["contract"]["checks"][0]["timeout_seconds"])
+        self.assertEqual(1, len(result["limitations"]))
+
+    def test_contract_accepts_a_null_timeout_but_not_zero(self) -> None:
+        contract = proposal_contract()
+        contract["checks"][0]["timeout_seconds"] = None
+        self.contract_path.write_text(json.dumps(contract), encoding="utf-8")
+        runner = FakeRunner()
+
+        result = validate_configuration(
+            repository=self.repository, contract_path=self.contract_path, control_runner=runner
+        )
+        self.assertEqual("configuration_valid", result["outcome"])
+
+        contract["checks"][0]["timeout_seconds"] = 0
+        self.contract_path.write_text(json.dumps(contract), encoding="utf-8")
+        with self.assertRaisesRegex(ConfigurationError, "entier positif ou null"):
+            validate_configuration(
+                repository=self.repository, contract_path=self.contract_path, control_runner=runner
+            )
+
+    def test_process_without_timeout_runs_to_completion(self) -> None:
+        result = execute_process(
+            [sys.executable, "-c", "print('done')"],
+            cwd=self.repository,
+            environment={"PATH": os.environ["PATH"]},
+            timeout_seconds=None,
+        )
+
+        self.assertEqual(0, result["exit_code"])
+        self.assertFalse(result["timed_out"])
+        self.assertEqual("done\n", result["stdout"])
 
     def test_invalid_response_is_an_agent_failure_without_contract(self) -> None:
         agent = FakeAgent(None, response_error="réponse de l’agent non conforme")
