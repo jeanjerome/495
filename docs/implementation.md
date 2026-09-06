@@ -340,8 +340,14 @@ Un second essai sur le même dépôt, sans `--timeout-seconds`, a restitué
 `result.txt` et la limitation signalant l’absence de borne de durée. Le dépôt
 est resté intact. Cette proposition a ensuite été enregistrée telle quelle par
 `configure write`, relue par `configure validate`, puis utilisée par `verify`
-pour un verdict défavorable puis favorable, le tout sans authentification. Le
-parcours `change` n’a pas été rejoué sur ce dépôt.
+pour un verdict défavorable puis favorable, le tout sans authentification.
+Enfin, ce contrat commité, `change` a reçu la demande de créer un script
+`greeter.sh` et de faire porter `scripts/check.sh` sur ce script : l’agent a
+produit un candidat de trois fichiers en 44 secondes, `make check` a réussi en
+`read-only` et `verify` lancé ensuite sur le même arbre a restitué le même
+digest de candidat, le même verdict et un bloc `checks` identique à la durée
+près. Le critère de fin du plan pour cet incrément est ainsi observé sur un
+projet indépendant de Python.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de
