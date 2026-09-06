@@ -38,6 +38,28 @@ une condition artificielle de réussite.
 | Acceptation humaine d’un résultat | **Conditionnelle** | Elle est utile pour une livraison ou une décision formelle. |
 | Une seule autorité par information | **Obligatoire** | Les copies calculées ne deviennent pas des registres concurrents. |
 
+## Workflow
+
+| Règle | Statut | Application |
+| --- | --- | --- |
+| Workflow de référence de `clarifying` à `integrated` | **Obligatoire** | Les parcours de changement emploient les états et transitions définis dans `docs/parcours-utilisateur.md`. |
+| G0 à G5 comme décisions de passage | **Obligatoire** | Chaque gate exprime une condition observable ; son mécanisme reste proportionné au risque. |
+| Progression automatique entre les gates | **Défaut** | 495 poursuit le workflow lorsque toutes les exigences obligatoires sont satisfaites et qu’aucune autorisation humaine n’est requise. |
+| Exigence obligatoire absente ou indéterminée | **Obligatoire** | Elle bloque le passage concerné au lieu d’être ignorée ou supposée satisfaite. |
+| Un artefact, une approbation et une persistance dédiés pour chaque gate | **Retirée** | Un changement simple peut franchir plusieurs gates dans une même interaction. |
+| `StartAttempt` distinct de `ReviseIncrement` | **Obligatoire** | Une correction conserve les décisions amont ; une révision les remet explicitement en question. |
+
+## Agents et interfaces
+
+| Règle | Statut | Application |
+| --- | --- | --- |
+| Intervention d’agents à toutes les étapes utiles | **Défaut** | 495 délègue clarification, spécification, conception, implémentation et revue lorsque les capacités disponibles le permettent. |
+| Prompts, skills, hooks et outils disponibles | **Défaut** | Ils sont utilisables dans les limites des permissions et du besoin courant. |
+| Affirmation de l’agent comme preuve suffisante | **Retirée** | Une exigence utilise un oracle adapté : contrôle exécutable, observation, revue indépendante ou décision humaine. |
+| Première intégration avec un agent réel | **Obligatoire** | L’interface commune est dérivée d’un comportement observable plutôt que d’un protocole spéculatif. |
+| CLI comme première interface | **Défaut** | Elle rend les opérations accessibles et automatisables avant une TUI ou une interface web. |
+| Même workflow derrière chaque interface | **Obligatoire** | Une UI appelle les mêmes opérations et ne maintient pas un état concurrent. |
+
 ## Documentation et historique
 
 | Règle | Statut | Application |
@@ -100,7 +122,8 @@ une condition artificielle de réussite.
 Les mécanismes suivants ne sont plus considérés comme le modèle par défaut de
 495 :
 
-- cycle fermé de phases, gates, tentatives et approbations ;
+- implémentation uniforme et lourde de chaque état, gate, tentative et
+  approbation du workflow de référence ;
 - taxonomie exhaustive des commandes et artefacts ;
 - graphe général d’invalidation ;
 - magasin d’objets adressé par digest et journal JSONL chaîné ;
@@ -117,8 +140,12 @@ sans parcours réel démontrant leur nécessité.
 Le socle obligatoire se limite à :
 
 1. une demande utilisateur explicite pour le travail ;
-2. une documentation qui décrit honnêtement le comportement disponible ;
-3. des contrôles pertinents avec un résultat observable ;
-4. pour un rapport formel, une configuration, un manifeste, des digests et des
+2. le lancement de `clarifying` à partir de cette demande et l’intervention
+   d’agents dans la progression du changement ;
+3. le workflow de référence pour situer l’avancement d’un changement et les
+   décisions qui permettent de poursuivre ;
+4. une documentation qui décrit honnêtement le comportement disponible ;
+5. des contrôles pertinents avec un résultat observable ;
+6. pour un rapport formel, une configuration, un manifeste, des digests et des
    commandes bornées par un timeout ;
-5. aucune revendication de sécurité sans mécanisme et preuve correspondants.
+7. aucune revendication de sécurité sans mécanisme et preuve correspondants.

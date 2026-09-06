@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | `README.md` | Conservé et raccourci | Point d’entrée pour comprendre et utiliser le dépôt |
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
+| `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
 | `pyproject.toml` | Ajouté | Déclaration standard du projet Python et de ses dépendances |
@@ -91,8 +92,13 @@ lui seul le système d’exploitation ni l’exécution hermétiques.
 
 ## Règle d’évolution
 
-La prochaine implémentation doit commencer par un parcours vertical précisant
-un acteur, une entrée, une action et un résultat observable. Les modèles,
-adaptateurs et choix de persistance seront dérivés de ce parcours. Une
-dépendance tierce peut être adoptée si elle simplifie concrètement cette
-fonctionnalité.
+La prochaine implémentation doit suivre les
+[parcours utilisateur](parcours-utilisateur.md) et faire traverser à un
+changement simple le workflow de `clarifying` à `integrated`. Ce parcours part
+d’un besoin exprimé par l’utilisateur et fait intervenir un agent réel dès la
+clarification. Les premières décisions peuvent rester légères et les outils
+existants peuvent assurer l’intégration. La CLI est la première interface ; ses
+opérations devront rester réutilisables par une future TUI ou interface web.
+Les modèles, adaptateurs et choix de persistance seront dérivés de ce
+comportement. Une dépendance tierce peut être adoptée si elle simplifie
+concrètement cette fonctionnalité.

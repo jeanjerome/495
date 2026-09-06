@@ -10,6 +10,7 @@ disponibles.
 
 - `README.md` décrit l’état et l’utilisation du dépôt.
 - `docs/principes-et-contraintes.md` porte les règles de décision.
+- `docs/parcours-utilisateur.md` décrit les usages visés et leurs frontières.
 - `docs/implementation.md` décrit le comportement implémenté.
 - `pyproject.toml` déclare le projet Python et ses dépendances.
 - `uv.lock` verrouille l’environnement Python résolu.

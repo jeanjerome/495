@@ -1,8 +1,9 @@
 # 495
 
-495 explore une manière simple d’encadrer le développement logiciel assisté
-par IA : rendre explicites le travail demandé, les contrôles exécutés et les
-fichiers auxquels un résultat se rapporte.
+495 orchestre des agents d’IA pour faire progresser un changement logiciel du
+besoin initial à son intégration. Il automatise le workflow autant que possible
+tout en rendant explicites les exigences, les décisions, les contrôles exécutés
+et les fichiers auxquels un résultat se rapporte.
 
 Le nom vient de la constante de Kaprekar pour les nombres à trois chiffres. Il
 évoque une progression guidée par des règles, sans promettre que la production
@@ -10,13 +11,20 @@ d’un agent est déterministe ni qu’elle converge automatiquement.
 
 ## État actuel
 
-Le seul point d’entrée actif est un lanceur minimal de contrôles. Les anciens
-modèles de workflow, gates, tentatives, persistance, adaptateurs et
-orchestration ont été retirés : ils anticipaient des usages qui n’étaient
-exposés par aucune interface utilisateur.
+Le seul point d’entrée actif est un lanceur minimal de contrôles. Les anciennes
+implémentations du domaine, des décisions, des tentatives, de la persistance,
+des adaptateurs et de l’orchestration ont été retirées : elles anticipaient des
+usages qui n’étaient exposés par aucune interface utilisateur.
 
-La prochaine fonctionnalité devra partir d’un parcours réel avant de définir
-son modèle de domaine ou son architecture.
+Le workflow `clarifying` → `specifying` → `designing` → `implementing` →
+`verifying` → `accepted` → `integrating` → `integrated` reste la colonne
+vertébrale du produit. Il est défini par les
+[parcours utilisateur](docs/parcours-utilisateur.md), mais aucune
+implémentation courante ne l’applique encore.
+
+La prochaine fonctionnalité partira des
+[parcours utilisateur](docs/parcours-utilisateur.md) avant de définir son
+modèle de domaine ou son architecture.
 
 ## Utilisation
 
@@ -70,5 +78,7 @@ aucune garantie de sécurité.
 
 Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
 quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
+Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
+visés et les responsabilités laissées aux outils existants.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le
 comportement disponible.
