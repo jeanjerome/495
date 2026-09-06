@@ -11,7 +11,7 @@
 | `docs/etat-de-l-art.md` | Ajouté | Comparaison durable des clients, harnais et runtimes examinés |
 | `docs/chantiers/00-parcours-vertical/etat-de-l-art.md` | Ajouté | Étude ciblée et essais du premier parcours vertical |
 | `docs/chantiers/00-parcours-vertical/conception.md` | Ajouté | Choix d’intégration appliqués au premier parcours vertical |
-| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception du prochain incrément du plan global, non encore implémentée |
+| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; seule son opération de vérification est implémentée |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -63,18 +63,51 @@ sandbox `workspace-write`. Les personnalisations utilisateur et skills
 personnelles ne sont pas chargées ; les instructions et skills du dépôt restent
 disponibles.
 
+Le paquet fournit en outre une opération de vérification sans agent,
+`verify_candidate`, que `verify_with_codex_sandbox` assemble avec le runner
+`codex sandbox`. Elle vérifie un candidat déjà présent : l’écart entre l’arbre
+de travail et une référence Git explicite, `HEAD` par défaut. La référence est
+résolue avec `git rev-parse --verify --end-of-options <référence>^{commit}` et
+doit être `HEAD` ou un ancêtre de `HEAD` ; une référence irrésoluble ou hors
+lignée rend l’exécution impossible avant tout contrôle. Le dépôt peut être
+modifié, puisque c’est cet écart qui est vérifié ; le parcours `495` conserve
+en revanche l’exigence d’un dépôt propre avant l’intervention de l’agent.
+
+L’opération lit le contrat, prépare l’environnement filtré et sonde les profils
+sandbox avant d’observer le candidat. Lorsque l’arbre de travail est identique à
+la référence, elle restitue l’issue `no_candidate` sans lancer de contrôle, avec
+`candidate` à `null` et une limitation qui rappelle la référence résolue et
+suggère une référence antérieure comme `HEAD~1`. Sinon, chaque contrôle est
+exécuté une fois dans l’ordre déclaré, le candidat est observé de nouveau après
+chacun et une modification de l’état Git visible interrompt la suite avec une
+violation. Le document restitué porte `command`, `reference`, `baseline`,
+`head`, `contract_digest`, `environment`, `candidate`, `checks`, `violations` et
+`limitations`. Cette opération n’a besoin ni d’un `CODEX_HOME` utilisateur ni
+d’une authentification : le runner reçoit un `CODEX_HOME` jetable sous le
+`HOME` temporaire et `codex login status` n’est jamais appelé. Aucune commande
+ne l’expose encore.
+
+Un contrat présent mais non conforme lève `ConfigurationError`, distinguée des
+autres erreurs d’exécution impossible ; le document d’erreur de la commande
+`495` continue de rapporter `execution_impossible` pour les deux cas.
+
 ## Architecture applicative
 
 Le paquet `harness495` sépare les frontières démontrées par le premier
 parcours :
 
 - `change` conduit le cas d’usage sans contenir les détails de la CLI ;
-- `composition` assemble ce cas d’usage avec les composants Codex disponibles ;
+- `verification` exécute les contrôles sur un candidat observé et porte
+  l’opération de vérification sans agent, réutilisée par `change` ;
+- `environment` prépare les chemins temporaires hors du dépôt et filtre les
+  variables transmises ;
+- `composition` assemble ces cas d’usage avec les composants Codex disponibles ;
 - `agent` définit les capacités attendues d’un client d’agent et `codex` les
   adapte à Codex CLI ;
 - `controls` définit l’exécution des feedbacks et fournit l’adaptation à
   `codex sandbox` ;
-- `workspace` observe le candidat Git indépendamment des déclarations de
+- `workspace` identifie la racine du dépôt, sa propreté et la référence de
+  départ, puis observe le candidat Git indépendamment des déclarations de
   l’agent ;
 - `contract`, `serialization`, `process` et `errors` portent les mécanismes
   partagés par ces frontières ;
@@ -151,8 +184,10 @@ questions et des limites, mais ne décide ni des chemins modifiés ni du verdict
 Le candidat est calculé à partir du diff Git et des fichiers non suivis ; son
 digest incorpore le commit initial, le patch suivi et le contenu non suivi.
 
-Les contrôles sont séquentiels. Leur code, leur durée, leur timeout et leurs
-sorties sont restitués. Si un contrôle modifie l’état Git visible, 495 arrête la
+Les contrôles sont exécutés par la même opération que la vérification sans
+agent, de sorte qu’un candidat produit par l’agent et un candidat déjà présent
+reçoivent le même verdict et les mêmes diagnostics. Ils sont séquentiels. Leur
+code, leur durée, leur timeout et leurs sorties sont restitués. Si un contrôle modifie l’état Git visible, 495 arrête la
 suite, conserve les fichiers et signale une violation au lieu de vérifier un
 candidat différent de celui qu’il avait observé.
 
@@ -173,6 +208,13 @@ Le projet ne fournit pas encore de passage par les états du workflow complet,
 de boucle de correction, de stockage applicatif, de reprise, de mécanisme
 d’approbation ni d’intégration Git. Le premier incrément ne prend en charge que
 Codex CLI, un dépôt initial propre et une seule intervention.
+
+La [conception de l’incrément en cours](chantiers/01-configuration-verification/conception.md)
+n’est disponible que pour son opération de vérification. Les sous-commandes
+`verify`, `configure` et `change`, la table des codes de sortie dérivée de
+l’issue, la sérialisation indentée, l’issue `configuration_invalid` dans le
+document d’erreur, la résolution préalable des exécutables, la version du
+runner et les bornes de taille des sorties ne sont pas implémentées.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de

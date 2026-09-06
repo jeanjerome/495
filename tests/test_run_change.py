@@ -17,6 +17,8 @@ TOOLS = ROOT / "tools"
 
 from harness495 import change as run_change
 from harness495.composition import run_codex_change
+from harness495.contract import validate_contract
+from harness495.serialization import canonical_bytes
 
 
 FAKE_CODEX = r"""
@@ -302,21 +304,21 @@ class ChangeRunnerTest(unittest.TestCase):
         contract["environment"].append("HOME")
 
         with self.assertRaisesRegex(run_change.ChangeError, "défini par 495"):
-            run_change.validate_contract(contract)
+            validate_contract(contract)
 
     def test_contract_rejects_secret_environment_variables(self) -> None:
         contract = copy.deepcopy(self.contract)
         contract["environment"].append("SERVICE_TOKEN")
 
         with self.assertRaisesRegex(run_change.ChangeError, "ressemble à un secret"):
-            run_change.validate_contract(contract)
+            validate_contract(contract)
 
     def test_contract_rejects_environment_patterns(self) -> None:
         contract = copy.deepcopy(self.contract)
         contract["environment"].append("PREFIX_*")
 
         with self.assertRaisesRegex(run_change.ChangeError, "nom invalide"):
-            run_change.validate_contract(contract)
+            validate_contract(contract)
 
     def test_missing_authentication_is_rejected_before_agent(self) -> None:
         with self.assertRaisesRegex(run_change.ChangeError, "Not logged in"):
@@ -423,7 +425,7 @@ class ChangeRunnerTest(unittest.TestCase):
 
     def test_error_result_is_valid_json_output(self) -> None:
         result = run_change.error_result(run_change.ChangeError("precondition", "missing"))
-        encoded = run_change.canonical_bytes(result)
+        encoded = canonical_bytes(result)
 
         self.assertEqual(result, json.loads(encoded))
 

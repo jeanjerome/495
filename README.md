@@ -22,7 +22,9 @@ d’un agent est déterministe ni qu’elle converge automatiquement.
 Deux points d’entrée sont actifs : la commande applicative `495` et le lanceur
 minimal de contrôles du dépôt. La commande sait invoquer Codex CLI sur un dépôt
 Git propre, observer le candidat, exécuter les contrôles de l’application avec
-`codex sandbox` et restituer un JSON validé.
+`codex sandbox` et restituer un JSON validé. Le paquet sait aussi vérifier un
+candidat déjà présent par rapport à une référence Git sans invoquer l’agent ni
+exiger d’authentification ; aucune commande n’expose encore cette opération.
 
 Cette intégration est couverte avec un double déterministe du client. Un parcours
 réel complet avec Codex CLI `0.153.3` valide en plus la skill de projet, la
@@ -161,7 +163,7 @@ ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
 [conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
 parcours vertical, puis la
 [configuration et la vérification réutilisables](docs/chantiers/01-configuration-verification/conception.md),
-spécifiées pour le prochain incrément sans être disponibles.
+dont seule l’opération de vérification est implémentée à ce jour.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

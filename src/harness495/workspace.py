@@ -13,24 +13,36 @@ from harness495.errors import ChangeError
 from harness495.serialization import sha256_bytes
 
 
-def run_git(
+def _git(
     repository: Path, arguments: list[str], *, binary: bool = False
-) -> bytes | str:
-    completed = subprocess.run(
+) -> subprocess.CompletedProcess[Any]:
+    return subprocess.run(
         ["git", "-C", str(repository), *arguments],
         check=False,
         capture_output=True,
         text=not binary,
     )
+
+
+def _stderr_text(completed: subprocess.CompletedProcess[Any]) -> str:
+    stderr = completed.stderr
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode(errors="replace")
+    return stderr.strip()
+
+
+def run_git(
+    repository: Path, arguments: list[str], *, binary: bool = False
+) -> bytes | str:
+    completed = _git(repository, arguments, binary=binary)
     if completed.returncode != 0:
-        stderr = completed.stderr
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode(errors="replace")
-        raise ChangeError("git", stderr.strip() or "commande Git en échec")
+        raise ChangeError("git", _stderr_text(completed) or "commande Git en échec")
     return completed.stdout
 
 
-def validate_repository(repository: Path) -> tuple[Path, str]:
+def repository_root(repository: Path) -> Path:
+    """Retourne le chemin résolu lorsqu’il désigne la racine d’un dépôt Git."""
+
     repository = repository.resolve()
     if not repository.is_dir():
         raise ChangeError("precondition", f"dépôt absent : {repository}")
@@ -39,16 +51,56 @@ def validate_repository(repository: Path) -> tuple[Path, str]:
         raise ChangeError(
             "precondition", f"le chemin doit être la racine Git : {root}"
         )
-    head = str(run_git(repository, ["rev-parse", "--verify", "HEAD"])).strip()
+    return repository
+
+
+def require_clean(repository: Path) -> None:
+    """Refuse tout fichier modifié, indexé ou non suivi et non ignoré."""
+
     status_output = run_git(
         repository,
         ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
         binary=True,
     )
-    assert isinstance(status_output, bytes)
     if status_output:
         raise ChangeError("precondition", "le dépôt cible doit être propre")
-    return repository, head
+
+
+def resolve_baseline(repository: Path, reference: str = "HEAD") -> tuple[str, str]:
+    """Résout la référence en commit et retourne ce commit avec celui de HEAD.
+
+    La référence doit être HEAD ou un ancêtre de HEAD : le candidat représente
+    ce que l’arbre de travail ajoute à la référence, commits intermédiaires
+    compris, et non l’écart entre deux lignes de développement.
+    """
+
+    head = str(run_git(repository, ["rev-parse", "--verify", "HEAD"])).strip()
+    resolved = _git(
+        repository,
+        ["rev-parse", "--verify", "--end-of-options", f"{reference}^{{commit}}"],
+    )
+    if resolved.returncode != 0:
+        diagnostic = _stderr_text(resolved)
+        raise ChangeError(
+            "precondition",
+            f"référence Git irrésoluble : {reference}"
+            + (f" : {diagnostic}" if diagnostic else ""),
+        )
+    baseline = str(resolved.stdout).strip()
+    if baseline != head:
+        ancestry = _git(repository, ["merge-base", "--is-ancestor", baseline, head])
+        if ancestry.returncode == 1:
+            raise ChangeError(
+                "precondition",
+                f"la référence {reference} n’est pas un ancêtre de HEAD ; "
+                "désigner la base de fusion, par exemple le résultat de "
+                f"git merge-base {reference} HEAD",
+            )
+        if ancestry.returncode != 0:
+            raise ChangeError(
+                "git", _stderr_text(ancestry) or "commande Git en échec"
+            )
+    return baseline, head
 
 
 def _path_digest(path: Path) -> str | None:
