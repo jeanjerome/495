@@ -1,6 +1,8 @@
 {
   "candidate": {
     "include": [
+      "src/application/*.py",
+      "src/application/**/*.py",
       "src/csap/*.py",
       "src/csap/**/*.py",
       "src/domain/*.py",
@@ -15,6 +17,7 @@
       "tests/**/*.py"
     ],
     "roots": [
+      "src/application",
       "src/csap",
       "src/domain",
       "src/persistence",
@@ -133,6 +136,33 @@
       "required": true,
       "timeout_seconds": 300,
       "working_directory": "."
+    },
+    {
+      "argv": [
+        "{python}",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/application",
+        "-t",
+        ".",
+        "-v"
+      ],
+      "expected": {
+        "exit_code": 0,
+        "minimum_test_count": 1,
+        "zero_counters": [
+          "skipped",
+          "expected failures",
+          "unexpected successes"
+        ]
+      },
+      "id": "application",
+      "required": true,
+      "timeout_seconds": 300,
+      "working_directory": "."
     }
   ],
   "environment": {
@@ -147,7 +177,7 @@
       "TMPDIR": "bootstrap/output"
     }
   },
-  "objective": "Implémenter et vérifier CSAP 1.0 et son kit de conformité.",
+  "objective": "Implémenter et vérifier l’orchestrateur local de 495.",
   "permissions": {
     "external_effects": false,
     "network": false,
@@ -162,6 +192,7 @@
     "write": [
       "bootstrap/output/",
       "bootstrap/runs/",
+      "src/application/",
       "src/csap/",
       "tests/"
     ]
@@ -196,5 +227,5 @@
     "secret_access",
     "write_outside_allowed_paths"
   ],
-  "work_document": "docs/adapter-protocol.md"
+  "work_document": "docs/local-orchestrator.md"
 }

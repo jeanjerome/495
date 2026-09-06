@@ -83,3 +83,13 @@ class ImportBoundariesTest(unittest.TestCase):
                 for node in ast.walk(tree):
                     if isinstance(node, ast.ImportFrom) and node.module:
                         self.assertNotEqual(node.module.split(".")[0], "csap", str(path))
+
+    def test_lower_packages_do_not_import_application(self):
+        for package in ("domain", "validation", "policy", "persistence", "csap"):
+            for path in sorted((Path("src") / package).glob("*.py")):
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.module:
+                        self.assertNotEqual(
+                            node.module.split(".")[0], "application", str(path)
+                        )
