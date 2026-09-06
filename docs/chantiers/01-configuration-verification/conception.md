@@ -93,11 +93,24 @@ proposition relue par l’utilisateur puis l’enregistre.
 495 change --repository <dépôt> --contract <contrat> --codex-home <répertoire> --request-file <demande> [--agent-timeout-seconds 900]
 ```
 
-L’invocation actuelle, sans sous-commande, conserve exactement ses options,
-son document JSON et ses codes de sortie. Elle est traitée comme `495 change`
-lorsque le premier argument commence par `--`. `tools/run_change.py` continue
-de déléguer à la même CLI. Le document de `change` gagne les champs communs
-décrits plus bas ; aucun champ existant n’est retiré ni renommé.
+L’invocation actuelle, sans sous-commande, conserve ses options et les codes
+`0` à `3` de la table ci-dessous. Elle est traitée comme `495 change` lorsque
+le premier argument commence par `--` ; `495 --help` affiche donc l’aide de
+`change`, tandis que `495 -h` et `495` sans argument affichent l’aide
+générale. `tools/run_change.py` continue de déléguer à la même CLI.
+
+Trois écarts par rapport au comportement actuel sont assumés :
+
+- le document JSON est écrit indenté au lieu de compact ; un lecteur qui le
+  charge comme JSON ne voit aucune différence ;
+- un contrat présent mais non conforme produit l’issue `configuration_invalid`
+  au lieu d’`execution_impossible`, avec le même code `2` ;
+- un exécutable de contrôle introuvable est détecté avant l’intervention de
+  l’agent et produit `execution_impossible`, code `2`, au lieu d’un contrôle
+  défavorable constaté après une intervention qui a consommé du quota.
+
+Le document de `change` gagne par ailleurs les champs communs décrits plus
+bas ; aucun champ existant n’est retiré ni renommé.
 
 ## Désignation du candidat
 
@@ -125,11 +138,21 @@ qui ne l’est pas.
 
 ## Absence de candidat
 
-Lorsque l’arbre de travail ne diffère pas de la référence, `verify` restitue
-l’issue `no_candidate` avec le code `4`. Aucun contrôle n’est lancé : les
-contrôles produiraient un verdict sur la référence elle-même, ce qui n’est pas
-une vérification de candidat. Le document précise la référence résolue et
-indique qu’une référence antérieure permet de vérifier un candidat commité.
+`verify` lit le contrat, prépare l’environnement et applique les préconditions
+des contrôles décrites dans [Valider](#valider) avant d’observer le candidat.
+Un contrat absent ou invalide, un exécutable introuvable ou une sandbox
+indisponible sont donc rapportés avec leur issue propre, même lorsque l’arbre
+de travail est identique à la référence.
+
+Lorsque ces préconditions tiennent et que l’arbre de travail ne diffère pas de
+la référence, `verify` restitue l’issue `no_candidate` avec le code `4`. Le
+document est celui d’un `verify` ordinaire : `candidate` vaut `null`, `checks`
+et `violations` sont vides, et `limitations` contient une phrase qui rappelle
+la référence résolue et indique qu’une référence antérieure, par exemple
+`HEAD~1`, permet de vérifier un candidat déjà commité. Aucun contrôle n’est
+lancé : les contrôles produiraient un verdict sur la référence elle-même, ce
+qui n’est pas une vérification de candidat. Le code `4` signifie ainsi que tout
+était prêt mais qu’il n’y avait rien à vérifier.
 
 Le parcours `change` conserve son comportement : l’absence de candidat après
 l’intervention reste un `agent_failed` avec le code `3`, car elle constate
@@ -150,9 +173,16 @@ Le code de sortie est dérivé de l’issue par une table unique :
 `execution_impossible` couvre les préconditions et capacités manquantes :
 dépôt absent ou sans `HEAD`, référence irrésoluble ou hors lignée, contrat
 absent ou illisible, exécutable introuvable, sandbox indisponible, fichier de
-contrat existant sans `--overwrite`. `configuration_invalid` couvre un contrat
-présent mais non conforme. Les deux partagent le code `2` et se distinguent par
-l’issue et par `error.kind`.
+contrat existant sans `--overwrite`, chemin de contrat hors du dépôt pour
+`write`, option de commande invalide comme un timeout d’agent non positif.
+
+`configuration_invalid` est produit exactement lorsque le fichier de contrat
+existe, se lit, et échoue à la validation de format décrite dans
+[Valider](#valider) : JSON invalide, champs, version, variables, noms,
+commandes, timeouts ou profils. Toute autre erreur produit
+`execution_impossible`. Les deux partagent le code `2` ; `error.kind` conserve
+ses valeurs actuelles à titre de diagnostic et n’intervient pas dans le choix
+de l’issue.
 
 Le code `4` signale que l’exécution s’est déroulée correctement mais qu’il n’y
 avait rien à vérifier ou rien à proposer. Une CI qui l’obtient sait que le
@@ -173,8 +203,8 @@ digests continuent d’être calculés sur la sérialisation compacte existante.
 | `command` | `verify`, `change`, `configure propose`, `configure validate` ou `configure write` |
 | `outcome` | l’issue de la table des codes de sortie |
 | `error` | présent seulement pour `execution_impossible` et `configuration_invalid` : `kind` et `message` |
-| `limitations` | limites connues de l’exécution |
-| `output_limit_bytes` | borne appliquée à chaque flux capturé |
+| `limitations` | limites connues de l’exécution ; absent du document d’exécution impossible |
+| `output_limit_bytes` | borne appliquée à chaque flux capturé ; absent du document d’exécution impossible |
 
 ### Résultat de `verify`
 
@@ -221,15 +251,17 @@ intervention.
 | --- | --- |
 | `baseline` | commit `HEAD` au moment de l’inspection |
 | `client_version`, `environment`, `agent` | mêmes blocs que `change` ; `agent.sandbox.filesystem` vaut `read-only` |
-| `contract` | le contrat proposé, conforme au format consommé par `verify`, ou `null` |
-| `evidence` | pour chaque contrôle proposé, le fichier ou la convention qui l’atteste |
+| `contract` | le contrat proposé, conforme au format consommé par `verify` ; `null` exactement lorsque l’issue n’est pas `proposal_ready` |
+| `evidence` | objet indexé par nom de contrôle proposé ; chaque valeur est la chaîne fournie par l’agent qui cite le fichier ou la convention attestant le contrôle |
 | `questions` | les choix que l’agent n’a pas pu trancher |
-| `commands` | pour chaque contrôle, l’exécutable résolu ou `null` |
-| `violations` | notamment toute modification du dépôt constatée après l’inspection |
+| `commands` | objet indexé par nom de contrôle proposé ; chaque valeur est le chemin absolu de l’exécutable résolu, ou `null` lorsqu’il est introuvable |
+| `violations` | liste de chaînes ; contient notamment toute modification du dépôt constatée après l’inspection, qui produit `agent_failed` |
 
 `validate` et `write` restituent `contract_path`, relatif à la racine du dépôt,
-`contract_digest`, `environment`, `runner` et `commands`. `write` ajoute
-`overwritten`, vrai seulement lorsqu’un fichier a été remplacé sur demande.
+`contract_digest`, `environment`, `runner` et `commands`. Ce dernier a la même
+forme que dans `propose`, sans valeur `null` puisqu’un exécutable introuvable
+interrompt ces deux commandes. `write` ajoute `overwritten`, vrai seulement
+lorsqu’un fichier a été remplacé sur demande.
 
 ### Résultat d’exécution impossible
 
@@ -243,7 +275,10 @@ Il reste valable même lorsque l’erreur survient avant toute observation.
 `configure propose` exige un `CODEX_HOME` dédié et authentifié, comme `change`.
 Il vérifie que le chemin est la racine d’un dépôt Git avec un `HEAD`, mais
 n’exige pas un dépôt propre. Il observe le candidat par rapport à `HEAD` avant
-et après l’inspection ; une différence est rapportée comme violation.
+et après l’inspection ; une différence est rapportée comme violation et produit
+`agent_failed`, car un agent qui écrit dans le dépôt malgré la lecture seule
+n’est pas digne de confiance pour proposer une configuration. Une réponse
+`blocked` produit également `agent_failed`, comme pour `change`.
 
 Le client est invoqué avec les mêmes options que `change`, sauf
 `--sandbox read-only`, un prompt propre à l’opération et un schéma de réponse
@@ -289,15 +324,16 @@ authentification :
 2. la résolution de l’exécutable de chaque contrôle : un premier argument
    contenant un séparateur de chemin est résolu relativement à la racine du
    dépôt et doit être un fichier exécutable ; sinon il est cherché dans le
-   `PATH` de l’environnement filtré, ou dans le chemin par défaut du système
-   lorsque le contrat ne transmet pas `PATH` ;
+   `PATH` de l’environnement filtré, ou dans `os.defpath` lorsque le contrat
+   ne transmet pas `PATH` ; cette résolution est celle de 495, pas celle de
+   `codex sandbox`, et sert de précondition, non de preuve d’exécutabilité ;
 3. la sonde des profils sandbox déjà implémentée, pour chaque profil employé.
 
 Un échec du point 1 produit `configuration_invalid`. Un échec des points 2 ou
 3 produit `execution_impossible`, car le contrat peut être correct sur une autre
-machine. Ces mêmes contrôles sont exécutés par `verify` et `change` avant le
-premier contrôle, de sorte qu’un outil absent ne soit jamais présenté comme un
-candidat défavorable.
+machine. Ces mêmes contrôles sont exécutés par `verify` avant l’observation du
+candidat et par `change` avant l’intervention de l’agent, de sorte qu’un outil
+absent ne soit jamais présenté comme un candidat défavorable.
 
 Le jeton `{python}` du lanceur de bootstrap n’existe pas dans le contrat d’une
 application cible ; les commandes y sont littérales.
@@ -305,8 +341,13 @@ application cible ; les commandes y sont littérales.
 ### Enregistrer
 
 `configure write` lit une proposition produite par `propose`, éventuellement
-modifiée par l’utilisateur, et en extrait le champ `contract`. Après validation
-complète, le contrat est écrit indenté, en UTF-8, avec des clés triées.
+modifiée par l’utilisateur, et en extrait le champ `contract`. Une proposition
+est reconnue par un objet JSON dont `command` vaut `configure propose`,
+`version` vaut `1` et `contract` est un objet ; tout autre fichier, y compris
+une proposition dont `contract` vaut `null`, produit `execution_impossible`
+sans écriture. Le contrat extrait passe ensuite par la validation décrite dans
+[Valider](#valider), avec les mêmes issues. Après validation complète, le
+contrat est écrit indenté, en UTF-8, avec des clés triées.
 
 Le chemin cible doit être situé dans le dépôt, afin qu’une autre personne
 puisse le cloner et lancer les mêmes contrôles. Sans `--overwrite`, le fichier
@@ -356,8 +397,10 @@ Chaque résultat de processus rapporte, pour `stdout` et `stderr` :
 | `stdout_bytes`, `stderr_bytes` | nombre total d’octets émis |
 | `stdout_truncated`, `stderr_truncated` | vrai lorsque des octets ont été écartés |
 
-Ces champs traversent la frontière JSON dans chaque contrôle et dans le bloc
-`agent`. La borne est une constante unique de 495, rappelée par
+Ces champs traversent la frontière JSON dans chaque contrôle. Le bloc `agent`
+reçoit les quatre champs de comptage et de troncature, mais continue de ne pas
+restituer le texte du flux JSONL : il ne contient pas de champ `stdout`,
+comme aujourd’hui. La borne est une constante unique de 495, rappelée par
 `output_limit_bytes` ; elle n’est pas configurable dans cet incrément.
 
 Le flux JSONL du client est soumis à la même borne. Un flux tronqué ne permet
@@ -376,9 +419,9 @@ existants conservent leur rôle ; les nouvelles frontières sont les suivantes.
 | lecture et digest du contrat | inline dans `run_change` | `contract.load_contract(path)` retourne le contrat validé et son digest ; `contract.write_contract` porte l’écriture exclusive ou atomique |
 | environnement filtré et `HOME` temporaire | `inherited_environment` et bloc `with` dans `run_change` | module `environment` : un gestionnaire de contexte crée les chemins temporaires hors du dépôt, filtre les variables et rapporte les noms présents et absents |
 | racine Git, propreté, référence | `validate_repository` | `workspace.repository_root`, `workspace.require_clean` et `workspace.resolve_baseline`, qui résout la référence, vérifie la lignée et retourne le commit et `HEAD` |
-| préconditions des contrôles | `validate_profiles` appelé par `run_change` | `verification.validate_controls` : résolution des exécutables puis sonde des profils, appelée avant l’agent dans `change` et avant les contrôles dans `verify` |
+| préconditions des contrôles | `validate_profiles` appelé par `run_change` | `verification.validate_controls` : résolution des exécutables puis sonde des profils, appelée avant l’agent dans `change` et avant l’observation du candidat dans `verify` |
 | exécution des contrôles sur un candidat | boucle dans `run_change` | `verification.run_checks` : exécution séquentielle, comparaison du digest après chaque contrôle, arrêt à la première violation, retour des blocs `checks`, `violations`, `candidate_after_checks` et de l’issue |
-| vérification directe | absente | `verification.verify_candidate` : observation du candidat, `no_candidate` ou `run_checks` |
+| vérification directe | absente | `verification.verify_candidate` : `validate_controls`, puis observation du candidat, puis `no_candidate` ou `run_checks` |
 | proposition, validation et écriture du contrat | absentes | module `configuration` : construction du prompt et du schéma de proposition, conversion de la réponse en contrat, validation complète, écriture |
 | prompt et schéma d’une intervention | `codex.agent_prompt` et `AGENT_RESPONSE_SCHEMA` fixés dans le client | `AgentClient.invoke` reçoit le prompt, le schéma de réponse et le profil de fichiers ; `change` et `configuration` composent leur propre intervention |
 | version du runtime des contrôles | absente | `ControlRunner.version` ; l’adaptation Codex réutilise `codex --version` |
@@ -414,10 +457,14 @@ davantage couvrir un second client.
   arrêt après un contrôle qui modifie le candidat ; exécutable introuvable
   avant tout contrôle ; sonde sandbox en échec.
 - `configuration` : réponse valide convertie en contrat avec attestations ;
-  réponse invalide ; réponse `blocked` ; réponse sans contrôle ; proposition
-  violant la validation du contrat ; résolution des exécutables.
+  réponse invalide ; réponse `blocked` rapportée comme `agent_failed` ;
+  réponse sans contrôle ; proposition violant la validation du contrat ;
+  résolution des exécutables ; fichier qui n’est pas une proposition refusé
+  par `write`.
 - `cli` : table des codes de sortie ; forme sans sous-commande interprétée
-  comme `change` ; sérialisation indentée d’un document d’erreur.
+  comme `change` ; `--help` en premier argument affichant l’aide de `change` ;
+  sérialisation indentée d’un document d’erreur ; timeout d’agent non positif
+  rapporté comme `execution_impossible`.
 
 ### Intégration CLI
 
@@ -425,20 +472,25 @@ Avec un dépôt Git temporaire et le double de Codex existant, étendu pour
 accepter `--sandbox read-only` et un schéma de proposition :
 
 - `verify` : succès ; contrôle défavorable ; absence de candidat avec code
-  `4` ; `--baseline` désignant un commit antérieur ; référence hors lignée ;
-  contrat absent ; contrat invalide ; exécutable introuvable ; sortie standard
+  `4`, `candidate` à `null` et indication dans `limitations` ; arbre propre
+  avec exécutable introuvable rapporté comme `execution_impossible` ;
+  `--baseline` désignant un commit antérieur ; référence hors lignée ;
+  contrat absent ; contrat invalide rapporté comme `configuration_invalid` ;
+  exécutable introuvable ; sortie standard
   contenant un seul document JSON et sortie d’erreur vide ; aucun appel à
   `login status`.
 - `configure validate` : contrat valide ; contrat invalide ; sandbox
   indisponible.
 - `configure propose` : proposition restituée sans écriture ; dépôt inchangé
-  après l’inspection ; réponse invalide ; absence de contrôle détectable.
+  après l’inspection ; dépôt modifié après l’inspection rapporté comme
+  `agent_failed` ; réponse invalide ; absence de contrôle détectable.
 - `configure write` : écriture depuis une proposition ; refus d’écraser ;
   remplacement avec `--overwrite` ; proposition invalide non écrite ; contrat
   écrit relu par `validate` puis utilisé par `verify`.
 - compatibilité : l’invocation actuelle et `495 change` produisent le même
   document ; `tools/run_change.py --help` reste fonctionnel ; les tests
-  existants de `change` conservent leurs attentes.
+  existants de `change` conservent leurs attentes, qui ne dépendent ni de la
+  sérialisation compacte ni de l’issue d’un contrat invalide.
 
 ### Bout en bout
 
