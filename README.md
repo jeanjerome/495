@@ -20,23 +20,30 @@ son modèle de domaine ou son architecture.
 
 ## Utilisation
 
+Le projet utilise [uv](https://docs.astral.sh/uv/) pour sélectionner Python,
+créer l’environnement local et verrouiller les dépendances. Le fichier
+`pyproject.toml` déclare le projet et `uv.lock` décrit son environnement résolu.
+
 Valider la configuration :
 
 ```sh
-python3 tools/run_bootstrap.py validate
+uv run python tools/run_bootstrap.py validate
 ```
 
 Exécuter les contrôles :
 
 ```sh
-python3 tools/run_bootstrap.py run
+uv run python tools/run_bootstrap.py run
 ```
 
 Conserver exceptionnellement un rapport JSON :
 
 ```sh
-python3 tools/run_bootstrap.py run --report
+uv run python tools/run_bootstrap.py run --report
 ```
+
+`uv sync` permet de préparer explicitement l’environnement. `uv run` le fait
+automatiquement lorsque cela est nécessaire.
 
 Sans `--report`, aucune archive d’exécution n’est créée. Les rapports demandés
 sont écrits sous `.495/runs/` et ignorés par Git.

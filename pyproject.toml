@@ -1,0 +1,10 @@
+[project]
+name = "495"
+version = "0.0.0"
+description = "Développement logiciel assisté par IA, compréhensible et vérifiable"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false

@@ -8,6 +8,9 @@
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
+| `pyproject.toml` | Ajouté | Déclaration standard du projet Python et de ses dépendances |
+| `uv.lock` | Ajouté | Résolution reproductible de l’environnement Python |
+| `.python-version` | Ajouté | Sélection de Python 3.12 par `uv` |
 | Documents dédiés au domaine, aux gates, à la persistance, aux adaptateurs et à l’orchestrateur | Supprimés | Ils décrivaient des composants sans parcours utilisateur |
 | `495/` | Supprimé | Archive redondante avec l’historique Git |
 | `bootstrap/runs/` | Supprimé | Résultats anciens sans rôle dans l’état courant |
@@ -31,6 +34,11 @@ Le seul point d’entrée exécutable du projet est actuellement
 
 L’option `--report` de `run` conserve le résultat. Sans cette option, le
 lanceur n’écrit aucun historique d’exécution.
+
+Les commandes documentées passent par `uv run`. `uv` sélectionne Python 3.12,
+crée si nécessaire un environnement `.venv` ignoré par Git et le synchronise
+avec `uv.lock`. Le projet est déclaré non packagé tant qu’aucune commande
+utilisateur `495` n’existe ; aucun backend de build n’est donc imposé.
 
 ## Configuration
 
@@ -77,8 +85,9 @@ Le projet ne fournit pas encore de commande utilisateur `495`, de workflow
 métier, de stockage applicatif, d’intégration avec un agent ou un dépôt, ni de
 mécanisme d’approbation.
 
-Il ne contrôle pas le réseau, les secrets, les écritures du processus ou la
-reproductibilité de l’environnement. Ces propriétés ne sont pas revendiquées.
+Il ne contrôle pas le réseau, les secrets ou les écritures du processus. Le
+lockfile rend la résolution des dépendances reproductible, mais ne rend pas à
+lui seul le système d’exploitation ni l’exécution hermétiques.
 
 ## Règle d’évolution
 

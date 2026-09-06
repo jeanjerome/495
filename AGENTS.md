@@ -11,6 +11,8 @@ disponibles.
 - `README.md` décrit l’état et l’utilisation du dépôt.
 - `docs/principes-et-contraintes.md` porte les règles de décision.
 - `docs/implementation.md` décrit le comportement implémenté.
+- `pyproject.toml` déclare le projet Python et ses dépendances.
+- `uv.lock` verrouille l’environnement Python résolu.
 - `bootstrap/contract.json` configure l’exécution contrôlée facultative.
 
 Git suffit pour retrouver les versions antérieures. Les rapports générés et les
@@ -32,10 +34,15 @@ utilisateur observable et introduis seulement les abstractions qu’il exige.
 
 ## Dépendances
 
+`uv` est l’unique gestionnaire du projet et des dépendances Python. Déclare les
+dépendances dans `pyproject.toml`, mets à jour `uv.lock` avec `uv` et exécute
+les commandes Python du projet avec `uv run`. Ne maintiens pas en parallèle de
+fichier `requirements.txt` ou de configuration propre à un autre gestionnaire.
+
 Les dépendances tierces sont autorisées lorsqu’elles apportent une valeur
 concrète. Évalue leur maintenance, leur licence et leur coût d’exploitation.
-Déclare-les dans le format standard de l’écosystème et verrouille-les lorsque
-la reproductibilité d’une application l’exige.
+Le lockfile est versionné pour rendre l’environnement de l’application
+reproductible.
 
 L’absence de dépendance n’est pas un objectif en soi.
 

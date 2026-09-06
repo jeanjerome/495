@@ -77,7 +77,10 @@ une condition artificielle de réussite.
 | Restriction réseau technique | **Conditionnelle** | Elle exige un risque identifié et un mécanisme vérifiable. |
 | Bibliothèque standard uniquement | **Retirée** | L’absence de dépendance n’est pas une garantie suffisante. |
 | Dépendance tierce évaluée et déclarée | **Défaut** | Sa valeur, sa maintenance et sa licence doivent être acceptables. |
-| Verrouillage des dépendances | **Conditionnelle** | Il est requis lorsqu’une application doit être reproductible. |
+| `uv` comme gestionnaire du projet Python | **Défaut** | Il porte l’environnement, la résolution et l’exécution sans dupliquer ces responsabilités. |
+| Dépendances déclarées dans `pyproject.toml` | **Obligatoire** | Ce fichier est l’autorité lisible et standard du projet Python. |
+| `uv.lock` versionné | **Obligatoire** | Il fixe l’environnement résolu de l’application. |
+| Gestionnaire d’outils ou de paquets système supplémentaire | **Conditionnelle** | Une dépendance non Python ou une chaîne multi-runtime doit en démontrer le besoin. |
 
 ## Architecture et données
 

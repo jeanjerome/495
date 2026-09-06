@@ -19,11 +19,14 @@
   ],
   "files": [
     ".gitignore",
+    ".python-version",
     "AGENTS.md",
     "CLAUDE.md",
     "README.md",
     "bootstrap/contract.json",
     "docs/*.md",
+    "pyproject.toml",
+    "uv.lock",
     "tools/*.py"
   ],
   "report_directory": ".495/runs",
