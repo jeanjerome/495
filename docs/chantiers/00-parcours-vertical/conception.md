@@ -3,9 +3,9 @@
 ## Portée
 
 Ce document porte la conception de la capacité de 495 décrite dans le
-[parcours utilisateur](parcours-utilisateur.md#premier-incrément-vertical). Il
+[parcours utilisateur](../../parcours-utilisateur.md#premier-incrément-vertical). Il
 fixe les choix appliqués par la commande applicative ;
-[l’état de l’implémentation](implementation.md) reste l’autorité sur ce qui est
+[l’état de l’implémentation](../../implementation.md) reste l’autorité sur ce qui est
 effectivement disponible et validé.
 
 La solution retient un seul parcours et un seul client : une commande reçoit

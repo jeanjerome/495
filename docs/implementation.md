@@ -7,9 +7,10 @@
 | `README.md` | Conservé et raccourci | Point d’entrée pour comprendre et utiliser le dépôt |
 | `docs/principes-et-contraintes.md` | Conservé | Autorité sur les règles techniques |
 | `docs/parcours-utilisateur.md` | Ajouté | Workflow de référence, usages visés et expérience utilisateur |
-| `docs/plan-global.md` | Ajouté | Ordre des capacités futures et impacts attendus sur l’architecture applicative |
-| `docs/etat-de-l-art.md` | Ajouté | Solutions existantes pertinentes pour le premier incrément |
-| `docs/conception-premier-increment.md` | Ajouté | Choix d’intégration appliqués au premier incrément |
+| `docs/chantiers/plan-global.md` | Ajouté | Ordre des capacités futures et impacts attendus sur l’architecture applicative |
+| `docs/etat-de-l-art.md` | Ajouté | Comparaison durable des clients, harnais et runtimes examinés |
+| `docs/chantiers/00-parcours-vertical/etat-de-l-art.md` | Ajouté | Étude ciblée et essais du premier parcours vertical |
+| `docs/chantiers/00-parcours-vertical/conception.md` | Ajouté | Choix d’intégration appliqués au premier parcours vertical |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -198,12 +199,13 @@ la licence, la maintenance, les plateformes, la stabilité de l’interface et l
 coût d’exploitation. La décision indique brièvement ce qui est configuré,
 composé, adapté ou développé dans 495.
 
-L’[état de l’art du premier incrément](etat-de-l-art.md) remplit cette exigence
-pour l’orientation actuelle. Toute propriété encore incertaine doit être
-confirmée par un essai sur les versions réellement intégrées.
+L’[état de l’art](etat-de-l-art.md) porte cette comparaison pour l’ensemble du
+projet et l’[étude ciblée](chantiers/00-parcours-vertical/etat-de-l-art.md) du
+premier parcours vertical y ajoute ses essais. Toute propriété encore incertaine
+doit être confirmée par un essai sur les versions réellement intégrées.
 
-La [conception du premier incrément](conception-premier-increment.md) retient
-Codex CLI et son runner sandboxé comme composants à adapter. Le paquet
+La [conception](chantiers/00-parcours-vertical/conception.md) de ce parcours
+retient Codex CLI et son runner sandboxé comme composants à adapter. Le paquet
 `harness495` applique cette conception au
 [premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical)
 sans prétendre faire traverser au changement les états et gates du workflow

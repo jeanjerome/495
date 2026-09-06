@@ -152,12 +152,14 @@ Les [principes et contraintes](docs/principes-et-contraintes.md) expliquent
 quelles règles sont obligatoires, conditionnelles, recommandées ou retirées.
 Les [parcours utilisateur](docs/parcours-utilisateur.md) définissent les usages
 visés et les responsabilités laissées aux outils existants.
-Le [plan global d’évolution](docs/plan-global.md) ordonne les fonctionnalités à
-ajouter et leurs impacts sur l’architecture applicative.
-L’[état de l’art](docs/etat-de-l-art.md) compare les clients, harnais et
-runtimes pertinents pour le premier incrément.
-La [conception du premier incrément](docs/conception-premier-increment.md)
-définit l’interface et les composants retenus.
+L’[état de l’art](docs/etat-de-l-art.md) compare les clients d’agents, les
+harnais et les runtimes d’exécution confinée examinés avant une conception.
+Le [plan global d’évolution](docs/chantiers/plan-global.md) ordonne les
+fonctionnalités à ajouter et leurs impacts sur l’architecture applicative.
+Les documents de `docs/chantiers/` détaillent chaque incrément : l’[étude
+ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
+[conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
+parcours vertical.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

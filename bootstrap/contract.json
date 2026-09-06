@@ -24,7 +24,7 @@
     "CLAUDE.md",
     "README.md",
     "bootstrap/contract.json",
-    "docs/*.md",
+    "docs/**/*.md",
     "pyproject.toml",
     "src/**/*.py",
     "tests/*.py",

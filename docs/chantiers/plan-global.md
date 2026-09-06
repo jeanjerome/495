@@ -4,18 +4,18 @@
 
 Ce document organise l’évolution de 495 depuis le parcours vertical disponible
 vers le workflow complet décrit dans les
-[parcours utilisateur](parcours-utilisateur.md). Il indique les capacités à
+[parcours utilisateur](../parcours-utilisateur.md). Il indique les capacités à
 rendre observables, leur ordre de dépendance et leurs effets attendus sur
 l’architecture applicative.
 
 Il ne remplace pas :
 
-- les [principes et contraintes](principes-et-contraintes.md), qui gouvernent
+- les [principes et contraintes](../principes-et-contraintes.md), qui gouvernent
   les décisions techniques ;
-- les [parcours utilisateur](parcours-utilisateur.md), qui définissent les
+- les [parcours utilisateur](../parcours-utilisateur.md), qui définissent les
   états, les gates et les usages visés ;
-- l’[état de l’implémentation](implementation.md), qui décrit exclusivement le
-  comportement disponible.
+- l’[état de l’implémentation](../implementation.md), qui décrit exclusivement
+  le comportement disponible.
 
 Chaque incrément ci-dessous doit produire un résultat utilisable de bout en
 bout. Son détail peut changer à la lumière d’un usage ou de l’état de l’art,
@@ -33,6 +33,11 @@ La commande `495` sait actuellement :
 - exécuter séquentiellement les contrôles déclarés avec `codex sandbox` ;
 - relier dans un résultat JSON la demande, l’état initial, le candidat et les
   diagnostics.
+
+Sa [conception](00-parcours-vertical/conception.md) et son
+[étude ciblée](00-parcours-vertical/etat-de-l-art.md) constituent le premier
+chantier du dépôt. La comparaison des composants examinés est commune à tous
+les incréments et vit dans l’[état de l’art](../etat-de-l-art.md).
 
 Ce socle couvre une seule intervention entre `implementing` et `verifying`. Il
 ne conduit pas encore le workflow, ne corrige pas un candidat défavorable, ne
@@ -268,7 +273,10 @@ une composition explicite, pas une condition dispersée dans le workflow.
 Une sandbox propre à 495, un conteneur ou une exécution distante ne sont
 introduits que si les runtimes disponibles ne satisfont pas une politique
 requise. Leur choix doit être précédé de l’étude et des essais imposés par les
-principes du projet.
+principes du projet. L’[état de l’art](../etat-de-l-art.md) compare déjà
+Claude Code, son mode non interactif, sa sandbox et
+`@anthropic-ai/sandbox-runtime` ; cet incrément éprouve ces propriétés au lieu
+de reprendre la comparaison à zéro.
 
 **Critères de fin.** Le même scénario fonctionnel passe avec deux clients réels
 et donne les mêmes décisions de workflow. Les différences de capacités sont

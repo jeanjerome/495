@@ -11,12 +11,15 @@ disponibles.
 - `README.md` décrit l’état et l’utilisation du dépôt.
 - `docs/principes-et-contraintes.md` porte les règles de décision.
 - `docs/parcours-utilisateur.md` décrit les usages visés et leurs frontières.
-- `docs/plan-global.md` ordonne les capacités futures et leurs impacts
-  architecturaux.
-- `docs/etat-de-l-art.md` consigne les solutions examinées avant la conception.
+- `docs/etat-de-l-art.md` compare les composants externes examinés avant une
+  conception ; chaque incrément le complète au lieu de le refaire.
 - `docs/reprise-de-codeservo.md` définit l’héritage fonctionnel à simplifier.
-- `docs/conception-premier-increment.md` décrit les choix du premier parcours.
 - `docs/implementation.md` décrit le comportement implémenté.
+- `docs/chantiers/` rassemble les documents de suivi des incréments :
+  `plan-global.md` ordonne les capacités futures et leurs impacts
+  architecturaux ; un sous-répertoire par incrément porte son étude ciblée, ses
+  essais et sa conception. Un document de chantier décrit une cible, pas un
+  comportement disponible.
 - `src/harness495/` contient l’implémentation applicative de 495.
 - `tests/` vérifie les comportements du paquet et des outils du dépôt.
 - `pyproject.toml` déclare le projet Python et ses dépendances.
