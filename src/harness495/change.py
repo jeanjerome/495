@@ -9,7 +9,6 @@ from harness495.agent import AgentClient
 from harness495.contract import load_contract
 from harness495.controls import ControlRunner
 from harness495.environment import prepared_environment
-from harness495.errors import ChangeError
 from harness495.serialization import sha256_bytes
 from harness495.verification import run_checks
 from harness495.workspace import (
@@ -29,11 +28,11 @@ def run_change(
     agent_client: AgentClient,
     control_runner: ControlRunner,
     client_environment: dict[str, str],
-) -> tuple[dict[str, Any], int]:
+) -> dict[str, Any]:
     """Produit un candidat puis lui applique les contrôles de l’application cible."""
 
     repository = repository_root(repository)
-    baseline, _head = resolve_baseline(repository)
+    baseline, head = resolve_baseline(repository)
     require_clean(repository)
     contract, contract_digest = load_contract(contract_path)
     request_digest = sha256_bytes(request.encode())
@@ -70,9 +69,13 @@ def run_change(
             "candidate": candidate,
             "checks": [],
             "client_version": version,
+            "command": "change",
             "contract_digest": contract_digest,
             "environment": prepared.report,
+            "head": head,
+            "limitations": [],
             "outcome": "agent_failed",
+            "reference": "HEAD",
             "request_digest": request_digest,
             "version": 1,
             "violations": [],
@@ -104,7 +107,7 @@ def run_change(
                 result["violations"].append("agent bloqué")
             if candidate is None:
                 result["violations"].append("aucun candidat observé")
-            return result, 3
+            return result
 
         result.update(
             run_checks(
@@ -116,12 +119,4 @@ def run_change(
                 control_runner=control_runner,
             )
         )
-        return result, 0 if result["outcome"] == "candidate_verified" else 1
-
-
-def error_result(error: ChangeError) -> dict[str, Any]:
-    return {
-        "error": {"kind": error.kind, "message": str(error)},
-        "outcome": "execution_impossible",
-        "version": 1,
-    }
+        return result

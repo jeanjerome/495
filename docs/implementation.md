@@ -11,7 +11,7 @@
 | `docs/etat-de-l-art.md` | Ajouté | Comparaison durable des clients, harnais et runtimes examinés |
 | `docs/chantiers/00-parcours-vertical/etat-de-l-art.md` | Ajouté | Étude ciblée et essais du premier parcours vertical |
 | `docs/chantiers/00-parcours-vertical/conception.md` | Ajouté | Choix d’intégration appliqués au premier parcours vertical |
-| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; seule son opération de vérification est implémentée |
+| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; sa commande `verify` est implémentée, `configure` ne l’est pas |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -47,7 +47,17 @@ crée si nécessaire un environnement `.venv` ignoré par Git et le synchronise
 avec `uv.lock`. Le paquet `harness495`, construit avec `uv_build`, installe la
 commande utilisateur `495`.
 
-La commande `495` expose le premier parcours vers une application cible. Elle
+La commande `495` offre deux sous-commandes, `change` et `verify`. Une
+invocation dont le premier argument commence par `--` est traitée comme
+`change`, ce qui préserve la forme historique ; `495 --help` affiche donc
+l’aide de `change`, tandis que `495 -h` et `495` sans argument affichent l’aide
+générale avec le code `0`. Chaque sous-commande écrit un seul document JSON sur
+la sortie standard, indenté de deux espaces, en UTF-8, avec des clés triées et
+un saut de ligne final ; les digests continuent d’être calculés sur la
+sérialisation compacte. Seules les erreurs d’usage d’argparse sont écrites sur
+la sortie d’erreur.
+
+`495 change` expose le premier parcours vers une application cible. Elle
 exige une demande dans un fichier, la racine d’un dépôt Git propre avec un
 `HEAD`, un contrat cible et un `CODEX_HOME` dédié. Elle exécute une intervention
 de `codex exec`, observe l’état Git obtenu, puis lance chaque contrôle avec
@@ -63,9 +73,11 @@ sandbox `workspace-write`. Les personnalisations utilisateur et skills
 personnelles ne sont pas chargées ; les instructions et skills du dépôt restent
 disponibles.
 
-Le paquet fournit en outre une opération de vérification sans agent,
+`495 verify` expose l’opération de vérification sans agent,
 `verify_candidate`, que `verify_with_codex_sandbox` assemble avec le runner
-`codex sandbox`. Elle vérifie un candidat déjà présent : l’écart entre l’arbre
+`codex sandbox`. Ses options sont `--repository`, le répertoire courant par
+défaut, `--contract`, `495.json` à la racine du dépôt par défaut, et
+`--baseline`, `HEAD` par défaut. Elle vérifie un candidat déjà présent : l’écart entre l’arbre
 de travail et une référence Git explicite, `HEAD` par défaut. La référence est
 résolue avec `git rev-parse --verify --end-of-options <référence>^{commit}` et
 doit être `HEAD` ou un ancêtre de `HEAD` ; une référence irrésoluble ou hors
@@ -84,12 +96,17 @@ violation. Le document restitué porte `command`, `reference`, `baseline`,
 `head`, `contract_digest`, `environment`, `candidate`, `checks`, `violations` et
 `limitations`. Cette opération n’a besoin ni d’un `CODEX_HOME` utilisateur ni
 d’une authentification : le runner reçoit un `CODEX_HOME` jetable sous le
-`HOME` temporaire et `codex login status` n’est jamais appelé. Aucune commande
-ne l’expose encore.
+`HOME` temporaire et `codex login status` n’est jamais appelé. Le binaire
+`codex` reste requis pour les profils sandbox.
 
-Un contrat présent mais non conforme lève `ConfigurationError`, distinguée des
-autres erreurs d’exécution impossible ; le document d’erreur de la commande
-`495` continue de rapporter `execution_impossible` pour les deux cas.
+Le code de sortie est dérivé de l’issue par une table unique, `EXIT_CODES` du
+module `cli` : `0` pour `candidate_verified`, `1` pour `candidate_failed`, `2`
+pour `execution_impossible` et `configuration_invalid`, `3` pour
+`agent_failed`, `4` pour `no_candidate`. Un contrat présent mais non conforme
+lève `ConfigurationError` et produit l’issue `configuration_invalid`, pour
+`verify` comme pour `change` ; toute autre erreur d’exécution produit
+`execution_impossible`. Le document d’erreur contient `command`, `error`,
+`outcome` et `version` ; `error.kind` conserve son rôle de diagnostic.
 
 ## Architecture applicative
 
@@ -191,8 +208,10 @@ code, leur durée, leur timeout et leurs sorties sont restitués. Si un contrôl
 suite, conserve les fichiers et signale une violation au lieu de vérifier un
 candidat différent de celui qu’il avait observé.
 
-Les issues sont `candidate_verified`, `candidate_failed`, `agent_failed` et
-`execution_impossible`. Un client non nul, bloqué ou expiré, un flux JSONL
+Le document de `change` porte en outre `command`, `reference`, toujours
+`HEAD`, `head` et `limitations`. Les issues sont `candidate_verified`,
+`candidate_failed`, `agent_failed`, `execution_impossible` et
+`configuration_invalid`. Un client non nul, bloqué ou expiré, un flux JSONL
 incomplet, une réponse invalide et une absence de candidat sont distingués des
 échecs des contrôles.
 
@@ -210,11 +229,16 @@ d’approbation ni d’intégration Git. Le premier incrément ne prend en charg
 Codex CLI, un dépôt initial propre et une seule intervention.
 
 La [conception de l’incrément en cours](chantiers/01-configuration-verification/conception.md)
-n’est disponible que pour son opération de vérification. Les sous-commandes
-`verify`, `configure` et `change`, la table des codes de sortie dérivée de
-l’issue, la sérialisation indentée, l’issue `configuration_invalid` dans le
-document d’erreur, la résolution préalable des exécutables, la version du
-runner et les bornes de taille des sorties ne sont pas implémentées.
+n’est disponible que pour ses commandes `verify` et `change`. La sous-commande
+`configure`, la résolution préalable des exécutables, la version du runner et
+les bornes de taille des sorties ne sont pas implémentées ; les champs `runner`
+et `output_limit_bytes` sont donc absents des documents. `495 verify` a été
+exécuté sur cette machine avec Codex CLI `0.153.3`, sans `CODEX_HOME`, sur un
+dépôt dont l’unique contrôle est un script shell : il a restitué `no_candidate`
+sur l’arbre propre, `candidate_verified` après l’ajout du fichier attendu et
+`candidate_failed` après une modification du script. L’essai avec Codex
+authentifié prévu par la conception n’a pas été réalisé, faute de commande
+`configure`.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de

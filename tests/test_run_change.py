@@ -16,9 +16,11 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 
 from harness495 import change as run_change
+from harness495.cli import error_result, exit_code_for
 from harness495.composition import run_codex_change
 from harness495.contract import validate_contract
-from harness495.serialization import canonical_bytes
+from harness495.errors import ChangeError
+from harness495.serialization import result_bytes
 
 
 FAKE_CODEX = r"""
@@ -33,6 +35,10 @@ from pathlib import Path
 def option(name):
     return sys.argv[sys.argv.index(name) + 1]
 
+
+if os.environ.get("FAKE_CODEX_LOG"):
+    with open(os.environ["FAKE_CODEX_LOG"], "a", encoding="utf-8") as log:
+        log.write(json.dumps(sys.argv[1:]) + "\n")
 
 if sys.argv[1:] == ["--version"]:
     print("codex-cli test")
@@ -157,7 +163,7 @@ class ChangeRunnerTest(unittest.TestCase):
 
     def run_scenario(self, mode: str = "success", *, agent_timeout: int = 3):
         with mock.patch.dict(os.environ, {"FAKE_CODEX_MODE": mode}):
-            return run_codex_change(
+            result = run_codex_change(
                 repository=self.repository,
                 contract_path=self.contract_path,
                 request="Create the result file.",
@@ -165,6 +171,7 @@ class ChangeRunnerTest(unittest.TestCase):
                 agent_timeout_seconds=agent_timeout,
                 executable=self.fake_codex,
             )
+        return result, exit_code_for(result)
 
     def update_committed_contract(self) -> None:
         self.write_contract()
@@ -184,6 +191,10 @@ class ChangeRunnerTest(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual("candidate_verified", result["outcome"])
+        self.assertEqual("change", result["command"])
+        self.assertEqual("HEAD", result["reference"])
+        self.assertEqual(result["baseline"], result["head"])
+        self.assertEqual([], result["limitations"])
         self.assertEqual(["result.txt"], [item["path"] for item in result["candidate"]["files"]])
         self.assertEqual("PASS", result["checks"][0]["status"])
         self.assertTrue(result["contract_digest"].startswith("sha256:"))
@@ -296,38 +307,38 @@ class ChangeRunnerTest(unittest.TestCase):
     def test_dirty_repository_is_rejected_before_agent(self) -> None:
         (self.repository / "local.txt").write_text("dirty\n", encoding="utf-8")
 
-        with self.assertRaisesRegex(run_change.ChangeError, "doit être propre"):
+        with self.assertRaisesRegex(ChangeError, "doit être propre"):
             self.run_scenario()
 
     def test_contract_rejects_ambient_home_variables(self) -> None:
         contract = copy.deepcopy(self.contract)
         contract["environment"].append("HOME")
 
-        with self.assertRaisesRegex(run_change.ChangeError, "défini par 495"):
+        with self.assertRaisesRegex(ChangeError, "défini par 495"):
             validate_contract(contract)
 
     def test_contract_rejects_secret_environment_variables(self) -> None:
         contract = copy.deepcopy(self.contract)
         contract["environment"].append("SERVICE_TOKEN")
 
-        with self.assertRaisesRegex(run_change.ChangeError, "ressemble à un secret"):
+        with self.assertRaisesRegex(ChangeError, "ressemble à un secret"):
             validate_contract(contract)
 
     def test_contract_rejects_environment_patterns(self) -> None:
         contract = copy.deepcopy(self.contract)
         contract["environment"].append("PREFIX_*")
 
-        with self.assertRaisesRegex(run_change.ChangeError, "nom invalide"):
+        with self.assertRaisesRegex(ChangeError, "nom invalide"):
             validate_contract(contract)
 
     def test_missing_authentication_is_rejected_before_agent(self) -> None:
-        with self.assertRaisesRegex(run_change.ChangeError, "Not logged in"):
+        with self.assertRaisesRegex(ChangeError, "Not logged in"):
             self.run_scenario("unauthenticated")
 
         self.assertEqual("", self.git("status", "--short"))
 
     def test_missing_control_sandbox_is_rejected_before_agent(self) -> None:
-        with self.assertRaisesRegex(run_change.ChangeError, "sandbox read-only indisponible"):
+        with self.assertRaisesRegex(ChangeError, "sandbox read-only indisponible"):
             self.run_scenario("sandbox_unavailable")
 
         self.assertEqual("", self.git("status", "--short"))
@@ -335,7 +346,7 @@ class ChangeRunnerTest(unittest.TestCase):
     def test_codex_home_with_user_skills_is_rejected(self) -> None:
         (self.codex_home / "skills" / "personal").mkdir(parents=True)
 
-        with self.assertRaisesRegex(run_change.ChangeError, "skills utilisateur"):
+        with self.assertRaisesRegex(ChangeError, "skills utilisateur"):
             self.run_scenario()
 
     def test_cli_prints_one_json_result(self) -> None:
@@ -406,7 +417,7 @@ class ChangeRunnerTest(unittest.TestCase):
         controls = mock.Mock()
         controls.run.return_value = {"name": "tests", "status": "PASS"}
 
-        result, exit_code = run_change.run_change(
+        result = run_change.run_change(
             repository=self.repository,
             contract_path=self.contract_path,
             request="Create the result file.",
@@ -416,7 +427,7 @@ class ChangeRunnerTest(unittest.TestCase):
             client_environment={"CLIENT_HOME": str(self.base / "client-home")},
         )
 
-        self.assertEqual(0, exit_code)
+        self.assertEqual(0, exit_code_for(result))
         self.assertEqual("candidate_verified", result["outcome"])
         self.assertEqual("other-client 1", result["client_version"])
         agent.validate_ready.assert_called_once()
@@ -424,10 +435,12 @@ class ChangeRunnerTest(unittest.TestCase):
         controls.run.assert_called_once()
 
     def test_error_result_is_valid_json_output(self) -> None:
-        result = run_change.error_result(run_change.ChangeError("precondition", "missing"))
-        encoded = canonical_bytes(result)
+        result = error_result(ChangeError("precondition", "missing"), "change")
+        encoded = result_bytes(result)
 
         self.assertEqual(result, json.loads(encoded))
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertEqual("change", result["command"])
 
 
 if __name__ == "__main__":

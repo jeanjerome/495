@@ -19,7 +19,7 @@ def run_codex_change(
     codex_home: Path,
     agent_timeout_seconds: int,
     executable: Path | None = None,
-) -> tuple[dict[str, Any], int]:
+) -> dict[str, Any]:
     """Assemble le premier parcours avec les capacités fournies par Codex CLI."""
 
     repository = repository.resolve()

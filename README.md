@@ -20,11 +20,11 @@ d’un agent est déterministe ni qu’elle converge automatiquement.
 ## État actuel
 
 Deux points d’entrée sont actifs : la commande applicative `495` et le lanceur
-minimal de contrôles du dépôt. La commande sait invoquer Codex CLI sur un dépôt
+minimal de contrôles du dépôt. `495 change` sait invoquer Codex CLI sur un dépôt
 Git propre, observer le candidat, exécuter les contrôles de l’application avec
-`codex sandbox` et restituer un JSON validé. Le paquet sait aussi vérifier un
-candidat déjà présent par rapport à une référence Git sans invoquer l’agent ni
-exiger d’authentification ; aucune commande n’expose encore cette opération.
+`codex sandbox` et restituer un JSON validé. `495 verify` vérifie un candidat
+déjà présent par rapport à une référence Git sans invoquer l’agent ni exiger
+d’authentification.
 
 Cette intégration est couverte avec un double déterministe du client. Un parcours
 réel complet avec Codex CLI `0.153.3` valide en plus la skill de projet, la
@@ -114,21 +114,60 @@ personnelles. L’appel réel contacte le service Codex et peut consommer un quo
 Une demande enregistrée dans un fichier est exécutée ainsi :
 
 ```sh
-uv run 495 \
+uv run 495 change \
   --repository /chemin/vers/application \
   --contract /chemin/vers/application/495.json \
   --codex-home /chemin/vers/codex-home-495 \
   --request-file /chemin/vers/demande.md
 ```
 
-Le résultat JSON est écrit sur la sortie standard. Le code vaut `0` pour un
-candidat vérifié, `1` pour un candidat dont un contrôle échoue, `2` pour une
-exécution impossible et `3` pour un échec du client ou de sa réponse. 495 ne
-crée aucun commit et ne conserve pas les événements ou rapports temporaires.
-Codex peut toutefois créer ses propres caches et fichiers d’état dans le
-`CODEX_HOME` dédié ; ce répertoire reste sous le contrôle de l’utilisateur.
-`tools/run_change.py` reste disponible comme lanceur de compatibilité vers la
-même interface.
+L’invocation historique sans sous-commande reste acceptée : lorsque le premier
+argument commence par `--`, `495` se comporte comme `495 change`, et
+`495 --help` affiche l’aide de cette sous-commande. `495 -h` et `495` sans
+argument affichent l’aide générale. `tools/run_change.py` reste disponible comme
+lanceur de compatibilité vers la même interface.
+
+495 ne crée aucun commit et ne conserve pas les événements ou rapports
+temporaires. Codex peut toutefois créer ses propres caches et fichiers d’état
+dans le `CODEX_HOME` dédié ; ce répertoire reste sous le contrôle de
+l’utilisateur.
+
+### Vérifier un candidat déjà présent
+
+`495 verify` applique les contrôles du contrat à l’écart entre l’arbre de
+travail et une référence Git, sans invoquer l’agent. Il n’exige ni demande, ni
+`CODEX_HOME`, ni authentification : seul le binaire `codex` doit être installé,
+car ses profils sandbox exécutent les contrôles. Le dépôt peut être modifié,
+puisque c’est cet écart qui est vérifié.
+
+```sh
+uv run 495 verify [--repository .] [--contract <dépôt>/495.json] [--baseline HEAD]
+```
+
+La référence doit être `HEAD` ou un ancêtre de `HEAD`. Avec `HEAD`, le
+candidat est le travail non commité ; avec une référence antérieure comme
+`HEAD~1`, il inclut les commits intermédiaires. Lorsque l’arbre de travail est
+identique à la référence, aucun contrôle n’est lancé et l’issue vaut
+`no_candidate`.
+
+### Résultat et codes de sortie
+
+Chaque commande écrit un seul document JSON sur sa sortie standard, indenté,
+en UTF-8, avec des clés triées. La sortie d’erreur ne reçoit que les erreurs
+d’usage des arguments. Le code de sortie découle de l’issue `outcome` :
+
+| Code | Issue | Commandes |
+| --- | --- | --- |
+| `0` | `candidate_verified` | `verify`, `change` |
+| `1` | `candidate_failed` | `verify`, `change` |
+| `2` | `execution_impossible`, `configuration_invalid` | `verify`, `change` |
+| `3` | `agent_failed` | `change` |
+| `4` | `no_candidate` | `verify` |
+
+`configuration_invalid` signale un contrat présent et lisible dont le format
+est refusé ; `execution_impossible` couvre les autres préconditions manquantes,
+comme un dépôt, un contrat ou un `codex` absent, une référence irrésoluble ou
+une sandbox indisponible.
 
 ## Ce que fait le lanceur
 
@@ -163,7 +202,8 @@ ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
 [conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
 parcours vertical, puis la
 [configuration et la vérification réutilisables](docs/chantiers/01-configuration-verification/conception.md),
-dont seule l’opération de vérification est implémentée à ce jour.
+dont la commande `verify` est implémentée et la commande `configure` reste à
+faire.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

@@ -11,7 +11,17 @@ from harness495.errors import ChangeError
 
 
 def canonical_bytes(value: Any) -> bytes:
+    """Sérialisation compacte réservée aux digests et aux fichiers transmis au client."""
+
     return (json.dumps(value, ensure_ascii=True, sort_keys=True) + "\n").encode()
+
+
+def result_bytes(value: Any) -> bytes:
+    """Sérialisation indentée, UTF-8 et à clés triées d’un document de commande."""
+
+    return (
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
 
 
 def sha256_bytes(content: bytes) -> str:
