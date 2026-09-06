@@ -12,10 +12,11 @@ from pathlib import Path
 from unittest import mock
 
 
-TOOLS = Path(__file__).resolve().parent
-sys.path.insert(0, str(TOOLS))
+ROOT = Path(__file__).resolve().parent.parent
+TOOLS = ROOT / "tools"
 
-import run_change  # noqa: E402
+from harness495 import change as run_change
+from harness495.composition import run_codex_change
 
 
 FAKE_CODEX = r"""
@@ -153,15 +154,15 @@ class ChangeRunnerTest(unittest.TestCase):
         self.contract_path.write_text(json.dumps(self.contract), encoding="utf-8")
 
     def run_scenario(self, mode: str = "success", *, agent_timeout: int = 3):
-        with mock.patch.object(run_change, "find_codex", return_value=self.fake_codex):
-            with mock.patch.dict(os.environ, {"FAKE_CODEX_MODE": mode}):
-                return run_change.run_change(
-                    repository=self.repository,
-                    contract_path=self.contract_path,
-                    request="Create the result file.",
-                    codex_home=self.codex_home,
-                    agent_timeout_seconds=agent_timeout,
-                )
+        with mock.patch.dict(os.environ, {"FAKE_CODEX_MODE": mode}):
+            return run_codex_change(
+                repository=self.repository,
+                contract_path=self.contract_path,
+                request="Create the result file.",
+                codex_home=self.codex_home,
+                agent_timeout_seconds=agent_timeout,
+                executable=self.fake_codex,
+            )
 
     def update_committed_contract(self) -> None:
         self.write_contract()
@@ -344,8 +345,7 @@ class ChangeRunnerTest(unittest.TestCase):
 
         completed = subprocess.run(
             [
-                sys.executable,
-                str(TOOLS / "run_change.py"),
+                str(Path(sys.executable).parent / "495"),
                 "--repository",
                 str(self.repository),
                 "--contract",
@@ -366,6 +366,60 @@ class ChangeRunnerTest(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual("candidate_verified", result["outcome"])
         self.assertEqual("", completed.stderr)
+
+    def test_compatibility_script_exposes_the_cli(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(TOOLS / "run_change.py"), "--help"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("--repository", completed.stdout)
+
+    def test_application_case_uses_injected_agent_and_controls(self) -> None:
+        def invoke(**arguments):
+            (arguments["repository"] / "result.txt").write_text(
+                "candidate\n", encoding="utf-8"
+            )
+            return {
+                "client": "other-client",
+                "events_error": None,
+                "exit_code": 0,
+                "response": {
+                    "status": "completed",
+                    "summary": "candidate created",
+                    "questions": [],
+                    "limitations": [],
+                },
+                "response_error": None,
+                "timed_out": False,
+            }
+
+        agent = mock.Mock()
+        agent.version.return_value = "other-client 1"
+        agent.invoke.side_effect = invoke
+        controls = mock.Mock()
+        controls.run.return_value = {"name": "tests", "status": "PASS"}
+
+        result, exit_code = run_change.run_change(
+            repository=self.repository,
+            contract_path=self.contract_path,
+            request="Create the result file.",
+            agent_timeout_seconds=3,
+            agent_client=agent,
+            control_runner=controls,
+            client_environment={"CLIENT_HOME": str(self.base / "client-home")},
+        )
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual("candidate_verified", result["outcome"])
+        self.assertEqual("other-client 1", result["client_version"])
+        agent.validate_ready.assert_called_once()
+        controls.validate_profiles.assert_called_once()
+        controls.run.assert_called_once()
 
     def test_error_result_is_valid_json_output(self) -> None:
         result = run_change.error_result(run_change.ChangeError("precondition", "missing"))

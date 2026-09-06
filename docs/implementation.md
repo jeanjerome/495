@@ -20,14 +20,13 @@
 | `bootstrap/runs/` | Supprimé | Résultats anciens sans rôle dans l’état courant |
 | `bootstrap/contract.json` | Conservé et simplifié | Configuration facultative d’une exécution liée à des fichiers |
 | `tools/run_bootstrap.py` | Conservé et simplifié | Contrôles propres au dépôt 495 |
-| `tools/test_run_bootstrap.py` | Conservé et simplifié | Vérification directe du lanceur |
-| `tools/run_change.py` | Ajouté | Parcours exécutable entre demande, Codex, candidat et contrôles cible |
-| `tools/test_run_change.py` | Ajouté | Vérification du parcours avec un double de Codex et des dépôts temporaires |
+| `src/harness495/` | Ajouté | Paquet applicatif portant le parcours, ses interfaces et ses adaptateurs |
+| `tests/` | Ajouté | Vérification du paquet et du lanceur avec des dépôts temporaires |
+| `tools/run_change.py` | Conservé comme compatibilité | Délègue à la CLI du paquet sans porter de comportement applicatif |
 | `tools/verify_state.py` | Supprimé | Ne contrôlait que l’archive retirée |
 | `src/domain/`, `src/validation/` et `src/policy/` | Supprimés | Modèle fermé conçu avant un usage réel |
 | `src/persistence/` | Supprimé | Infrastructure sur mesure sans consommateur réel |
 | `src/csap/` et `src/application/` | Supprimés | Protocole simulé et orchestration sans intégration réelle |
-| `tests/` | Supprimé avec les composants correspondants | Tests d’un comportement écarté du socle |
 
 ## Comportement disponible
 
@@ -42,12 +41,12 @@ lanceur n’écrit aucun historique d’exécution.
 
 Les commandes documentées passent par `uv run`. `uv` sélectionne Python 3.12,
 crée si nécessaire un environnement `.venv` ignoré par Git et le synchronise
-avec `uv.lock`. Le projet est déclaré non packagé tant qu’aucune commande
-utilisateur `495` n’existe ; aucun backend de build n’est donc imposé.
+avec `uv.lock`. Le paquet `harness495`, construit avec `uv_build`, installe la
+commande utilisateur `495`.
 
-`tools/run_change.py` expose le premier parcours vers une application cible. Il
+La commande `495` expose le premier parcours vers une application cible. Elle
 exige une demande dans un fichier, la racine d’un dépôt Git propre avec un
-`HEAD`, un contrat cible et un `CODEX_HOME` dédié. Il exécute une intervention
+`HEAD`, un contrat cible et un `CODEX_HOME` dédié. Elle exécute une intervention
 de `codex exec`, observe l’état Git obtenu, puis lance chaque contrôle avec
 `codex sandbox`. La demande est transmise au client par l’entrée standard et
 les commandes sont toujours des listes d’arguments sans shell.
@@ -60,6 +59,29 @@ les noms ressemblant à des clés, secrets ou jetons, et désactive le réseau d
 sandbox `workspace-write`. Les personnalisations utilisateur et skills
 personnelles ne sont pas chargées ; les instructions et skills du dépôt restent
 disponibles.
+
+## Architecture applicative
+
+Le paquet `harness495` sépare les frontières démontrées par le premier
+parcours :
+
+- `change` conduit le cas d’usage sans contenir les détails de la CLI ;
+- `composition` assemble ce cas d’usage avec les composants Codex disponibles ;
+- `agent` définit les capacités attendues d’un client d’agent et `codex` les
+  adapte à Codex CLI ;
+- `controls` définit l’exécution des feedbacks et fournit l’adaptation à
+  `codex sandbox` ;
+- `workspace` observe le candidat Git indépendamment des déclarations de
+  l’agent ;
+- `contract`, `serialization`, `process` et `errors` portent les mécanismes
+  partagés par ces frontières ;
+- `cli` transforme les arguments et les erreurs en résultat de commande.
+
+Les interfaces `AgentClient` et `ControlRunner` rendent les dépendances du cas
+d’usage explicites. Elles ne prétendent pas encore garantir la compatibilité
+d’un second client ou d’un autre runtime : seule l’adaptation Codex est
+implémentée et vérifiée. `tools/run_change.py` appelle la même CLI pour préserver
+les usages existants.
 
 ## Configuration du lanceur de contrôles
 
@@ -83,7 +105,7 @@ travail.
 
 ## Contrat de l’application cible
 
-Le contrat reçu par `run_change.py` contient exactement `version`,
+Le contrat reçu par la commande `495` contient exactement `version`,
 `environment` et `checks`. `environment` énumère les variables ordinaires que
 495 peut transmettre ; `HOME`, `TMPDIR`, `CODEX_HOME` et les noms contenant
 `KEY`, `SECRET` ou `TOKEN` sont refusés.
@@ -115,10 +137,10 @@ Un rapport contient uniquement :
 
 ## Résultat d’un changement
 
-`run_change.py` écrit un unique document JSON sur sa sortie standard. Il relie
-le digest de la demande, le commit initial, la version du client, la réponse de
-l’agent, le candidat observé, l’environnement nommé et les contrôles. Les
-artefacts temporaires ne sont pas conservés.
+La commande `495` écrit un unique document JSON sur sa sortie standard. Elle
+relie le digest de la demande, le commit initial, la version du client, la
+réponse de l’agent, le candidat observé, l’environnement nommé et les contrôles.
+Les artefacts temporaires ne sont pas conservés.
 
 La réponse de l’agent est contrainte et revalidée avec le même JSON Schema au
 moyen de la bibliothèque `jsonschema`. Elle contient un statut, un résumé, des
@@ -144,11 +166,10 @@ les issues défavorables sans consommer de quota.
 
 ## Comportements absents
 
-Le projet ne fournit pas encore de commande installée `495`, de passage par les
-états du workflow complet, de boucle de correction, de stockage applicatif, de
-reprise, de mécanisme d’approbation ni d’intégration Git. Le premier incrément
-ne prend en charge que Codex CLI, un dépôt initial propre et une seule
-intervention.
+Le projet ne fournit pas encore de passage par les états du workflow complet,
+de boucle de correction, de stockage applicatif, de reprise, de mécanisme
+d’approbation ni d’intégration Git. Le premier incrément ne prend en charge que
+Codex CLI, un dépôt initial propre et une seule intervention.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de
@@ -181,8 +202,8 @@ pour l’orientation actuelle. Toute propriété encore incertaine doit être
 confirmée par un essai sur les versions réellement intégrées.
 
 La [conception du premier incrément](conception-premier-increment.md) retient
-Codex CLI et son runner sandboxé comme composants à adapter. `run_change.py`
-applique cette conception au
+Codex CLI et son runner sandboxé comme composants à adapter. Le paquet
+`harness495` applique cette conception au
 [premier incrément vertical](parcours-utilisateur.md#premier-incrément-vertical)
 sans prétendre faire traverser au changement les états et gates du workflow
 complet.

@@ -4,7 +4,7 @@
 
 Ce document porte la conception de la capacité de 495 décrite dans le
 [parcours utilisateur](parcours-utilisateur.md#premier-incrément-vertical). Il
-fixe les choix appliqués par le runner expérimental ;
+fixe les choix appliqués par la commande applicative ;
 [l’état de l’implémentation](implementation.md) reste l’autorité sur ce qui est
 effectivement disponible et validé.
 
@@ -19,24 +19,39 @@ résultat JSON sur sa sortie standard.
 | --- | --- | --- |
 | client réel | composer `codex exec` comme sous-processus | son interface non interactive, son schéma de sortie et sa sandbox couvrent le besoin observé sans reconstruire un agent |
 | contrôles applicatifs | composer `codex sandbox` pour chaque commande | la sandbox du tour agent ne couvre pas les processus lancés ensuite par 495 |
-| interface de 495 | ajouter une commande Python dédiée, exécutée avec `uv run` | le dépôt ne possède pas encore de paquet installable et le parcours ne justifie pas d’en créer un |
+| interface de 495 | installer la commande `495` depuis un paquet `src/` | le parcours est désormais un comportement applicatif et non un outil de développement du dépôt |
 | configuration cible | lire un contrat JSON explicite fourni à la commande | les contrôles appartiennent à l’application cible et aucune découverte implicite n’est nécessaire |
 | résultat de l’agent | fournir un JSON Schema à Codex puis revalider le JSON dans 495 | la contrainte appliquée par le client ne remplace pas la validation à la frontière du harnais |
 | identité du candidat | comparer l’arbre de travail Git à son `HEAD` initial | la déclaration de l’agent n’est pas une preuve de ses effets |
 | artefacts du harnais | utiliser un répertoire temporaire extérieur au dépôt cible | le flux JSONL, le dernier message et le schéma ne doivent pas apparaître dans le candidat |
 | persistance | ne conserver aucun rapport par défaut | la restitution immédiate suffit au premier parcours ; le candidat reste dans le dépôt cible |
 
-495 n’introduit donc ni SDK de modèle, ni boucle agent interne, ni interface
-multi-client, ni implémentation propre de Seatbelt. L’adaptation porte sur
+495 n’introduit donc ni SDK de modèle, ni boucle agent interne, ni second
+client, ni implémentation propre de Seatbelt. L’adaptation porte sur
 l’interface de processus réellement utilisée, sans recopier le fonctionnement
 interne de Codex.
 
+## Frontières applicatives
+
+Le paquet `harness495` porte le comportement du produit. Son module `change`
+conduit le cas d’usage à travers deux capacités explicites : `AgentClient` pour
+obtenir un candidat et `ControlRunner` pour lui appliquer les feedbacks de
+l’application cible. Codex CLI et `codex sandbox` fournissent les seules
+adaptations actuelles de ces interfaces.
+
+L’observation Git appartient à une frontière `workspace`, distincte de la
+réponse de l’agent. La CLI ne contient que la traduction des arguments, des
+codes de sortie et du document JSON. Cette séparation permet de remplacer une
+intégration observable sans faire dépendre l’orchestration de ses options de
+processus ; elle ne préjuge pas de l’architecture d’applications confiées à
+495.
+
 ## Interface de commande
 
-La commande prévue est :
+La commande est :
 
 ```sh
-uv run python tools/run_change.py \
+uv run 495 \
   --repository /chemin/vers/application \
   --contract /chemin/vers/application/495.json \
   --codex-home /chemin/vers/un/codex-home-dedie \
@@ -59,6 +74,9 @@ Le code de sortie distingue au minimum :
 
 Le JSON reste l’autorité détaillée : le seul code de sortie ne suffit pas à
 interpréter le résultat.
+
+Le lanceur `tools/run_change.py` délègue à cette même CLI pour conserver la
+compatibilité avec les premières utilisations du parcours.
 
 ## Contrat de l’application cible
 

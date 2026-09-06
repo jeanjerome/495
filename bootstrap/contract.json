@@ -8,7 +8,7 @@
         "unittest",
         "discover",
         "-s",
-        "tools",
+        "tests",
         "-p",
         "test_*.py",
         "-v"
@@ -26,6 +26,8 @@
     "bootstrap/contract.json",
     "docs/*.md",
     "pyproject.toml",
+    "src/**/*.py",
+    "tests/*.py",
     "uv.lock",
     "tools/*.py"
   ],

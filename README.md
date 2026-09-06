@@ -19,10 +19,10 @@ d’un agent est déterministe ni qu’elle converge automatiquement.
 
 ## État actuel
 
-Deux points d’entrée Python sont actifs : le lanceur minimal de contrôles du
-dépôt et le runner du premier incrément vertical. Ce dernier sait invoquer
-Codex CLI sur un dépôt Git propre, observer le candidat, exécuter les contrôles
-de l’application avec `codex sandbox` et restituer un JSON validé.
+Deux points d’entrée sont actifs : la commande applicative `495` et le lanceur
+minimal de contrôles du dépôt. La commande sait invoquer Codex CLI sur un dépôt
+Git propre, observer le candidat, exécuter les contrôles de l’application avec
+`codex sandbox` et restituer un JSON validé.
 
 Cette intégration est couverte avec un double déterministe du client. Un parcours
 réel complet avec Codex CLI `0.153.3` valide en plus la skill de projet, la
@@ -112,7 +112,7 @@ personnelles. L’appel réel contacte le service Codex et peut consommer un quo
 Une demande enregistrée dans un fichier est exécutée ainsi :
 
 ```sh
-uv run python tools/run_change.py \
+uv run 495 \
   --repository /chemin/vers/application \
   --contract /chemin/vers/application/495.json \
   --codex-home /chemin/vers/codex-home-495 \
@@ -125,6 +125,8 @@ exécution impossible et `3` pour un échec du client ou de sa réponse. 495 ne
 crée aucun commit et ne conserve pas les événements ou rapports temporaires.
 Codex peut toutefois créer ses propres caches et fichiers d’état dans le
 `CODEX_HOME` dédié ; ce répertoire reste sous le contrôle de l’utilisateur.
+`tools/run_change.py` reste disponible comme lanceur de compatibilité vers la
+même interface.
 
 ## Ce que fait le lanceur
 
@@ -153,8 +155,7 @@ visés et les responsabilités laissées aux outils existants.
 L’[état de l’art](docs/etat-de-l-art.md) compare les clients, harnais et
 runtimes pertinents pour le premier incrément.
 La [conception du premier incrément](docs/conception-premier-increment.md)
-définit l’interface et les composants retenus sans les présenter comme déjà
-disponibles.
+définit l’interface et les composants retenus.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

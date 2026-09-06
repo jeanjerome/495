@@ -12,7 +12,8 @@ from pathlib import Path
 from unittest import mock
 
 
-TOOLS = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
+TOOLS = ROOT / "tools"
 sys.path.insert(0, str(TOOLS))
 
 import run_bootstrap  # noqa: E402

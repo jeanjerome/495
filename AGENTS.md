@@ -13,9 +13,10 @@ disponibles.
 - `docs/parcours-utilisateur.md` décrit les usages visés et leurs frontières.
 - `docs/etat-de-l-art.md` consigne les solutions examinées avant la conception.
 - `docs/reprise-de-codeservo.md` définit l’héritage fonctionnel à simplifier.
-- `docs/conception-premier-increment.md` conçoit la prochaine capacité sans la
-  présenter comme disponible.
+- `docs/conception-premier-increment.md` décrit les choix du premier parcours.
 - `docs/implementation.md` décrit le comportement implémenté.
+- `src/harness495/` contient l’implémentation applicative de 495.
+- `tests/` vérifie les comportements du paquet et des outils du dépôt.
 - `pyproject.toml` déclare le projet Python et ses dépendances.
 - `uv.lock` verrouille l’environnement Python résolu.
 - `bootstrap/contract.json` configure l’exécution contrôlée facultative.
