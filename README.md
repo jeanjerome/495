@@ -159,7 +159,9 @@ fonctionnalités à ajouter et leurs impacts sur l’architecture applicative.
 Les documents de `docs/chantiers/` détaillent chaque incrément : l’[étude
 ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
 [conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
-parcours vertical.
+parcours vertical, puis la
+[configuration et la vérification réutilisables](docs/chantiers/01-configuration-verification/conception.md),
+spécifiées pour le prochain incrément sans être disponibles.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

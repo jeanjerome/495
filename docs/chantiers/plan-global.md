@@ -136,6 +136,10 @@ devenir des opérations applicatives composables. La CLI gagne des commandes
 orientées usage, tout en conservant l’invocation actuelle comme compatibilité.
 Aucun stockage de workflow n’est nécessaire à ce stade.
 
+La [conception de cet incrément](01-configuration-verification/conception.md)
+fixe les commandes, les codes de sortie, les documents JSON et les
+responsabilités extraites.
+
 **Critères de fin.** Un projet cible indépendant de Python peut enregistrer sa
 configuration, modifier un fichier et obtenir une vérification sans
 authentification auprès d’un fournisseur d’IA. Les contrôles produisent le même
