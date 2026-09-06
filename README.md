@@ -24,7 +24,9 @@ minimal de contrôles du dépôt. `495 change` sait invoquer Codex CLI sur un d�
 Git propre, observer le candidat, exécuter les contrôles de l’application avec
 `codex sandbox` et restituer un JSON validé. `495 verify` vérifie un candidat
 déjà présent par rapport à une référence Git sans invoquer l’agent ni exiger
-d’authentification.
+d’authentification. `495 configure` fait proposer un contrat par Codex en
+lecture seule, valide un contrat présent et n’enregistre une proposition que
+sur action explicite.
 
 Cette intégration est couverte avec un double déterministe du client. Un parcours
 réel complet avec Codex CLI `0.153.3` valide en plus la skill de projet, la
@@ -150,6 +152,41 @@ candidat est le travail non commité ; avec une référence antérieure comme
 identique à la référence, aucun contrôle n’est lancé et l’issue vaut
 `no_candidate`.
 
+### Configurer un dépôt
+
+`495 configure` prépare le contrat d’un dépôt en trois opérations distinctes.
+Aucune n’écrit dans le dépôt sans `write`.
+
+```sh
+uv run 495 configure propose  [--repository .] --codex-home <répertoire> [--agent-timeout-seconds 900]
+uv run 495 configure validate [--repository .] [--contract <dépôt>/495.json]
+uv run 495 configure write    [--repository .] --proposal <fichier> [--contract <dépôt>/495.json] [--overwrite]
+```
+
+`propose` fait inspecter le dépôt par Codex avec `--sandbox read-only` et
+restitue une proposition sans rien enregistrer. Comme `change`, il exige un
+`CODEX_HOME` dédié et authentifié, contacte le service Codex et peut consommer
+un quota. Le document contient le contrat proposé, au même format que celui
+consommé par `verify`, l’attestation citée par l’agent pour chaque contrôle
+dans `evidence`, les choix qu’il n’a pas pu trancher dans `questions` et
+l’exécutable résolu de chaque contrôle dans `commands`, `null` lorsqu’il est
+introuvable. Une proposition n’est jamais une preuve : elle est relue par une
+personne, qui reste responsable de la pertinence des contrôles. Une
+proposition qui viole le format du contrat, un agent qui modifie le dépôt
+malgré la lecture seule ou une réponse bloquée produisent `agent_failed` ;
+une inspection qui ne détecte aucun contrôle attesté produit
+`no_checks_detected` avec les questions à trancher.
+
+`validate` contrôle un contrat présent sans authentification : format,
+exécutable de chaque contrôle résolu depuis la racine du dépôt ou le `PATH`
+transmis, puis sonde des profils sandbox. `write` extrait le contrat d’une
+proposition enregistrée depuis la sortie de `propose`, éventuellement
+modifiée, applique la même validation, puis l’écrit indenté dans le dépôt.
+Sans `--overwrite`, un contrat existant n’est ni lu ni remplacé et la commande
+rend `execution_impossible` ; avec `--overwrite`, le remplacement est
+atomique. Un contrat écrit à la main sans passer par `propose` se contrôle
+avec `validate`. Aucun commit n’est créé.
+
 ### Résultat et codes de sortie
 
 Chaque commande écrit un seul document JSON sur sa sortie standard, indenté,
@@ -158,16 +195,18 @@ d’usage des arguments. Le code de sortie découle de l’issue `outcome` :
 
 | Code | Issue | Commandes |
 | --- | --- | --- |
-| `0` | `candidate_verified` | `verify`, `change` |
+| `0` | `candidate_verified`, `proposal_ready`, `configuration_valid`, `configuration_written` | toutes |
 | `1` | `candidate_failed` | `verify`, `change` |
-| `2` | `execution_impossible`, `configuration_invalid` | `verify`, `change` |
-| `3` | `agent_failed` | `change` |
-| `4` | `no_candidate` | `verify` |
+| `2` | `execution_impossible`, `configuration_invalid` | toutes |
+| `3` | `agent_failed` | `change`, `configure propose` |
+| `4` | `no_candidate`, `no_checks_detected` | `verify`, `configure propose` |
 
 `configuration_invalid` signale un contrat présent et lisible dont le format
 est refusé ; `execution_impossible` couvre les autres préconditions manquantes,
-comme un dépôt, un contrat ou un `codex` absent, une référence irrésoluble ou
-une sandbox indisponible.
+comme un dépôt, un contrat ou un `codex` absent, une référence irrésoluble,
+un exécutable de contrôle introuvable, une sandbox indisponible ou un contrat
+existant sans `--overwrite`. Le code `4` signale que tout était prêt mais
+qu’il n’y avait rien à vérifier ou rien à proposer.
 
 ## Ce que fait le lanceur
 
@@ -202,8 +241,8 @@ ciblée](docs/chantiers/00-parcours-vertical/etat-de-l-art.md) et la
 [conception](docs/chantiers/00-parcours-vertical/conception.md) du premier
 parcours vertical, puis la
 [configuration et la vérification réutilisables](docs/chantiers/01-configuration-verification/conception.md),
-dont la commande `verify` est implémentée et la commande `configure` reste à
-faire.
+dont les commandes `verify` et `configure` sont implémentées et dont les
+bornes de taille des sorties restent à faire.
 La [reprise de CodeServo](docs/reprise-de-codeservo.md) distingue les
 comportements hérités des mécanismes qui redeviennent conditionnels.
 L’[état de l’implémentation](docs/implementation.md) décrit précisément le

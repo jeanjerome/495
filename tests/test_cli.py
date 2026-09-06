@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -44,7 +45,7 @@ class CommandLineTest(unittest.TestCase):
         self.base = Path(temporary.name)
         self.repository = self.base / "application"
         self.repository.mkdir()
-        self.log = self.base / "codex-invocations.log"
+        self.log = self.base / "fake-codex-invocations.log"
         fake_codex = self.base / "codex"
         fake_codex.write_text(
             f"#!{sys.executable}\n" + textwrap.dedent(FAKE_CODEX), encoding="utf-8"
@@ -118,6 +119,7 @@ class CommandLineTest(unittest.TestCase):
         environment["PYTHONPATH"] = str(ROOT / "src")
         environment["FAKE_CODEX_LOG"] = str(self.log)
         environment["FAKE_CODEX_MODE"] = mode
+        (self.base / "fake-codex-mode").write_text(mode, encoding="utf-8")
         return subprocess.run(
             [sys.executable, "-m", "harness495.cli", *arguments],
             cwd=cwd or ROOT,
@@ -357,6 +359,395 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual([], self.codex_invocations())
 
 
+    # --- configure ---
+
+    def add_check_script(self) -> None:
+        """Ajoute le script que le double de Codex reconnaît comme contrôle attesté."""
+
+        script = self.repository / "scripts" / "check.sh"
+        script.parent.mkdir()
+        script.write_text("#!/bin/sh\ntest -f result.txt\n", encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IXUSR)
+        self.git("add", "scripts/check.sh")
+        self.commit("test: add the check script")
+
+    def propose(self, mode: str = "success") -> subprocess.CompletedProcess[str]:
+        codex_home = self.base / "codex-home"
+        codex_home.mkdir(exist_ok=True)
+        return self.run_cli(
+            "configure",
+            "propose",
+            "--repository",
+            str(self.repository),
+            "--codex-home",
+            str(codex_home),
+            mode=mode,
+        )
+
+    def write_proposal(
+        self, completed: subprocess.CompletedProcess[str], name: str = "proposal.json"
+    ) -> Path:
+        path = self.base / name
+        path.write_text(completed.stdout, encoding="utf-8")
+        return path
+
+    def test_configure_propose_returns_a_proposal_without_writing(self) -> None:
+        self.add_check_script()
+        head = self.head()
+
+        completed = self.propose()
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("proposal_ready", result["outcome"])
+        self.assertEqual("configure propose", result["command"])
+        self.assertEqual(head, result["baseline"])
+        self.assertEqual("codex-cli test", result["client_version"])
+        self.assertEqual(
+            {
+                "checks": [
+                    {
+                        "command": ["sh", "scripts/check.sh"],
+                        "filesystem": "read-only",
+                        "name": "check",
+                        "timeout_seconds": 60,
+                    }
+                ],
+                "environment": ["PATH"],
+                "version": 1,
+            },
+            result["contract"],
+        )
+        self.assertEqual(
+            {"check": "scripts/check.sh est le script de contrôle du dépôt"},
+            result["evidence"],
+        )
+        self.assertTrue(result["commands"]["check"].endswith("sh"))
+        self.assertEqual([], result["questions"])
+        self.assertEqual([], result["violations"])
+        self.assertIn("n’atteste ni la pertinence", result["limitations"][0])
+        self.assertEqual("read-only", result["agent"]["sandbox"]["filesystem"])
+        self.assertEqual(
+            ["only scripts/ was inspected"], result["agent"]["response"]["limitations"]
+        )
+        self.assertEqual("", self.git("status", "--porcelain"))
+        self.assertEqual(head, self.head())
+        invocations = self.codex_invocations()
+        self.assertIn(["login", "status"], invocations)
+        exec_call = next(call for call in invocations if call[0] == "exec")
+        self.assertEqual("read-only", exec_call[exec_call.index("--sandbox") + 1])
+        self.assertNotIn("sandbox", [call[0] for call in invocations])
+
+    def test_configure_propose_reports_an_agent_that_writes(self) -> None:
+        self.add_check_script()
+
+        completed = self.propose("modifies_repository")
+
+        self.assertEqual(3, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("agent_failed", result["outcome"])
+        self.assertIsNone(result["contract"])
+        self.assertEqual(
+            ["l’agent a modifié le dépôt pendant l’inspection en lecture seule"],
+            result["violations"],
+        )
+        self.assertEqual("?? proposal-note.txt\n", self.git("status", "--porcelain"))
+
+    def test_configure_propose_reports_an_invalid_response(self) -> None:
+        self.add_check_script()
+
+        completed = self.propose("invalid_response")
+
+        self.assertEqual(3, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("agent_failed", result["outcome"])
+        self.assertIsNone(result["contract"])
+        self.assertIn("non conforme", result["agent"]["response_error"])
+        self.assertEqual(["réponse de l’agent invalide"], result["violations"])
+
+    def test_configure_propose_without_detectable_check(self) -> None:
+        completed = self.propose()
+
+        self.assertEqual(4, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("no_checks_detected", result["outcome"])
+        self.assertIsNone(result["contract"])
+        self.assertEqual({}, result["evidence"])
+        self.assertEqual(
+            ["Aucun script de contrôle trouvé ; quelle commande lance les tests ?"],
+            result["questions"],
+        )
+        self.assertEqual([], result["violations"])
+        self.assertTrue(any("configure validate" in item for item in result["limitations"]))
+
+    def test_configure_propose_rejects_a_proposal_violating_the_contract(self) -> None:
+        self.add_check_script()
+
+        for mode, expected in (
+            ("duplicate_check", "nom de contrôle dupliqué"),
+            ("secret_environment", "ressemble à un secret"),
+        ):
+            with self.subTest(mode=mode):
+                completed = self.propose(mode)
+
+                self.assertEqual(3, completed.returncode, completed.stderr)
+                result = self.single_document(completed)
+                self.assertEqual("agent_failed", result["outcome"])
+                self.assertIsNone(result["contract"])
+                self.assertIn(expected, result["violations"][0])
+
+    def test_configure_propose_reports_an_unknown_executable_as_null(self) -> None:
+        self.add_check_script()
+
+        completed = self.propose("unknown_executable")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("proposal_ready", result["outcome"])
+        self.assertEqual({"check": None}, result["commands"])
+
+    def test_configure_propose_requires_authentication_and_a_positive_timeout(self) -> None:
+        self.add_check_script()
+        codex_home = self.base / "codex-home"
+        codex_home.mkdir()
+
+        unauthenticated = self.propose("unauthenticated")
+        zero_timeout = self.run_cli(
+            "configure",
+            "propose",
+            "--repository",
+            str(self.repository),
+            "--codex-home",
+            str(codex_home),
+            "--agent-timeout-seconds",
+            "0",
+            mode="success",
+        )
+
+        self.assertEqual(2, unauthenticated.returncode, unauthenticated.stderr)
+        result = self.single_document(unauthenticated)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertEqual("configure propose", result["command"])
+        self.assertIn("Not logged in", result["error"]["message"])
+        self.assertEqual(2, zero_timeout.returncode, zero_timeout.stderr)
+        self.assertIn("timeout", self.single_document(zero_timeout)["error"]["message"])
+        self.assertNotIn("exec", [call[0] for call in self.codex_invocations()])
+
+    def test_configure_validate_accepts_a_valid_contract(self) -> None:
+        completed = self.run_cli("configure", "validate", "--repository", str(self.repository))
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("configuration_valid", result["outcome"])
+        self.assertEqual("configure validate", result["command"])
+        self.assertEqual("495.json", result["contract_path"])
+        self.assertTrue(result["contract_digest"].startswith("sha256:"))
+        self.assertEqual({"name": "codex-sandbox", "version": "codex-cli test"}, result["runner"])
+        self.assertEqual(
+            {"result-present": str(Path(sys.executable).resolve())}, result["commands"]
+        )
+        self.assertEqual([], result["limitations"])
+        invocations = self.codex_invocations()
+        self.assertEqual(["--version"], invocations[0])
+        self.assertTrue(all(call[0] == "sandbox" for call in invocations[1:]), invocations)
+        self.assertNotIn(["login", "status"], invocations)
+
+    def test_configure_validate_reports_an_invalid_contract(self) -> None:
+        self.contract["checks"][0]["timeout_seconds"] = 0
+        self.contract_path.write_text(json.dumps(self.contract), encoding="utf-8")
+
+        completed = self.run_cli("configure", "validate", "--repository", str(self.repository))
+
+        self.assertEqual(2, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("configuration_invalid", result["outcome"])
+        self.assertEqual("configure validate", result["command"])
+        self.assertIn("timeout_seconds", result["error"]["message"])
+        self.assertEqual([], self.codex_invocations())
+
+    def test_configure_validate_reports_missing_tools_and_sandbox(self) -> None:
+        unavailable = self.run_cli(
+            "configure", "validate", "--repository", str(self.repository), mode="sandbox_unavailable"
+        )
+        self.contract["checks"][0]["command"] = ["tool-495-absent", "--check"]
+        self.contract_path.write_text(json.dumps(self.contract), encoding="utf-8")
+        missing = self.run_cli("configure", "validate", "--repository", str(self.repository))
+
+        self.assertEqual(2, unavailable.returncode, unavailable.stderr)
+        result = self.single_document(unavailable)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertIn("sandbox read-only indisponible", result["error"]["message"])
+        self.assertEqual(2, missing.returncode, missing.stderr)
+        result = self.single_document(missing)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertIn(
+            "exécutable de contrôle introuvable : result-present : tool-495-absent",
+            result["error"]["message"],
+        )
+
+    def test_verify_reports_a_missing_tool_before_any_control(self) -> None:
+        self.add_candidate()
+        self.contract["checks"][0]["command"] = ["tool-495-absent", "--check"]
+        self.contract_path.write_text(json.dumps(self.contract), encoding="utf-8")
+
+        completed = self.run_cli("verify", "--repository", str(self.repository))
+
+        self.assertEqual(2, completed.returncode, completed.stderr)
+        result = self.single_document(completed)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertIn("exécutable de contrôle introuvable", result["error"]["message"])
+        self.assertEqual([], self.codex_invocations())
+
+    def test_configure_write_records_a_proposal_reused_by_validate_and_verify(self) -> None:
+        self.add_check_script()
+        proposal = self.write_proposal(self.propose())
+        target = self.repository / "proposed.json"
+
+        written = self.run_cli(
+            "configure",
+            "write",
+            "--repository",
+            str(self.repository),
+            "--proposal",
+            str(proposal),
+            "--contract",
+            str(target),
+        )
+        validated = self.run_cli(
+            "configure", "validate", "--repository", str(self.repository), "--contract", str(target)
+        )
+        self.add_candidate()
+        verified = self.run_cli(
+            "verify", "--repository", str(self.repository), "--contract", str(target)
+        )
+        (self.repository / "result.txt").unlink()
+        (self.repository / "README.md").write_text("edited\n", encoding="utf-8")
+        failed = self.run_cli(
+            "verify", "--repository", str(self.repository), "--contract", str(target)
+        )
+
+        self.assertEqual(0, written.returncode, written.stderr)
+        result = self.single_document(written)
+        self.assertEqual("configuration_written", result["outcome"])
+        self.assertEqual("configure write", result["command"])
+        self.assertEqual("proposed.json", result["contract_path"])
+        self.assertFalse(result["overwritten"])
+        self.assertEqual({"name": "codex-sandbox", "version": "codex-cli test"}, result["runner"])
+        self.assertTrue(result["commands"]["check"].endswith("sh"))
+        stored = json.loads(target.read_text(encoding="utf-8"))
+        self.assertEqual(json.loads(proposal.read_text(encoding="utf-8"))["contract"], stored)
+        self.assertTrue(target.read_text(encoding="utf-8").startswith('{\n  "checks"'))
+        self.assertEqual(0, validated.returncode, validated.stderr)
+        self.assertEqual("configuration_valid", self.single_document(validated)["outcome"])
+        self.assertEqual(
+            result["contract_digest"], self.single_document(validated)["contract_digest"]
+        )
+        self.assertEqual(0, verified.returncode, verified.stderr)
+        verified_result = self.single_document(verified)
+        self.assertEqual("candidate_verified", verified_result["outcome"])
+        self.assertEqual(["check"], [check["name"] for check in verified_result["checks"]])
+        self.assertEqual(
+            ["proposed.json", "result.txt"],
+            [item["path"] for item in verified_result["candidate"]["files"]],
+        )
+        self.assertEqual(1, failed.returncode, failed.stderr)
+        self.assertEqual("candidate_failed", self.single_document(failed)["outcome"])
+
+    def test_configure_write_refuses_to_overwrite_without_authorization(self) -> None:
+        self.add_check_script()
+        proposal = self.write_proposal(self.propose())
+        original = self.contract_path.read_text(encoding="utf-8")
+
+        refused = self.run_cli(
+            "configure",
+            "write",
+            "--repository",
+            str(self.repository),
+            "--proposal",
+            str(proposal),
+        )
+        overwritten = self.run_cli(
+            "configure",
+            "write",
+            "--repository",
+            str(self.repository),
+            "--proposal",
+            str(proposal),
+            "--overwrite",
+        )
+
+        self.assertEqual(2, refused.returncode, refused.stderr)
+        result = self.single_document(refused)
+        self.assertEqual("execution_impossible", result["outcome"])
+        self.assertEqual("configure write", result["command"])
+        self.assertIn("--overwrite requis", result["error"]["message"])
+        self.assertEqual(0, overwritten.returncode, overwritten.stderr)
+        result = self.single_document(overwritten)
+        self.assertEqual("configuration_written", result["outcome"])
+        self.assertTrue(result["overwritten"])
+        self.assertEqual("495.json", result["contract_path"])
+        self.assertNotEqual(original, self.contract_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            json.loads(proposal.read_text(encoding="utf-8"))["contract"],
+            json.loads(self.contract_path.read_text(encoding="utf-8")),
+        )
+        self.assertEqual(" M 495.json\n", self.git("status", "--porcelain"))
+
+    def test_configure_write_rejects_files_that_are_not_proposals(self) -> None:
+        self.add_check_script()
+        proposal = self.write_proposal(self.propose("unknown_executable"))
+        target = self.repository / "proposed.json"
+        contract_only = self.base / "contract.json"
+        contract_only.write_text(json.dumps(self.contract), encoding="utf-8")
+        without_contract = self.write_proposal(self.propose("blocked"), "blocked.json")
+
+        unknown = self.run_cli(
+            "configure", "write", "--repository", str(self.repository),
+            "--proposal", str(proposal), "--contract", str(target),
+        )
+        plain = self.run_cli(
+            "configure", "write", "--repository", str(self.repository),
+            "--proposal", str(contract_only), "--contract", str(target),
+        )
+        blocked = self.run_cli(
+            "configure", "write", "--repository", str(self.repository),
+            "--proposal", str(without_contract), "--contract", str(target),
+        )
+        outside = self.run_cli(
+            "configure", "write", "--repository", str(self.repository),
+            "--proposal", str(proposal), "--contract", str(self.base / "elsewhere.json"),
+        )
+
+        self.assertEqual(2, unknown.returncode, unknown.stderr)
+        self.assertIn(
+            "exécutable de contrôle introuvable",
+            self.single_document(unknown)["error"]["message"],
+        )
+        self.assertEqual(2, plain.returncode, plain.stderr)
+        self.assertIn(
+            "n’est pas une proposition", self.single_document(plain)["error"]["message"]
+        )
+        self.assertEqual(2, blocked.returncode, blocked.stderr)
+        self.assertIn(
+            "n’est pas une proposition", self.single_document(blocked)["error"]["message"]
+        )
+        self.assertEqual(2, outside.returncode, outside.stderr)
+        self.assertIn(
+            "situé dans le dépôt", self.single_document(outside)["error"]["message"]
+        )
+        self.assertFalse(target.exists())
+        self.assertFalse((self.base / "elsewhere.json").exists())
+
+    def test_configure_without_operation_shows_its_help(self) -> None:
+        completed = self.run_cli("configure")
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("propose", completed.stdout)
+        self.assertIn("validate", completed.stdout)
+        self.assertIn("write", completed.stdout)
+        self.assertEqual("", completed.stderr)
+
+
 class HelpAndExitCodeTest(unittest.TestCase):
     def help_output(self, arguments: list[str]) -> tuple[int, str]:
         stdout = io.StringIO()
@@ -382,6 +773,7 @@ class HelpAndExitCodeTest(unittest.TestCase):
 
                 self.assertEqual(0, code)
                 self.assertIn("verify", output)
+                self.assertIn("configure", output)
                 self.assertIn("change", output)
                 self.assertNotIn("--request-file", output)
 
@@ -389,11 +781,15 @@ class HelpAndExitCodeTest(unittest.TestCase):
         self.assertEqual(
             {
                 "candidate_verified": 0,
+                "proposal_ready": 0,
+                "configuration_valid": 0,
+                "configuration_written": 0,
                 "candidate_failed": 1,
                 "execution_impossible": 2,
                 "configuration_invalid": 2,
                 "agent_failed": 3,
                 "no_candidate": 4,
+                "no_checks_detected": 4,
             },
             EXIT_CODES,
         )

@@ -11,7 +11,7 @@
 | `docs/etat-de-l-art.md` | Ajouté | Comparaison durable des clients, harnais et runtimes examinés |
 | `docs/chantiers/00-parcours-vertical/etat-de-l-art.md` | Ajouté | Étude ciblée et essais du premier parcours vertical |
 | `docs/chantiers/00-parcours-vertical/conception.md` | Ajouté | Choix d’intégration appliqués au premier parcours vertical |
-| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; sa commande `verify` est implémentée, `configure` ne l’est pas |
+| `docs/chantiers/01-configuration-verification/conception.md` | Ajouté | Conception de l’incrément en cours ; ses commandes `verify` et `configure` sont implémentées, les bornes de taille des sorties ne le sont pas |
 | `docs/reprise-de-codeservo.md` | Ajouté | Comportements hérités de CodeServo et simplification attendue |
 | `docs/implementation.md` | Conservé | Description du comportement réellement disponible |
 | `docs/presentation.md` | Conservé et raccourci | Présentation du but et du nom du projet |
@@ -47,8 +47,9 @@ crée si nécessaire un environnement `.venv` ignoré par Git et le synchronise
 avec `uv.lock`. Le paquet `harness495`, construit avec `uv_build`, installe la
 commande utilisateur `495`.
 
-La commande `495` offre deux sous-commandes, `change` et `verify`. Une
-invocation dont le premier argument commence par `--` est traitée comme
+La commande `495` offre trois sous-commandes, `change`, `verify` et
+`configure`, cette dernière avec les opérations `propose`, `validate` et
+`write`. Une invocation dont le premier argument commence par `--` est traitée comme
 `change`, ce qui préserve la forme historique ; `495 --help` affiche donc
 l’aide de `change`, tandis que `495 -h` et `495` sans argument affichent l’aide
 générale avec le code `0`. Chaque sous-commande écrit un seul document JSON sur
@@ -85,8 +86,9 @@ lignée rend l’exécution impossible avant tout contrôle. Le dépôt peut êt
 modifié, puisque c’est cet écart qui est vérifié ; le parcours `495` conserve
 en revanche l’exigence d’un dépôt propre avant l’intervention de l’agent.
 
-L’opération lit le contrat, prépare l’environnement filtré et sonde les profils
-sandbox avant d’observer le candidat. Lorsque l’arbre de travail est identique à
+L’opération lit le contrat, prépare l’environnement filtré, résout
+l’exécutable de chaque contrôle et sonde les profils sandbox avant d’observer
+le candidat. Lorsque l’arbre de travail est identique à
 la référence, elle restitue l’issue `no_candidate` sans lancer de contrôle, avec
 `candidate` à `null` et une limitation qui rappelle la référence résolue et
 suggère une référence antérieure comme `HEAD~1`. Sinon, chaque contrôle est
@@ -99,14 +101,80 @@ d’une authentification : le runner reçoit un `CODEX_HOME` jetable sous le
 `HOME` temporaire et `codex login status` n’est jamais appelé. Le binaire
 `codex` reste requis pour les profils sandbox.
 
+La résolution des exécutables, `verification.validate_controls`, est
+appliquée par `verify`, par `change` avant l’intervention de l’agent et par
+`configure validate` et `configure write`. Un premier argument contenant un
+séparateur de chemin est résolu par rapport à la racine du dépôt et doit
+désigner un fichier exécutable ; sinon il est cherché dans le `PATH` de
+l’environnement filtré, ou dans `os.defpath` lorsque le contrat ne transmet pas
+`PATH`. Un exécutable introuvable rend l’exécution impossible avant tout
+contrôle, de sorte qu’un outil absent ne soit jamais présenté comme un
+candidat défavorable. Cette résolution est celle de 495 : elle sert de
+précondition, non de preuve que `codex sandbox` pourra lancer la commande.
+
+`495 configure propose` expose `propose_configuration`, que
+`propose_with_codex` assemble avec le client Codex. L’opération exige la
+racine d’un dépôt Git avec un `HEAD`, accepte un dépôt modifié et exige,
+comme `change`, un `CODEX_HOME` dédié et authentifié ; l’appel contacte le
+service Codex et peut consommer un quota. Le client est invoqué avec les mêmes
+options que `change`, sauf `--sandbox read-only`, un prompt propre à
+l’opération et un schéma de réponse propre à l’opération,
+`PROPOSAL_RESPONSE_SCHEMA` du module `configuration`. L’environnement transmis
+se limite à `PATH`, à `CODEX_HOME` et aux chemins temporaires. Le prompt
+demande de ne proposer que des commandes attestées par le dépôt lui-même, de
+citer cette attestation dans `evidence`, de transformer tout choix
+indécidable en question et de choisir `read-only` sauf écriture constatée. La
+réponse contient `status`, `summary`, `checks`, `environment`, `questions` et
+`limitations`, tous obligatoires, sans champ inconnu.
+
+495 construit le contrat à partir de `checks` et `environment`, sans le
+corriger, puis lui applique la validation ordinaire du contrat. Le candidat
+est observé par rapport à `HEAD` avant et après l’inspection ; une différence
+est rapportée comme violation. Le document restitué porte `baseline`,
+`client_version`, `environment`, `agent`, `contract`, `evidence`,
+`questions`, `commands`, `violations` et `limitations`. `contract` vaut `null`
+exactement lorsque l’issue n’est pas `proposal_ready` ; `evidence` associe
+chaque nom de contrôle à la chaîne fournie par l’agent ; `commands` associe
+chaque nom à l’exécutable résolu, ou à `null` lorsqu’il est introuvable, à
+titre d’information. `limitations` rappelle toujours que la proposition
+n’atteste ni la pertinence ni l’exécutabilité des contrôles. Un client expiré,
+non nul, un flux JSONL invalide, une réponse non conforme, une réponse
+`blocked`, un dépôt modifié pendant l’inspection ou une proposition qui viole
+le format du contrat produisent `agent_failed` avec le diagnostic dans
+`violations`. Une réponse `completed` sans contrôle produit
+`no_checks_detected`, avec les questions de l’agent et une limitation qui
+renvoie vers un contrat écrit à la main. Rien n’est écrit dans le dépôt.
+
+`495 configure validate` expose `validate_configuration` : lecture et
+validation du format du contrat, résolution des exécutables, puis sonde des
+profils sandbox, sans authentification. `495 configure write` expose
+`write_configuration` : le fichier passé par `--proposal` doit être un objet
+JSON dont `command` vaut `configure propose`, `version` vaut `1` et `contract`
+est un objet ; tout autre fichier, y compris une proposition dont `contract`
+vaut `null`, rend l’exécution impossible sans écriture. Le contrat extrait
+subit la même validation que `validate`, puis est écrit indenté, en UTF-8,
+avec des clés triées, par `contract.write_contract`. Le chemin cible doit être
+situé dans le dépôt. Sans `--overwrite`, le fichier est créé en mode exclusif
+et un fichier existant rend l’exécution impossible sans être lu ni modifié ;
+avec `--overwrite`, le contenu est écrit dans un fichier temporaire du même
+répertoire puis renommé atomiquement. Les deux opérations restituent
+`contract_path`, relatif à la racine du dépôt, `contract_digest`,
+`environment`, `runner`, avec le nom du runner et la sortie de
+`codex --version`, et `commands`, sans valeur `null` ; `write` ajoute
+`overwritten`, vrai seulement lorsqu’un fichier a été remplacé sur demande.
+Aucun commit n’est créé.
+
 Le code de sortie est dérivé de l’issue par une table unique, `EXIT_CODES` du
-module `cli` : `0` pour `candidate_verified`, `1` pour `candidate_failed`, `2`
-pour `execution_impossible` et `configuration_invalid`, `3` pour
-`agent_failed`, `4` pour `no_candidate`. Un contrat présent mais non conforme
-lève `ConfigurationError` et produit l’issue `configuration_invalid`, pour
-`verify` comme pour `change` ; toute autre erreur d’exécution produit
-`execution_impossible`. Le document d’erreur contient `command`, `error`,
-`outcome` et `version` ; `error.kind` conserve son rôle de diagnostic.
+module `cli` : `0` pour `candidate_verified`, `proposal_ready`,
+`configuration_valid` et `configuration_written`, `1` pour
+`candidate_failed`, `2` pour `execution_impossible` et
+`configuration_invalid`, `3` pour `agent_failed`, `4` pour `no_candidate` et
+`no_checks_detected`. Un contrat présent mais non conforme, y compris le
+contrat extrait d’une proposition modifiée, lève `ConfigurationError` et
+produit l’issue `configuration_invalid` ; toute autre erreur d’exécution
+produit `execution_impossible`. Le document d’erreur contient `command`,
+`error`, `outcome` et `version` ; `error.kind` conserve son rôle de
+diagnostic.
 
 ## Architecture applicative
 
@@ -114,13 +182,18 @@ Le paquet `harness495` sépare les frontières démontrées par le premier
 parcours :
 
 - `change` conduit le cas d’usage sans contenir les détails de la CLI ;
-- `verification` exécute les contrôles sur un candidat observé et porte
-  l’opération de vérification sans agent, réutilisée par `change` ;
+- `verification` exécute les contrôles sur un candidat observé, applique les
+  préconditions des contrôles et porte l’opération de vérification sans
+  agent, réutilisée par `change` ;
+- `configuration` compose le prompt et le schéma d’une proposition, convertit
+  la réponse en contrat, valide un contrat présent et l’enregistre sur action
+  explicite ;
 - `environment` prépare les chemins temporaires hors du dépôt et filtre les
   variables transmises ;
 - `composition` assemble ces cas d’usage avec les composants Codex disponibles ;
-- `agent` définit les capacités attendues d’un client d’agent et `codex` les
-  adapte à Codex CLI ;
+- `agent` définit les capacités attendues d’un client d’agent, qui reçoit le
+  prompt, le schéma de réponse et le profil de fichiers de chaque opération,
+  et `codex` les adapte à Codex CLI ;
 - `controls` définit l’exécution des feedbacks et fournit l’adaptation à
   `codex sandbox` ;
 - `workspace` identifie la racine du dépôt, sa propreté et la référence de
@@ -130,9 +203,11 @@ parcours :
   partagés par ces frontières ;
 - `cli` transforme les arguments et les erreurs en résultat de commande.
 
-Les interfaces `AgentClient` et `ControlRunner` rendent les dépendances du cas
-d’usage explicites. Elles ne prétendent pas encore garantir la compatibilité
-d’un second client ou d’un autre runtime : seule l’adaptation Codex est
+Les interfaces `AgentClient` et `ControlRunner` rendent les dépendances des
+cas d’usage explicites. `AgentClient.invoke` reçoit un prompt, un schéma et un
+profil de fichiers parce que deux opérations réelles, `change` et
+`configure propose`, l’exigent ; l’interface ne prétend pas davantage couvrir
+un second client ou un autre runtime : seule l’adaptation Codex est
 implémentée et vérifiée. `tools/run_change.py` appelle la même CLI pour préserver
 les usages existants.
 
@@ -229,16 +304,22 @@ d’approbation ni d’intégration Git. Le premier incrément ne prend en charg
 Codex CLI, un dépôt initial propre et une seule intervention.
 
 La [conception de l’incrément en cours](chantiers/01-configuration-verification/conception.md)
-n’est disponible que pour ses commandes `verify` et `change`. La sous-commande
-`configure`, la résolution préalable des exécutables, la version du runner et
-les bornes de taille des sorties ne sont pas implémentées ; les champs `runner`
-et `output_limit_bytes` sont donc absents des documents. `495 verify` a été
-exécuté sur cette machine avec Codex CLI `0.153.3`, sans `CODEX_HOME`, sur un
-dépôt dont l’unique contrôle est un script shell : il a restitué `no_candidate`
-sur l’arbre propre, `candidate_verified` après l’ajout du fichier attendu et
-`candidate_failed` après une modification du script. L’essai avec Codex
-authentifié prévu par la conception n’a pas été réalisé, faute de commande
-`configure`.
+est disponible pour ses commandes `verify`, `configure` et `change`. Les
+bornes de taille des sorties ne sont pas implémentées : le champ
+`output_limit_bytes` et les champs de troncature sont absents des documents,
+et le champ `runner` n’apparaît que dans les documents de `configure validate`
+et `configure write`. `495 verify` a été exécuté sur cette machine avec Codex
+CLI `0.153.3`, sans `CODEX_HOME`, sur un dépôt dont l’unique contrôle est un
+script shell : il a restitué `no_candidate` sur l’arbre propre,
+`candidate_verified` après l’ajout du fichier attendu et `candidate_failed`
+après une modification du script. Sur un dépôt du même type, une proposition
+écrite à la main a ensuite été enregistrée par `configure write`, refusée une
+seconde fois sans `--overwrite`, relue par `configure validate` avec
+`codex-cli 0.153.3` comme version de runner, puis utilisée par `verify` pour
+un verdict défavorable et un verdict favorable, le tout sans `CODEX_HOME` ni
+authentification. L’essai de `configure propose` avec Codex authentifié prévu
+par la conception n’a pas encore été réalisé : il nécessite le réseau et un
+quota, et attend une autorisation explicite.
 
 Le runner de bootstrap continue d’hériter de l’environnement et ne constitue
 pas une sandbox. Le runner de changement délègue le confinement à la version de

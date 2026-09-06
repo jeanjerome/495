@@ -36,31 +36,69 @@ def option(name):
     return sys.argv[sys.argv.index(name) + 1]
 
 
-if os.environ.get("FAKE_CODEX_LOG"):
-    with open(os.environ["FAKE_CODEX_LOG"], "a", encoding="utf-8") as log:
-        log.write(json.dumps(sys.argv[1:]) + "\n")
+# Le mode et le journal viennent de l’environnement lorsque le contrat le
+# transmet, sinon de fichiers voisins de l’exécutable : une opération qui ne
+# transmet que PATH reste pilotable par les tests.
+HERE = Path(sys.argv[0]).resolve().parent
+MODE_FILE = HERE / "fake-codex-mode"
+MODE = os.environ.get("FAKE_CODEX_MODE") or (
+    MODE_FILE.read_text(encoding="utf-8").strip() if MODE_FILE.exists() else "success"
+)
+LOG = os.environ.get("FAKE_CODEX_LOG") or str(HERE / "fake-codex-invocations.log")
+with open(LOG, "a", encoding="utf-8") as log:
+    log.write(json.dumps(sys.argv[1:]) + "\n")
 
 if sys.argv[1:] == ["--version"]:
     print("codex-cli test")
     raise SystemExit(0)
 
 if sys.argv[1:] == ["login", "status"]:
-    if os.environ.get("FAKE_CODEX_MODE") == "unauthenticated":
+    if MODE == "unauthenticated":
         print("Not logged in", file=sys.stderr)
         raise SystemExit(1)
     print("Logged in using test credentials")
     raise SystemExit(0)
 
-if sys.argv[1] == "exec":
-    mode = os.environ.get("FAKE_CODEX_MODE", "success")
-    repository = Path(option("-C"))
-    response_path = Path(option("--output-last-message"))
-    request = sys.stdin.read()
+def proposal(repository, mode):
+    # Propose un contrôle seulement lorsque le dépôt contient scripts/check.sh.
+    checks = []
+    questions = []
+    if (repository / "scripts" / "check.sh").exists():
+        checks.append({
+            "name": "check",
+            "command": ["sh", "scripts/check.sh"],
+            "timeout_seconds": 60,
+            "filesystem": "read-only",
+            "evidence": "scripts/check.sh est le script de contrôle du dépôt",
+        })
+    else:
+        questions.append("Aucun script de contrôle trouvé ; quelle commande lance les tests ?")
+    if mode == "duplicate_check":
+        checks.append(dict(checks[0]))
+    if mode == "unknown_executable":
+        checks[0]["command"] = ["tool-495-absent", "check"]
+    if mode == "modifies_repository":
+        (repository / "proposal-note.txt").write_text("written\n", encoding="utf-8")
+    response = {
+        "status": "completed",
+        "summary": "proposal from observed files",
+        "checks": checks,
+        "environment": ["PATH", "API_TOKEN"] if mode == "secret_environment" else ["PATH"],
+        "questions": questions,
+        "limitations": ["only scripts/ was inspected"],
+    }
+    if mode == "invalid_response":
+        response.pop("checks")
+    if mode == "blocked":
+        response["status"] = "blocked"
+        response["questions"] = ["Need a decision"]
+    return response
+
+
+def intervention(repository, mode, request):
     if "Demande :" not in request:
         print("request missing", file=sys.stderr)
         raise SystemExit(8)
-    if mode == "timeout":
-        time.sleep(5)
     if mode != "no_candidate":
         (repository / "result.txt").write_text("candidate\n", encoding="utf-8")
     response = {
@@ -74,6 +112,27 @@ if sys.argv[1] == "exec":
     if mode == "blocked":
         response["status"] = "blocked"
         response["questions"] = ["Need a decision"]
+    return response
+
+
+if sys.argv[1] == "exec":
+    mode = MODE
+    repository = Path(option("-C"))
+    response_path = Path(option("--output-last-message"))
+    schema = json.loads(Path(option("--output-schema")).read_text(encoding="utf-8"))
+    request = sys.stdin.read()
+    if mode == "timeout":
+        time.sleep(5)
+    if option("--sandbox") == "read-only":
+        if "evidence" not in json.dumps(schema) or "Demande :" in request:
+            print("proposal schema or prompt missing", file=sys.stderr)
+            raise SystemExit(8)
+        response = proposal(repository, mode)
+    else:
+        if "checks" in schema["properties"]:
+            print("unexpected proposal schema", file=sys.stderr)
+            raise SystemExit(8)
+        response = intervention(repository, mode, request)
     response_path.write_text(json.dumps(response), encoding="utf-8")
     if mode == "malformed_events":
         print("not json")
@@ -93,7 +152,7 @@ if sys.argv[1] == "exec":
     raise SystemExit(0)
 
 if sys.argv[1] == "sandbox":
-    if os.environ.get("FAKE_CODEX_MODE") == "sandbox_unavailable":
+    if MODE == "sandbox_unavailable":
         print("sandbox unavailable", file=sys.stderr)
         raise SystemExit(125)
     separator = sys.argv.index("--")

@@ -5,18 +5,29 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from harness495.agent import AgentClient
-from harness495.contract import load_contract
+from harness495.agent import AgentClient, agent_completed, agent_failure_violations
+from harness495.contract import AGENT_RESPONSE_SCHEMA, load_contract
 from harness495.controls import ControlRunner
 from harness495.environment import prepared_environment
 from harness495.serialization import sha256_bytes
-from harness495.verification import run_checks
+from harness495.verification import run_checks, validate_controls
 from harness495.workspace import (
     observe_candidate,
     repository_root,
     require_clean,
     resolve_baseline,
 )
+
+
+def change_prompt(request: str) -> str:
+    return (
+        "Réalise la demande ci-dessous dans le dépôt courant. Respecte les instructions "
+        "et skills applicables du dépôt. Ne crée aucun commit et ne publie rien. "
+        "Ta réponse finale doit respecter le JSON Schema fourni ; elle décrit ton "
+        "intervention mais ne décide pas si le candidat est vérifié.\n\n"
+        "Demande :\n"
+        f"{request.rstrip()}\n"
+    )
 
 
 def run_change(
@@ -49,14 +60,17 @@ def run_change(
             repository=repository,
             environment=environment,
         )
-        control_runner.validate_profiles(
+        validate_controls(
             repository=repository,
             contract=contract,
             environment=environment,
+            control_runner=control_runner,
         )
         agent = agent_client.invoke(
             repository=repository,
-            request=request,
+            prompt=change_prompt(request),
+            response_schema=AGENT_RESPONSE_SCHEMA,
+            filesystem="workspace-write",
             environment=environment,
             artifacts=prepared.artifacts,
             timeout_seconds=agent_timeout_seconds,
@@ -81,30 +95,8 @@ def run_change(
             "violations": [],
         }
 
-        response = agent["response"]
-        agent_succeeded = (
-            not agent["timed_out"]
-            and agent["exit_code"] == 0
-            and agent["events_error"] is None
-            and agent["response_error"] is None
-            and isinstance(response, dict)
-            and response["status"] == "completed"
-        )
-        if not agent_succeeded or candidate is None:
-            if agent["timed_out"]:
-                result["violations"].append("timeout du client")
-            elif agent["exit_code"] != 0:
-                result["violations"].append(
-                    "code de sortie défavorable du client"
-                )
-            elif agent["events_error"] is not None:
-                result["violations"].append(
-                    "flux d’événements du client invalide"
-                )
-            elif agent["response_error"] is not None:
-                result["violations"].append("réponse de l’agent invalide")
-            elif isinstance(response, dict) and response.get("status") == "blocked":
-                result["violations"].append("agent bloqué")
+        if not agent_completed(agent) or candidate is None:
+            result["violations"].extend(agent_failure_violations(agent))
             if candidate is None:
                 result["violations"].append("aucun candidat observé")
             return result

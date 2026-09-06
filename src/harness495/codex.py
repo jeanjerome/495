@@ -11,7 +11,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
-from harness495.contract import AGENT_RESPONSE_SCHEMA
+from harness495.contract import FILESYSTEM_PROFILES
 from harness495.errors import ChangeError
 from harness495.process import execute_process
 from harness495.serialization import canonical_bytes, load_json
@@ -110,21 +110,10 @@ def parse_events(stdout: str) -> dict[str, Any]:
     return {"command_count": command_count, "event_count": count, "usage": usage}
 
 
-def agent_prompt(request: str) -> str:
-    return (
-        "Réalise la demande ci-dessous dans le dépôt courant. Respecte les instructions "
-        "et skills applicables du dépôt. Ne crée aucun commit et ne publie rien. "
-        "Ta réponse finale doit respecter le JSON Schema fourni ; elle décrit ton "
-        "intervention mais ne décide pas si le candidat est vérifié.\n\n"
-        "Demande :\n"
-        f"{request.rstrip()}\n"
-    )
-
-
-def validate_agent_response(path: Path) -> dict[str, Any]:
+def validate_agent_response(path: Path, schema: dict[str, Any]) -> dict[str, Any]:
     value = load_json(path, "réponse de l’agent")
     try:
-        Draft202012Validator(AGENT_RESPONSE_SCHEMA).validate(value)
+        Draft202012Validator(schema).validate(value)
     except (SchemaError, ValidationError) as error:
         raise ChangeError(
             "agent_response", f"réponse de l’agent non conforme : {error.message}"
@@ -173,14 +162,18 @@ class CodexAgentClient:
         self,
         *,
         repository: Path,
-        request: str,
+        prompt: str,
+        response_schema: dict[str, Any],
+        filesystem: str,
         environment: dict[str, str],
         artifacts: Path,
         timeout_seconds: int,
     ) -> dict[str, Any]:
+        if filesystem not in FILESYSTEM_PROFILES:
+            raise ChangeError("configuration", f"profil de fichiers inconnu : {filesystem}")
         schema_path = artifacts / "agent-response-schema.json"
         response_path = artifacts / "agent-response.json"
-        schema_path.write_bytes(canonical_bytes(AGENT_RESPONSE_SCHEMA))
+        schema_path.write_bytes(canonical_bytes(response_schema))
         shell_names = sorted(name for name in environment if name != "CODEX_HOME")
         command = [
             str(self.executable),
@@ -211,7 +204,7 @@ class CodexAgentClient:
                 "--config",
                 "sandbox_workspace_write.exclude_tmpdir_env_var=false",
                 "--sandbox",
-                "workspace-write",
+                filesystem,
                 "-C",
                 str(repository),
                 "--output-schema",
@@ -226,7 +219,7 @@ class CodexAgentClient:
             cwd=repository,
             environment=environment,
             timeout_seconds=timeout_seconds,
-            stdin=agent_prompt(request),
+            stdin=prompt,
         )
         event_summary: dict[str, Any] | None = None
         event_error: ChangeError | None = None
@@ -239,7 +232,7 @@ class CodexAgentClient:
         response_error: ChangeError | None = None
         if not process["timed_out"] and process["exit_code"] == 0:
             try:
-                response = validate_agent_response(response_path)
+                response = validate_agent_response(response_path, response_schema)
             except ChangeError as error:
                 response_error = error
 
@@ -259,7 +252,7 @@ class CodexAgentClient:
             "response": response,
             "response_error": str(response_error) if response_error else None,
             "sandbox": {
-                "filesystem": "workspace-write",
+                "filesystem": filesystem,
                 "network_for_commands": "disabled",
             },
             "stderr": process["stderr"],

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from harness495.errors import ChangeError, ConfigurationError
-from harness495.serialization import canonical_bytes, sha256_bytes
+from harness495.serialization import canonical_bytes, result_bytes, sha256_bytes
 
 
 AGENT_RESPONSE_SCHEMA: dict[str, Any] = {
@@ -124,3 +126,52 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
         ) from error
     contract = validate_contract(value)
     return contract, sha256_bytes(canonical_bytes(contract))
+
+
+def write_contract(
+    path: Path, contract: dict[str, Any], *, repository: Path, overwrite: bool
+) -> bool:
+    """Enregistre un contrat validé dans le dépôt et indique si un fichier a été remplacé.
+
+    Sans `overwrite`, le fichier est créé en mode exclusif : un fichier existant
+    n’est ni lu ni modifié. Avec `overwrite`, le contenu est écrit dans un
+    fichier temporaire du même répertoire puis renommé atomiquement.
+    """
+
+    path = path.resolve()
+    if not path.is_relative_to(repository.resolve()):
+        raise ChangeError(
+            "precondition",
+            f"le contrat doit être situé dans le dépôt : {path}",
+        )
+    content = result_bytes(contract)
+    if not overwrite:
+        try:
+            with open(path, "xb") as handle:
+                handle.write(content)
+        except FileExistsError as error:
+            raise ChangeError(
+                "precondition",
+                f"contrat existant, --overwrite requis pour le remplacer : {path}",
+            ) from error
+        except OSError as error:
+            raise ChangeError(
+                "precondition", f"contrat inscriptible impossible : {path}: {error}"
+            ) from error
+        return False
+    existed = path.exists()
+    temporary: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
+        ) as handle:
+            temporary = handle.name
+            handle.write(content)
+        os.replace(temporary, path)
+    except OSError as error:
+        if temporary is not None:
+            Path(temporary).unlink(missing_ok=True)
+        raise ChangeError(
+            "precondition", f"contrat inscriptible impossible : {path}: {error}"
+        ) from error
+    return existed

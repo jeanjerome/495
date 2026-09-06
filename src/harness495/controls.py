@@ -15,6 +15,8 @@ from harness495.process import execute_process
 class ControlRunner(Protocol):
     """Capacités requises pour exécuter les feedbacks de l’application cible."""
 
+    def version(self, *, repository: Path, environment: dict[str, str]) -> str: ...
+
     def validate_profiles(
         self,
         *,
@@ -37,6 +39,20 @@ class CodexSandboxControlRunner:
     """Exécute les contrôles avec les profils sandbox fournis par Codex CLI."""
 
     executable: Path
+
+    def version(self, *, repository: Path, environment: dict[str, str]) -> str:
+        result = execute_process(
+            [str(self.executable), "--version"],
+            cwd=repository,
+            environment=environment,
+            timeout_seconds=10,
+        )
+        if result["exit_code"] != 0 or result["timed_out"]:
+            raise ChangeError(
+                "precondition",
+                result["stderr"].strip() or "version de Codex indisponible",
+            )
+        return result["stdout"].strip()
 
     def validate_profiles(
         self,

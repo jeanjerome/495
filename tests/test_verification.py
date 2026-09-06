@@ -34,6 +34,9 @@ class FakeRunner:
         self.validated_profiles: list[list[str]] = []
         self.environments: list[dict[str, str]] = []
 
+    def version(self, *, repository: Path, environment: dict[str, str]) -> str:
+        return "fake-runner 1"
+
     def validate_profiles(
         self, *, repository: Path, contract: dict[str, Any], environment: dict[str, str]
     ) -> None:
