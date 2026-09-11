@@ -736,6 +736,47 @@ def cleanup(
 
 
 @app.command()
+def watch(
+    ctx: typer.Context,
+    run_id: str | None = typer.Argument(None, help="Run to open; omitted, the listing opens."),
+    stage: str | None = typer.Option(
+        None, "--stage", help="Open on one stop: profile, spec, change, checks, review, verdict, deliver, log, runs."
+    ),
+    once: bool = typer.Option(False, "--print", help="Render the view once and exit."),
+    export: Path | None = typer.Option(None, "--export", help="Write the view to an SVG file."),
+    width: int | None = typer.Option(None, "--width", help="Force a render width."),
+    ascii_icons: bool = typer.Option(
+        False, "--ascii-icons", help="Panel titles with geometric marks instead of emoji."
+    ),
+) -> None:
+    """Open the run surface: the pipeline, what each stage produced, and the pending decision.
+
+    It reads the store and never advances a run, so it can be left up in one terminal while
+    another drives the same run — both are looking at the same files.
+    """
+    from harness495.interfaces.tui import build_console
+    from harness495.interfaces.tui import watch as watch_runs
+    from harness495.interfaces.tui.icons import use_icons
+
+    c = _ctx(ctx)
+    if c.json:
+        _error(c, "the run surface has no machine-readable form; use status, list or events")
+        return
+    if ascii_icons:
+        use_icons("ascii")
+    code = watch_runs(
+        c.store,
+        run_id=run_id,
+        stage=stage,
+        console=build_console(width, record=export is not None),
+        once=once,
+        export=export,
+    )
+    if code:
+        raise typer.Exit(code)
+
+
+@app.command()
 def schema(
     ctx: typer.Context, name: str = typer.Argument("run", help="run | event | spec | config")
 ) -> None:

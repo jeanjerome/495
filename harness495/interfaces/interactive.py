@@ -21,6 +21,7 @@ from harness495.interfaces.render import (
     print_run_summary,
     prompt_decision,
 )
+from harness495.interfaces.tui import build_console, watch
 
 if TYPE_CHECKING:
     from harness495.interfaces.cli import Ctx
@@ -56,7 +57,7 @@ def interactive_session(c: Ctx) -> None:
     while True:
         console.print()
         console.print(
-            "[bold]1[/] new change   [bold]2[/] evaluate existing change   [bold]3[/] list runs   [bold]4[/] resume / continue   [bold]5[/] status   [bold]6[/] report   [bold]7[/] doctor   [bold]q[/] quit"
+            "[bold]1[/] new change   [bold]2[/] evaluate existing change   [bold]3[/] browse runs   [bold]4[/] resume / continue   [bold]5[/] open a run   [bold]6[/] report   [bold]7[/] doctor   [bold]q[/] quit"
         )
         choice = Prompt.ask(
             "action", choices=["1", "2", "3", "4", "5", "6", "7", "q"], default="3", console=console
@@ -69,14 +70,11 @@ def interactive_session(c: Ctx) -> None:
             elif choice == "2":
                 _evaluate(c)
             elif choice == "3":
-                _list(c)
+                _open(c)
             elif choice == "4":
                 _resume(c)
             elif choice == "5":
-                run = c.store.load(Prompt.ask("run id", console=console))
-                print_run_summary(run, c.store)
-                if run.pending_decision:
-                    print_decision(run.pending_decision, run)
+                _open(c, Prompt.ask("run id", console=console))
             elif choice == "6":
                 run = c.store.load(Prompt.ask("run id", console=console))
                 console.print(render_markdown(run, c.store))
@@ -141,16 +139,15 @@ def _evaluate(c: Ctx) -> None:
     _drive(c, engine, run.id, monitor)
 
 
-def _list(c: Ctx) -> None:
-    runs = c.store.list_runs()
-    if not runs:
-        console.print("no run yet")
-        return
-    for r in runs:
-        outcome = r.result.outcome.value if r.result.outcome else "-"
-        console.print(
-            f"[bold]{r.id}[/]  {r.status.value:<18} {outcome:<12} it.{r.iteration_number}  {r.intent.text[:70]}"
-        )
+def _open(c: Ctx, run_id: str | None = None) -> None:
+    """Hand the terminal to the run surface: the pipeline, the evidence, the pending question.
+
+    A run's state is a pipeline of seven stops with a decision somewhere in it, and a printed
+    summary can only ever be the last stop flattened into a paragraph. The surface is the same
+    data arranged as the workflow, so it is what the menu opens for both "which runs are
+    there" and "what is this one doing".
+    """
+    watch(c.store, run_id=run_id, console=build_console())
 
 
 def _resume(c: Ctx) -> None:
