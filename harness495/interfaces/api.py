@@ -26,10 +26,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from four95 import __version__
-from four95.core.config import load_config
-from four95.core.engine import Engine, EngineError
-from four95.core.models import (
+from harness495 import __version__
+from harness495.core.config import load_config
+from harness495.core.engine import Engine, EngineError
+from harness495.core.models import (
     AgentKind,
     AgentSpec,
     DecisionMaker,
@@ -39,8 +39,8 @@ from four95.core.models import (
     RunMode,
     Spec,
 )
-from four95.core.report import render_markdown
-from four95.core.store import RunNotFound, RunStore
+from harness495.core.report import render_markdown
+from harness495.core.store import RunNotFound, RunStore
 
 
 class ApiState:
@@ -204,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 spec = None
                 if isinstance(body.get("spec"), dict):
-                    from four95.core.engine import _spec_from_agent
+                    from harness495.core.engine import _spec_from_agent
 
                     spec = _spec_from_agent(body["spec"])
                     spec.source = "user"

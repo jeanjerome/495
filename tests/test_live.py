@@ -1,4 +1,4 @@
-"""Live tests against the real agent CLIs. Deselected unless FOUR95_LIVE=1 (they spend tokens)."""
+"""Live tests against the real agent CLIs. Deselected unless HARNESS495_LIVE=1 (they spend tokens)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from four95.core.config import load_config
-from four95.core.engine import Engine
-from four95.core.models import AgentKind, AgentSpec, ReviewerSpec, RunMode, RunStatus, Verdict
-from four95.core.store import RunStore
+from harness495.core.config import load_config
+from harness495.core.engine import Engine
+from harness495.core.models import AgentKind, AgentSpec, ReviewerSpec, RunMode, RunStatus, Verdict
+from harness495.core.store import RunStore
 
 pytestmark = pytest.mark.live
 
-LIVE = os.environ.get("FOUR95_LIVE") == "1"
+LIVE = os.environ.get("HARNESS495_LIVE") == "1"
 
 
 def _config(project: Path, kind: AgentKind, model: str | None) -> object:
@@ -31,7 +31,7 @@ def _config(project: Path, kind: AgentKind, model: str | None) -> object:
 
 
 @pytest.mark.skipif(
-    not LIVE or shutil.which("claude") is None, reason="set FOUR95_LIVE=1 with claude installed"
+    not LIVE or shutil.which("claude") is None, reason="set HARNESS495_LIVE=1 with claude installed"
 )
 def test_live_claude_change(sample_project: Path) -> None:
     engine = Engine(RunStore(sample_project / ".495"))
@@ -48,7 +48,7 @@ def test_live_claude_change(sample_project: Path) -> None:
 
 
 @pytest.mark.skipif(
-    not LIVE or shutil.which("codex") is None, reason="set FOUR95_LIVE=1 with codex installed"
+    not LIVE or shutil.which("codex") is None, reason="set HARNESS495_LIVE=1 with codex installed"
 )
 def test_live_codex_evaluate(sample_project: Path) -> None:
     from tests.conftest import good_producer

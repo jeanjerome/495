@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from four95.agents.base import Agent, AgentResult, AgentTask
-from four95.core.engine import Engine
-from four95.core.models import (
+from harness495.agents.base import Agent, AgentResult, AgentTask
+from harness495.core.engine import Engine
+from harness495.core.models import (
     AgentIdentity,
     AgentKind,
     AgentSpec,
@@ -22,8 +22,8 @@ from four95.core.models import (
     SandboxInfo,
     Usage,
 )
-from four95.core.store import RunStore
-from four95.sandbox import Sandbox
+from harness495.core.store import RunStore
+from harness495.sandbox import Sandbox
 
 SAMPLE_MODULE = '''"""Tiny calculator module used by the tests."""
 
@@ -49,7 +49,7 @@ def git(*args: str, cwd: Path) -> str:
 @pytest.fixture
 def sample_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A git repository with a python module, a passing test and a project.toml."""
-    monkeypatch.setenv("FOUR95_WORKTREES_DIR", str(tmp_path / "worktrees"))
+    monkeypatch.setenv("HARNESS495_WORKTREES_DIR", str(tmp_path / "worktrees"))
     root = tmp_path / "proj"
     root.mkdir()
     (root / "calc.py").write_text(SAMPLE_MODULE, encoding="utf-8")
@@ -271,7 +271,7 @@ def scenario() -> Scenario:
 
 @pytest.fixture
 def config(sample_project: Path) -> HarnessConfig:
-    from four95.core.config import load_config
+    from harness495.core.config import load_config
 
     cfg = load_config(sample_project)
     cfg.agents["default"] = AgentSpec(

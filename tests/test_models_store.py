@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from four95.core.models import Event, HarnessConfig, Intent, Run, Spec, Usage
-from four95.core.store import RunStore
+from harness495.core.models import Event, HarnessConfig, Intent, Run, Spec, Usage
+from harness495.core.store import RunStore
 
 
 def test_usage_add_tracks_peak_and_upper_bound() -> None:

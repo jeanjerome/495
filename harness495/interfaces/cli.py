@@ -17,11 +17,11 @@ from pydantic import BaseModel
 from rich.console import Console
 from rich.table import Table
 
-from four95 import __version__
-from four95.core import git
-from four95.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
-from four95.core.engine import Engine, EngineError
-from four95.core.models import (
+from harness495 import __version__
+from harness495.core import git
+from harness495.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
+from harness495.core.engine import Engine, EngineError
+from harness495.core.models import (
     AgentKind,
     AgentSpec,
     DecisionMaker,
@@ -33,10 +33,10 @@ from four95.core.models import (
     RunMode,
     Spec,
 )
-from four95.core.profile import detect_profile
-from four95.core.report import render_markdown
-from four95.core.store import RunNotFound, RunStore, default_state_dir
-from four95.interfaces.render import (
+from harness495.core.profile import detect_profile
+from harness495.core.report import render_markdown
+from harness495.core.store import RunNotFound, RunStore, default_state_dir
+from harness495.interfaces.render import (
     RunMonitor,
     console,
     decision_shows_requirements,
@@ -103,7 +103,7 @@ def main_callback(
         raise typer.Exit()
     ctx.obj = Ctx(project, state_dir, json_output)
     if ctx.invoked_subcommand is None:
-        from four95.interfaces.interactive import interactive_session
+        from harness495.interfaces.interactive import interactive_session
 
         interactive_session(ctx.obj)
 
@@ -235,7 +235,7 @@ def _agent_spec(config: HarnessConfig, ref: str) -> AgentSpec:
 
 def _load_spec_file(path: Path) -> Spec:
     data = json.loads(path.read_text(encoding="utf-8"))
-    from four95.core.engine import _spec_from_agent
+    from harness495.core.engine import _spec_from_agent
 
     spec = _spec_from_agent(data)
     spec.source = "user"
@@ -304,8 +304,8 @@ def profile_cmd(ctx: typer.Context) -> None:
 def doctor(ctx: typer.Context) -> None:
     """Check agents, sandboxes and git availability without spending tokens."""
     c = _ctx(ctx)
-    from four95.agents.registry import build_agent
-    from four95.sandbox import DockerSandbox, Sandbox, SeatbeltSandbox, select_sandbox
+    from harness495.agents.registry import build_agent
+    from harness495.sandbox import DockerSandbox, Sandbox, SeatbeltSandbox, select_sandbox
 
     config = c.config()
     report: dict[str, Any] = {"agents": {}, "sandboxes": {}, "git": git.is_repo(c.project)}
@@ -740,7 +740,7 @@ def schema(
     ctx: typer.Context, name: str = typer.Argument("run", help="run | event | spec | config")
 ) -> None:
     """Print the JSON schema of the persisted documents."""
-    from four95.core.models import Event as EventModel
+    from harness495.core.models import Event as EventModel
 
     models: dict[str, type[BaseModel]] = {
         "run": Run,
@@ -775,7 +775,7 @@ def serve(
     port: int = typer.Option(4950),
 ) -> None:
     """Expose the same workflow over an HTTP JSON API."""
-    from four95.interfaces.api import serve as serve_api
+    from harness495.interfaces.api import serve as serve_api
 
     c = _ctx(ctx)
     serve_api(c.project, c.state_dir, host, port)

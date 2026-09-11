@@ -20,13 +20,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from four95 import __version__
-from four95.agents.base import Agent, AgentResult, AgentTask
-from four95.agents.registry import build_agent
-from four95.core import budget as budget_mod
-from four95.core import git
-from four95.core import prompts as P
-from four95.core.context import (
+from harness495 import __version__
+from harness495.agents.base import Agent, AgentResult, AgentTask
+from harness495.agents.registry import build_agent
+from harness495.core import budget as budget_mod
+from harness495.core import git
+from harness495.core import prompts as P
+from harness495.core.context import (
     ContextPack,
     render_evidence,
     render_profile,
@@ -36,8 +36,8 @@ from four95.core.context import (
     trim_output,
     truncate_diff,
 )
-from four95.core.decide import Assessment, assess
-from four95.core.models import (
+from harness495.core.decide import Assessment, assess
+from harness495.core.models import (
     AgentIdentity,
     Capability,
     Cost,
@@ -75,20 +75,20 @@ from four95.core.models import (
     new_id,
     utcnow,
 )
-from four95.core.profile import detect_profile, read_doc_excerpts
-from four95.core.report import render_markdown
-from four95.core.schemas import PRODUCER_SUMMARY_SCHEMA, REVIEW_SCHEMA, SPEC_SCHEMA
-from four95.core.scope import check_scope
-from four95.core.store import RunStore
-from four95.core.verification import (
+from harness495.core.profile import detect_profile, read_doc_excerpts
+from harness495.core.report import render_markdown
+from harness495.core.schemas import PRODUCER_SUMMARY_SCHEMA, REVIEW_SCHEMA, SPEC_SCHEMA
+from harness495.core.scope import check_scope
+from harness495.core.store import RunStore
+from harness495.core.verification import (
     VersionMismatch,
     assess_sufficiency,
     measures_the_change,
     run_control,
     run_verification,
 )
-from four95.sandbox import Sandbox, select_sandbox
-from four95.sandbox.base import CommandResult, ExecRequest
+from harness495.sandbox import Sandbox, select_sandbox
+from harness495.sandbox.base import CommandResult, ExecRequest
 
 DecisionHandler = Callable[[Run, PendingDecision], tuple[str, str] | None]
 EventHandler = Callable[[Event], None]
@@ -1874,7 +1874,7 @@ class Engine:
             finally:
                 git.remove_worktree(root, tmp)
                 shutil.rmtree(tmp, ignore_errors=True)
-        from four95.core.models import IntegrationCheck
+        from harness495.core.models import IntegrationCheck
 
         run.result.integration = IntegrationCheck(
             target_ref=target_ref,
@@ -2029,7 +2029,7 @@ def worktrees_root(configured: str | None, project_root: Path) -> Path:
     import hashlib
     import os
 
-    base = configured or os.environ.get("FOUR95_WORKTREES_DIR")
+    base = configured or os.environ.get("HARNESS495_WORKTREES_DIR")
     if base:
         root = Path(base).expanduser().resolve()
     else:

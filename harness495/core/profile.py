@@ -13,8 +13,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from four95.core import git
-from four95.core.models import ProjectCommand, ProjectConfig, ProjectProfile, VerificationKind
+from harness495.core import git
+from harness495.core.models import ProjectCommand, ProjectConfig, ProjectProfile, VerificationKind
 
 DOC_CANDIDATES = [
     "CLAUDE.md",

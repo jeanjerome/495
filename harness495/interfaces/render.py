@@ -14,7 +14,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from four95.core.models import (
+from harness495.core.models import (
     DecisionKind,
     Event,
     PendingDecision,
@@ -24,7 +24,7 @@ from four95.core.models import (
 )
 
 if TYPE_CHECKING:
-    from four95.core.store import RunStore
+    from harness495.core.store import RunStore
 
 console = Console(highlight=False)
 

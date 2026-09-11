@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from four95.agents.base import Agent
-from four95.agents.claude_code import ClaudeCodeAgent
-from four95.agents.codex import CodexAgent
-from four95.agents.openai_compat import OpenAICompatAgent
-from four95.core.models import AgentKind, AgentSpec
-from four95.sandbox import Sandbox
+from harness495.agents.base import Agent
+from harness495.agents.claude_code import ClaudeCodeAgent
+from harness495.agents.codex import CodexAgent
+from harness495.agents.openai_compat import OpenAICompatAgent
+from harness495.core.models import AgentKind, AgentSpec
+from harness495.sandbox import Sandbox
 
 
 def build_agent(spec: AgentSpec, sandbox: Sandbox) -> Agent:

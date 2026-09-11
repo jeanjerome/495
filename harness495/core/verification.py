@@ -7,8 +7,8 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
-from four95.core import git
-from four95.core.models import (
+from harness495.core import git
+from harness495.core.models import (
     Evidence,
     EvidenceKind,
     Spec,
@@ -17,8 +17,8 @@ from four95.core.models import (
     VerificationKind,
     new_id,
 )
-from four95.sandbox import Sandbox
-from four95.sandbox.base import CommandResult, ExecRequest
+from harness495.sandbox import Sandbox
+from harness495.sandbox.base import CommandResult, ExecRequest
 
 
 class VersionMismatch(RuntimeError):

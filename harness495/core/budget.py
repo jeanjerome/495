@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from four95.core.models import Budget, Consumption, CostBasis, Intervention, Run, Usage
+from harness495.core.models import Budget, Consumption, CostBasis, Intervention, Run, Usage
 
 
 class BudgetExceeded(RuntimeError):

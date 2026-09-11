@@ -9,8 +9,8 @@ import subprocess
 from functools import lru_cache
 from typing import Any
 
-from four95.agents.base import Agent, AgentResult, AgentTask
-from four95.core.models import (
+from harness495.agents.base import Agent, AgentResult, AgentTask
+from harness495.core.models import (
     AgentIdentity,
     AgentKind,
     Capability,
@@ -19,7 +19,7 @@ from four95.core.models import (
     SandboxInfo,
     Usage,
 )
-from four95.sandbox.base import run_process
+from harness495.sandbox.base import run_process
 
 READ_ONLY_BASH = [
     "Bash(ls *)",

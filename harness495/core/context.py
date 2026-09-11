@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from four95.core.models import Evidence, ProjectProfile, ReviewVerdict, Spec, Version
+from harness495.core.models import Evidence, ProjectProfile, ReviewVerdict, Spec, Version
 
 MAX_DIFF_CHARS = 120_000
 MAX_EVIDENCE_OUTPUT = 3_000

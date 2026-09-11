@@ -16,19 +16,19 @@ from typing import Any
 
 import httpx
 
-from four95.agents.base import Agent, AgentResult, AgentTask
-from four95.core import pricing
-from four95.core.models import (
+from harness495.agents.base import Agent, AgentResult, AgentTask
+from harness495.core import pricing
+from harness495.core.models import (
     AgentIdentity,
     AgentKind,
     Capability,
     InterventionStatus,
     Usage,
 )
-from four95.sandbox import Sandbox
-from four95.sandbox.base import ExecRequest
+from harness495.sandbox import Sandbox
+from harness495.sandbox.base import ExecRequest
 
-SUBMIT_MARKER = "FOUR95_SUBMIT"
+SUBMIT_MARKER = "HARNESS495_SUBMIT"
 ACTION_RE = re.compile(r"```bash\s*\n(.*?)\n```", re.DOTALL)
 FINAL_RE = re.compile(r"```(?:json|final)\s*\n(.*?)\n```", re.DOTALL)
 MAX_OBS = 12_000

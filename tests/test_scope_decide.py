@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from four95.core.decide import assess
-from four95.core.models import (
+from harness495.core.decide import assess
+from harness495.core.models import (
     Evidence,
     EvidenceKind,
     Finding,
@@ -15,7 +15,7 @@ from four95.core.models import (
     Verification,
     VerificationKind,
 )
-from four95.core.scope import check_scope
+from harness495.core.scope import check_scope
 
 
 def test_scope_globs() -> None:

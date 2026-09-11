@@ -31,7 +31,7 @@ automation, and `./run.sh serve` exposes the same workflow over HTTP.
 The target project must be a git repository with at least one commit. 495 never touches your
 working tree: it works in a dedicated git worktree on branch `495/<run-id>`, created outside
 the project under `~/.cache/495/worktrees/<project>-<hash>/` (override with
-`FOUR95_WORKTREES_DIR`), and stores its state under `<project>/.495/runs/<run-id>/` (the
+`HARNESS495_WORKTREES_DIR`), and stores its state under `<project>/.495/runs/<run-id>/` (the
 `.495/` directory is added to `.git/info/exclude`). The project tree is fingerprinted around
 every intervention: an agent that escapes its worktree is detected, its output discarded, and
 a producer escape stops the run.
@@ -178,7 +178,7 @@ spending the budget. A 7B coder model is the practical minimum. Budgets (`max_co
 timeouts) are enforced before each intervention; Claude Code also receives `--max-budget-usd`.
 
 Cost is `reported` when the agent states it (Claude Code), `estimated` from
-`four95/data/pricing.json` (copy it to `~/.config/495/pricing.json` to adjust) when only tokens
+`harness495/data/pricing.json` (copy it to `~/.config/495/pricing.json` to adjust) when only tokens
 are known, and `unknown` otherwise — never silently zero.
 
 ## Traceability
@@ -194,8 +194,8 @@ output, identity), one per evidence (command output), and `artifacts/` (patches,
 ```bash
 ./run.sh --version                       # creates .venv and installs the package with dev extras
 .venv/bin/python -m pytest -q            # unit, adapter (fake CLIs) and end-to-end (fake agents) tests
-.venv/bin/ruff check four95 tests && .venv/bin/ruff format --check four95 tests
-.venv/bin/mypy four95
+.venv/bin/ruff check harness495 tests && .venv/bin/ruff format --check harness495 tests
+.venv/bin/mypy harness495
 ```
 
 See `DECISIONS.md` for the design log and the reuse review of the reference projects.

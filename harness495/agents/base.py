@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from four95.core.models import (
+from harness495.core.models import (
     AgentIdentity,
     AgentSpec,
     Capability,

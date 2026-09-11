@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$ROOT/.venv"
-STAMP="$VENV/.four95-installed"
+STAMP="$VENV/.harness495-installed"
 
 find_python() {
     for candidate in python3.13 python3.12 python3.11 python3; do
@@ -40,4 +40,4 @@ bootstrap() {
 }
 
 bootstrap
-exec "$VENV/bin/python" -m four95 "$@"
+exec "$VENV/bin/python" -m harness495 "$@"

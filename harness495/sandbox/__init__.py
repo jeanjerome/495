@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import platform
 
-from four95.core.models import SandboxConfig
-from four95.sandbox.base import CommandResult, ExecRequest, Sandbox, run_process
-from four95.sandbox.docker import DockerSandbox
-from four95.sandbox.seatbelt import SeatbeltSandbox
+from harness495.core.models import SandboxConfig
+from harness495.sandbox.base import CommandResult, ExecRequest, Sandbox, run_process
+from harness495.sandbox.docker import DockerSandbox
+from harness495.sandbox.seatbelt import SeatbeltSandbox
 
 __all__ = [
     "CommandResult",

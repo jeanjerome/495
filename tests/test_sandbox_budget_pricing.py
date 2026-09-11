@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from four95.core import budget as budget_mod
-from four95.core import pricing
-from four95.core.models import (
+from harness495.core import budget as budget_mod
+from harness495.core import pricing
+from harness495.core.models import (
     AgentIdentity,
     AgentKind,
     Budget,
@@ -24,8 +24,8 @@ from four95.core.models import (
     SandboxInfo,
     Usage,
 )
-from four95.sandbox import DockerSandbox, Sandbox, SeatbeltSandbox, select_sandbox
-from four95.sandbox.base import ExecRequest
+from harness495.sandbox import DockerSandbox, Sandbox, SeatbeltSandbox, select_sandbox
+from harness495.sandbox.base import ExecRequest
 
 
 def test_host_sandbox_runs_and_kills_on_timeout(tmp_path: Path) -> None:

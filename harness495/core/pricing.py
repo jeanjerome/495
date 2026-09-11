@@ -7,8 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from four95.core.config import USER_CONFIG
-from four95.core.models import Cost, CostBasis, Usage
+from harness495.core.config import USER_CONFIG
+from harness495.core.models import Cost, CostBasis, Usage
 
 BUNDLED = Path(__file__).resolve().parent.parent / "data" / "pricing.json"
 

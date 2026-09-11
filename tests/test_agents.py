@@ -10,18 +10,18 @@ from typing import Any
 
 import pytest
 
-from four95.agents.base import AgentTask
-from four95.agents.claude_code import (
+from harness495.agents.base import AgentTask
+from harness495.agents.claude_code import (
     ClaudeCodeAgent,
     _extract_json,
     parse_usage,
     peak_from_stream,
     summarise_activity,
 )
-from four95.agents.codex import CodexAgent, parse_events, usage_from_events
-from four95.agents.openai_compat import OpenAICompatAgent
-from four95.core.models import AgentKind, AgentSpec, Capability, InterventionStatus, Role
-from four95.sandbox import Sandbox
+from harness495.agents.codex import CodexAgent, parse_events, usage_from_events
+from harness495.agents.openai_compat import OpenAICompatAgent
+from harness495.core.models import AgentKind, AgentSpec, Capability, InterventionStatus, Role
+from harness495.sandbox import Sandbox
 
 CLAUDE_RESULT = {
     "type": "result",
@@ -121,7 +121,7 @@ echo '{json.dumps(CLAUDE_RESULT)}'
 """,
     )
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
-    from four95.agents import claude_code
+    from harness495.agents import claude_code
 
     claude_code.cli_version.cache_clear()
     agent = ClaudeCodeAgent(AgentSpec(name="a", kind=AgentKind.claude_code, model="haiku"))
@@ -150,7 +150,7 @@ def test_claude_agent_reports_failure_and_timeout(
         'if [ "$1" = "--version" ]; then echo 1; exit 0; fi\necho "boom" 1>&2; exit 1\n',
     )
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
-    from four95.agents import claude_code
+    from harness495.agents import claude_code
 
     claude_code.cli_version.cache_clear()
     agent = ClaudeCodeAgent(AgentSpec(name="a", kind=AgentKind.claude_code))
@@ -209,7 +209,7 @@ EOF2
 """,
     )
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
-    from four95.agents import codex
+    from harness495.agents import codex
 
     codex.cli_version.cache_clear()
     agent = CodexAgent(AgentSpec(name="c", kind=AgentKind.codex, model="gpt-5-mini"))

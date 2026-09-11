@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "four95"
+name = "harness495"
 version = "0.1.0"
 description = "495: an agentic engineering harness that turns an intent into a verified, reviewed and traceable software change."
 readme = "README.md"
@@ -24,14 +24,14 @@ dev = [
 ]
 
 [project.scripts]
-"495" = "four95.interfaces.cli:main"
-four95 = "four95.interfaces.cli:main"
+"495" = "harness495.interfaces.cli:main"
+harness495 = "harness495.interfaces.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["four95*"]
+include = ["harness495*"]
 
 [tool.setuptools.package-data]
-four95 = ["data/*.json", "data/*.toml", "py.typed"]
+harness495 = ["data/*.json", "data/*.toml", "py.typed"]
 
 [tool.ruff]
 line-length = 100

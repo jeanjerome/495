@@ -5,8 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from four95.core import git
-from four95.core.models import (
+from harness495.core import git
+from harness495.core.models import (
     DecisionKind,
     InterventionStatus,
     RequirementStatus,
@@ -16,7 +16,7 @@ from four95.core.models import (
     RunStatus,
     Verdict,
 )
-from four95.core.report import render_markdown
+from harness495.core.report import render_markdown
 from tests.conftest import Scenario, accept_review, bad_producer, good_producer, reject_review
 
 
@@ -330,7 +330,7 @@ def test_readiness_failure_asks_and_drop_continues(
     (sample_project / ".495" / "project.toml").write_text(
         '[[commands]]\nname = "test"\ncommand = "definitely-missing-tool --run"\nkind = "test"\n'
     )
-    from four95.core.config import load_config
+    from harness495.core.config import load_config
 
     cfg = load_config(sample_project)
     cfg.agents = config.agents
@@ -509,7 +509,7 @@ def test_a_red_baseline_can_be_answered_by_opening_the_network(
 ) -> None:
     """A build that resolves its dependencies on first use fails offline and nowhere else."""
     (sample_project / "tests" / "test_calc.py").write_text(
-        "import os\n\n\ndef test_needs_network():\n    assert os.environ.get('FOUR95_NET') == '1'\n",
+        "import os\n\n\ndef test_needs_network():\n    assert os.environ.get('HARNESS495_NET') == '1'\n",
         encoding="utf-8",
     )
     subprocess.run(

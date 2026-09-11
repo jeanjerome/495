@@ -13,7 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from four95.core.models import SandboxInfo
+from harness495.core.models import SandboxInfo
 
 MAX_CAPTURE = 2_000_000
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from four95.core.models import (
+from harness495.core.models import (
     Evidence,
     EvidenceKind,
     RequirementStatus,

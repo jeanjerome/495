@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from four95.core.models import (
+from harness495.core.models import (
     ProjectCommand,
     ProjectConfig,
     Requirement,
@@ -15,9 +15,9 @@ from four95.core.models import (
     Verification,
     VerificationKind,
 )
-from four95.core.profile import detect_profile, read_doc_excerpts
-from four95.core.verification import VersionMismatch, assess_sufficiency, run_verification
-from four95.sandbox import Sandbox
+from harness495.core.profile import detect_profile, read_doc_excerpts
+from harness495.core.verification import VersionMismatch, assess_sufficiency, run_verification
+from harness495.sandbox import Sandbox
 
 
 def test_detect_python_and_node_and_makefile(tmp_path: Path) -> None:
@@ -122,7 +122,7 @@ def test_run_verification_records_evidence_and_checks_version(tmp_path: Path) ->
 
 
 def test_interpreter_normalisation() -> None:
-    from four95.core.verification import normalise_command, project_interpreters
+    from harness495.core.verification import normalise_command, project_interpreters
 
     interpreters = project_interpreters({"/repo/.venv/bin/python -m pytest -q", "make lint"})
     assert interpreters == {"python": "/repo/.venv/bin/python", "python3": "/repo/.venv/bin/python"}
@@ -174,7 +174,7 @@ def test_sufficiency_accepts_executables_on_path() -> None:
 
 
 def test_failure_signature_ignores_where_and_when_but_not_what() -> None:
-    from four95.core.verification import failure_signature
+    from harness495.core.verification import failure_signature
 
     run_a = "FAILED at 10:04:11 in /Users/a/wt/x.py after 1.3 s (abc1234def5678)"
     run_b = "FAILED at 23:57:02 in /Users/b/other/x.py after 12.9 s (99ffee11223344)"
@@ -188,8 +188,8 @@ def test_failure_signature_ignores_where_and_when_but_not_what() -> None:
 
 
 def test_measures_the_change_is_conservative() -> None:
-    from four95.core.verification import measures_the_change
-    from four95.sandbox.base import CommandResult
+    from harness495.core.verification import measures_the_change
+    from harness495.sandbox.base import CommandResult
 
     def result(exit_code: int | None, output: str, **kw: object) -> CommandResult:
         return CommandResult("cmd", exit_code, output, 0.1, **kw)  # type: ignore[arg-type]

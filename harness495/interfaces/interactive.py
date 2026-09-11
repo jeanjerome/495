@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from rich.prompt import Confirm, Prompt
 
-from four95 import __version__
-from four95.core.engine import Engine, EngineError
-from four95.core.models import RunMode
-from four95.core.report import render_markdown
-from four95.core.store import RunNotFound
-from four95.interfaces.render import (
+from harness495 import __version__
+from harness495.core.engine import Engine, EngineError
+from harness495.core.models import RunMode
+from harness495.core.report import render_markdown
+from harness495.core.store import RunNotFound
+from harness495.interfaces.render import (
     RunMonitor,
     console,
     decision_shows_requirements,
@@ -23,7 +23,7 @@ from four95.interfaces.render import (
 )
 
 if TYPE_CHECKING:
-    from four95.interfaces.cli import Ctx
+    from harness495.interfaces.cli import Ctx
 
 
 def _engine(c: Ctx, monitor: RunMonitor | None = None) -> Engine:
@@ -81,7 +81,7 @@ def interactive_session(c: Ctx) -> None:
                 run = c.store.load(Prompt.ask("run id", console=console))
                 console.print(render_markdown(run, c.store))
             elif choice == "7":
-                from four95.interfaces.cli import app
+                from harness495.interfaces.cli import app
 
                 app(
                     ["--project", str(c.project), "--state-dir", str(c.state_dir), "doctor"],
@@ -103,7 +103,7 @@ def _new(c: Ctx) -> None:
         default=config.roles.producer,
         console=console,
     )
-    from four95.interfaces.cli import _apply_overrides
+    from harness495.interfaces.cli import _apply_overrides
 
     config = _apply_overrides(config, agent, None, None, None, None, None, None, False, None, None)
     max_cost = Prompt.ask(

@@ -24,7 +24,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from four95.core.models import Event, Run, utcnow
+from harness495.core.models import Event, Run, utcnow
 
 STATE_DIR_NAME = ".495"
 STOP_FLAG = "STOP"
@@ -35,7 +35,7 @@ class RunNotFound(LookupError):
 
 
 def default_state_dir(project_root: Path) -> Path:
-    env = os.environ.get("FOUR95_STATE_DIR")
+    env = os.environ.get("HARNESS495_STATE_DIR")
     if env:
         return Path(env).expanduser().resolve()
     return project_root / STATE_DIR_NAME

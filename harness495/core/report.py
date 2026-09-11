@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from four95.core.models import RequirementStatus, Run, Verdict
+from harness495.core.models import RequirementStatus, Run, Verdict
 
 if TYPE_CHECKING:
-    from four95.core.store import RunStore
+    from harness495.core.store import RunStore
 
 STATUS_ICON = {
     RequirementStatus.satisfied: "PASS",

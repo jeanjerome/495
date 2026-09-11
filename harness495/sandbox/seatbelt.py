@@ -7,8 +7,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from four95.core.models import SandboxInfo
-from four95.sandbox.base import ExecRequest, Sandbox
+from harness495.core.models import SandboxInfo
+from harness495.sandbox.base import ExecRequest, Sandbox
 
 
 def _sb_path(p: Path) -> str:

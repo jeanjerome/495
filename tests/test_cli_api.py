@@ -10,10 +10,10 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from four95.core import engine as engine_mod
-from four95.core.models import AgentSpec, HarnessConfig, RunStatus
-from four95.interfaces.api import make_server
-from four95.interfaces.cli import app
+from harness495.core import engine as engine_mod
+from harness495.core.models import AgentSpec, HarnessConfig, RunStatus
+from harness495.interfaces.api import make_server
+from harness495.interfaces.cli import app
 from tests.conftest import FakeAgent, Scenario
 
 runner = CliRunner()
@@ -181,7 +181,7 @@ def test_api_lifecycle(sample_project: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_config_precedence_and_templates(tmp_path: Path) -> None:
-    from four95.core.config import load_config
+    from harness495.core.config import load_config
 
     state = tmp_path / ".495"
     state.mkdir()
@@ -259,7 +259,7 @@ def test_the_status_line_steps_aside_for_a_prompt() -> None:
 
     from rich.console import Console
 
-    from four95.interfaces import render
+    from harness495.interfaces import render
 
     console = Console(file=io.StringIO(), force_terminal=True, width=100)
     monitor = render.RunMonitor(console)
@@ -283,14 +283,14 @@ def test_prompt_decision_answers_while_a_run_is_being_watched(
 
     from rich.console import Console
 
-    from four95.core.models import (
+    from harness495.core.models import (
         DecisionKind,
         DecisionOption,
         Intent,
         PendingDecision,
         Run,
     )
-    from four95.interfaces import render
+    from harness495.interfaces import render
 
     console = Console(file=io.StringIO(), force_terminal=True, width=100)
     monkeypatch.setattr(render, "console", console)
