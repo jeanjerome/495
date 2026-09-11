@@ -36,6 +36,9 @@ four95 = ["data/*.json", "data/*.toml", "py.typed"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Interface prototypes, not shipped code: they are read and run, not maintained to the
+# package's gates. extend-exclude keeps ruff's own defaults (.git, .venv, caches).
+extend-exclude = ["mocs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "W"]
