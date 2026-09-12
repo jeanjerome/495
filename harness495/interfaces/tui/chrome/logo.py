@@ -51,6 +51,15 @@ CYCLE = INITIAL_PAUSE + SWEEP_DURATION + FINAL_PAUSE
 HALO_WIDTH = 1.25
 CORE_WIDTH = 0.55
 EDGE_FADE = 0.12
+LIGHT_FLOOR = 0.04
+"""How much light a column needs before it is painted at all.
+
+Below it the mix lands within a few units of the resting colour — invisible as light, and not
+free: a painted column is an explicit ``#rrggbb``, while the resting style is whatever the
+theme says, which a terminal may well draw brighter than any resolution of it. Painting all
+eleven columns therefore dimmed the whole mark for the length of the pass. Columns the light
+has not reached are left alone instead, so the mark away from the highlight is not merely the
+same colour, it is the same style."""
 STARTED_AT = time.monotonic()
 
 
@@ -64,8 +73,8 @@ def _mix(start: RGB, end: RGB, amount: float) -> RGB:
     return red, green, blue
 
 
-def frame(elapsed: float, base_rgb: RGB = BASE_RGB) -> tuple[Style, ...] | None:
-    """Foreground overlays for all 11 columns, or ``None`` while the mark rests.
+def frame(elapsed: float, base_rgb: RGB = BASE_RGB) -> tuple[Style | None, ...] | None:
+    """One overlay per column — ``None`` where the light has not reached — or ``None`` at rest.
 
     A frame is colour and nothing else: the digits are never redrawn, and both
     character rows take the same column colours, so the highlight crosses the
@@ -78,10 +87,13 @@ def frame(elapsed: float, base_rgb: RGB = BASE_RGB) -> tuple[Style, ...] | None:
     progress = _smoothstep(t / SWEEP_DURATION)
     center = -3.0 + (WIDTH + 6.0) * progress
     envelope = _smoothstep(t / EDGE_FADE) * _smoothstep((SWEEP_DURATION - t) / EDGE_FADE)
-    styles = []
+    styles: list[Style | None] = []
     for column in range(WIDTH):
         distance = column + 0.5 - center
         halo = math.exp(-0.5 * (distance / HALO_WIDTH) ** 2) * envelope
+        if halo < LIGHT_FLOOR:
+            styles.append(None)
+            continue
         core = math.exp(-0.5 * (distance / CORE_WIDTH) ** 2) * envelope * 0.8
         colour = _mix(_mix(base_rgb, CYAN_RGB, halo), WHITE_RGB, core)
         styles.append(Style(color="#{:02x}{:02x}{:02x}".format(*colour)))
@@ -93,16 +105,17 @@ def render(
     active: int | None = None,
     active_style: str = "h.logo",
     *,
-    column_styles: tuple[Style, ...] | None = None,
+    column_styles: tuple[Style | None, ...] | None = None,
     base_style: str | Style = "h.logo",
 ) -> Text:
     """The two rows of the mark, as one ``Text`` with a newline between them.
 
     Left-aligned, never justified: the header puts the mark in a fixed column
     beside the run id, and a centred mark would drift by a cell whenever the
-    column did. ``column_styles`` paints the sweep over the glyphs and leaves
-    the holes in the digits unpainted; ``active`` draws one whole digit in
-    another style, which is a still emphasis rather than a moving one.
+    column did. ``column_styles`` paints the sweep over the glyphs, leaving the
+    holes in the digits and the columns the light has not reached in the
+    resting style; ``active`` draws one whole digit in another style, which is
+    a still emphasis rather than a moving one.
     """
     out = Text(no_wrap=True)
     for row in range(2):
@@ -112,8 +125,9 @@ def render(
             for character in digit[row]:
                 start = len(out)
                 out.append(character, style=style)
-                if column_styles is not None and character != " ":
-                    out.stylize(column_styles[column], start, start + 1)
+                lit = column_styles[column] if column_styles is not None else None
+                if lit is not None and character != " ":
+                    out.stylize(lit, start, start + 1)
                 column += 1
             if index < len(digits) - 1:
                 out.append(" ")

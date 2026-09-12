@@ -356,16 +356,19 @@ def test_the_turning_mark_advances_with_the_clock_and_never_changes_width() -> N
 # --------------------------------------------------------------------- the mark
 
 
-def _lit_column(columns: tuple[Style, ...]) -> int | None:
-    """Which column the highlight is on, or ``None`` where the mark is evenly coloured.
+def _lit_column(columns: tuple[Style | None, ...]) -> int | None:
+    """Which column the highlight is brightest on, or ``None`` where nothing is painted.
 
-    The sweep fades in and out at its ends, and a frame caught there has every column at the
-    resting colour — lit nowhere rather than lit at the left.
+    A column the light has not reached carries no overlay at all: it keeps whatever style the
+    theme gave the mark, which is the only way the unlit part of a sweep cannot differ from
+    the mark at rest.
     """
-    light = [sum(c.color.get_truecolor()) for c in columns if c.color is not None]
-    if len(set(light)) == 1:
-        return None
-    return max(range(len(light)), key=lambda i: light[i])
+    light = {
+        index: sum(c.color.get_truecolor())
+        for index, c in enumerate(columns)
+        if c is not None and c.color is not None
+    }
+    return max(light, key=lambda index: light[index]) if light else None
 
 
 def test_the_highlight_crosses_the_mark_once_per_cycle() -> None:
@@ -387,14 +390,21 @@ def test_the_mark_is_a_pure_function_of_the_clock() -> None:
     assert logo.frame(0.5) is logo.frame(0.5 + logo.CYCLE) is None
 
 
-def test_the_highlight_paints_the_ink_and_not_the_holes() -> None:
+def test_the_highlight_paints_the_ink_and_leaves_everything_else_at_rest() -> None:
     """Painting the gaps would light three rectangles instead of 4 9 5."""
     console = Console(theme=THEME, file=io.StringIO())
-    lit = logo.render(logo.DIGITS, column_styles=logo.frame(logo.INITIAL_PAUSE + 0.9))
+    columns = logo.frame(logo.INITIAL_PAUSE + 0.9)
+    assert columns is not None
+    peak = _lit_column(columns)
+    assert peak is not None
+    lit = logo.render(logo.DIGITS, column_styles=columns)
     assert lit.plain == logo.still().plain, "no glyph is replaced; only the colour moves"
     resting = console.get_style("h.logo")
-    assert lit.get_style_at_offset(console, lit.plain.index(" ")) == resting
-    assert lit.get_style_at_offset(console, 0) != resting
+    assert lit.get_style_at_offset(console, peak) != resting, "the light is on the ink"
+    assert lit.get_style_at_offset(console, lit.plain.index(" ")) == resting, "never in the holes"
+    # An overlay is an explicit colour and the resting style is whatever the theme says, so a
+    # column painted for nothing is a column that can disagree with the mark around it.
+    assert columns[0] is None and lit.get_style_at_offset(console, 0) == resting
 
 
 def test_a_still_capture_gets_the_whole_mark() -> None:
