@@ -21,8 +21,9 @@ from harness495.core.models import (
 from harness495.core.store import RunStore
 from harness495.interfaces.tui import Shell, StoreSource
 from harness495.interfaces.tui.attention import attention
-from harness495.interfaces.tui.chrome import logo, nav_bar
+from harness495.interfaces.tui.chrome import footer_bar, logo, nav_bar
 from harness495.interfaces.tui.chrome.band import TONE_STYLE
+from harness495.interfaces.tui.headlines import headline
 from harness495.interfaces.tui.logs import StoredLogs
 from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
@@ -160,6 +161,20 @@ def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration(
     assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
 
 
+# --------------------------------------------------------------------- the footer
+
+
+@pytest.mark.parametrize("width", [80, 88, 104, 120, 150])
+def test_no_key_is_offered_twice_on_the_row(delivered: RunStore, width: int) -> None:
+    """Quit is put back after the trim, so a row that still held it printed it twice."""
+    shell = surface(delivered, width)
+    row = footer_bar(shell.footer_keys(), shell.run, shell.elapsed, True, width)
+    console = Console(theme=THEME, file=io.StringIO(), width=width, highlight=False)
+    with console.capture() as cap:
+        console.print(row)
+    assert cap.get().count(" quit ") == 1
+
+
 # --------------------------------------------------------------------- the band
 
 
@@ -169,6 +184,14 @@ def _asking(kind: DecisionKind = DecisionKind.approve_spec) -> Run:
         kind=kind, question="approve?", options=[DecisionOption(key="approve", label="approve")]
     )
     return run
+
+
+def test_the_ledger_headline_never_denies_the_question_under_it() -> None:
+    """A run can be stopped on a decision before one requirement has been weighed."""
+    line = headline(_asking(DecisionKind.acceptance), "verdict").plain
+    assert "waiting on your answer" in line and "nothing to decide" not in line.lower()
+    # A question raised elsewhere is answered elsewhere: the panel is not under this sentence.
+    assert "waiting on your answer" not in headline(_asking(), "verdict").plain
 
 
 def test_every_state_of_the_band_takes_a_frame_the_rest_of_the_surface_draws() -> None:

@@ -28,6 +28,7 @@ from harness495.interfaces.tui.reading import (
     requirement_counts,
     running_intervention,
 )
+from harness495.interfaces.tui.stages import DECISION_STAGE
 from harness495.interfaces.tui.widgets.text import clip, hms, plural, short
 
 
@@ -194,12 +195,24 @@ def _review(run: Run) -> Text:
 
 
 def _verdict(run: Run) -> Text:
+    out = _ledger(run)
+    # The question the run is stopped on is rendered under this sentence, so the sentence has
+    # to survive an empty ledger: a run can be stopped on a decision before a single
+    # requirement has been weighed, and "nothing to decide" printed above the thing being
+    # decided was the ledger talking about itself as if it were the run.
+    pending = run.pending_decision
+    if pending is not None and DECISION_STAGE.get(pending.kind, "verdict") == "verdict":
+        out.append("  495 is waiting on your answer below.", style="attn.you")
+    return out
+
+
+def _ledger(run: Run) -> Text:
     counts = requirement_counts(run)
     bad = counts[RequirementStatus.violated]
     grey = counts[RequirementStatus.undetermined]
     good = counts[RequirementStatus.satisfied]
     if not run.spec.requirements:
-        return Text("Nothing to decide yet.", style="h.meta")
+        return Text("No requirement has been written yet.", style="h.meta")
     if counts[RequirementStatus.pending] == len(run.spec.requirements):
         return Text("No requirement has been assessed yet.", style="h.meta")
     out = Text()
@@ -221,8 +234,6 @@ def _verdict(run: Run) -> Text:
             f"All {good} requirements are satisfied on the evidence collected.",
             style="req.satisfied",
         )
-    if run.pending_decision is not None:
-        out.append("  495 is waiting on your answer below.", style="attn.you")
     return out
 
 
