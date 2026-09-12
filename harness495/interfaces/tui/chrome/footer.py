@@ -53,9 +53,10 @@ def footer_bar(
         room = 5 if width >= 104 else (4 if width >= 88 else 2)
         # The key naming the view you are in survives the trim: it is the only thing on the
         # row that answers "where am I" when the pipeline strip cannot, because you are not on
-        # a stage at all.
-        head = list(keys[:room])
-        keys = [*head, *(k for k in keys[room:] if k[2]), ("q", "quit", False)]
+        # a stage at all. Quit is put back at the end rather than kept in place, and taken out
+        # first, because a row short enough to still hold it would otherwise print it twice.
+        kept = [*keys[:room], *(k for k in keys[room:] if k[2])]
+        keys = [*(k for k in kept if k[0] != "q"), ("q", "quit", False)]
     left = Text(no_wrap=True, overflow="ellipsis")
     for key, label, active in keys:
         left.append(f" {key} ", style="key.active" if active else "h.rule")
