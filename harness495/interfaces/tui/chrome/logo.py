@@ -1,29 +1,33 @@
-"""The 495 mark, and the pulse that runs through it.
+"""The 495 mark with a satin highlight, rendered with Rich.
 
-4, 9 and 5 drawn on a 3x4 pixel grid and folded onto two character rows with half-blocks. The
-three digits share a bar at mid-height and a stem going down on the right, which is why their
-lower halves come out identical — that is the shape of the numerals, not a shortcut.
+A soft cyan highlight with a narrow white core crosses the unchanged mark
+from left to right for 1.8 seconds, followed by 8.2 seconds at rest. The mark
+always occupies exactly 11 columns and two rows; no glyph is replaced, so
+nothing in the header moves but the colour.
 
-The mark is the one thing in the chrome that carries no information, so it is also the only
-thing that can afford to move. It dissolves one digit at a time — ▒ ░ · ░ ▒ — and puts it
-back, left to right, then rests. That is the whole animation: it says the surface is live
-without competing with the attention band, which is the part that actually has something to
-say.
+Frames are pure functions of elapsed time. LogoMark can be rebuilt on every
+redraw without restarting the animation. By default, instances share the
+module's monotonic time origin. Pass a shared ``started_at`` value to start
+the animation with a particular screen instead.
 
-A frame is a pure function of the clock, never of how often the screen was redrawn. A Live
-that refreshes at four frames a second, one that refreshes at twenty, and a single ``--print``
-all read the same phase off ``time.monotonic()``, so the animation never depends on being
-driven at a particular rate, and nothing has to hold mutable frame state to draw it.
+The existing h.logo theme style remains the resting style. A blue-grey
+fallback is used if the theme does not define it. Non-terminal output and
+LogoMark(animated=False) are static: one frame of a sweep, captured on its
+own, reads as a colour picked at random, where the mark at rest reads as the
+mark.
 """
 
 from __future__ import annotations
 
+import math
 import time
 
 from rich.console import Console, ConsoleOptions, RenderResult
+from rich.style import Style
 from rich.text import Text
 
 Digit = tuple[str, str]
+RGB = tuple[int, int, int]
 
 DIGITS: tuple[Digit, ...] = (
     ("█ █", "▀▀█"),  # 4
@@ -32,95 +36,125 @@ DIGITS: tuple[Digit, ...] = (
 )
 
 WIDTH = sum(len(d[0]) for d in DIGITS) + len(DIGITS) - 1
-"""Cells the mark occupies. The header gives it up below a width where it costs the intent."""
 
-#: How a digit dissolves and comes back: the character it is drawn with, and its colour.
-STAGES: tuple[tuple[str, str], ...] = (
-    ("▒", "bright_blue"),
-    ("░", "blue"),
-    ("·", "dim blue"),
-    ("░", "blue"),
-    ("▒", "bright_cyan"),
-)
+BASE_RGB: RGB = (145, 163, 178)
+CYAN_RGB: RGB = (106, 217, 241)
+WHITE_RGB: RGB = (236, 248, 255)
+DEFAULT_STYLE = Style(color="#91a3b2")
 
-FRAME_DELAY = 0.12
-"""Seconds one dissolution stage holds. Below ~0.1 the stages blur into a flicker."""
-SETTLE = 2 * FRAME_DELAY
-"""The beat where a digit is back in its exact shape, in white, before the next one goes."""
+SWEEP_DURATION = 1.8
 INITIAL_PAUSE = 1.0
-FINAL_PAUSE = 2.0
+FINAL_PAUSE = 8.2
+CYCLE = INITIAL_PAUSE + SWEEP_DURATION + FINAL_PAUSE
+# The two pauses meet across the cycle boundary: 9.2 s of rest between sweeps.
 
-PER_DIGIT = len(STAGES) * FRAME_DELAY + SETTLE
-CYCLE = INITIAL_PAUSE + len(DIGITS) * PER_DIGIT + FINAL_PAUSE
-
-
-def morph(digit: Digit, character: str) -> Digit:
-    """The same digit drawn with another character, holes kept as holes."""
-    top, bottom = (
-        "".join(" " if original == " " else character for original in line) for line in digit
-    )
-    return top, bottom
+HALO_WIDTH = 1.25
+CORE_WIDTH = 0.55
+EDGE_FADE = 0.12
+STARTED_AT = time.monotonic()
 
 
-def frame(elapsed: float) -> tuple[tuple[Digit, ...], int | None, str]:
-    """The digits, the one being dissolved, and the style it is drawn in, at ``elapsed``.
+def _smoothstep(value: float) -> float:
+    value = max(0.0, min(1.0, value))
+    return value * value * (3.0 - 2.0 * value)
 
-    Outside the moving part of the cycle — the two pauses — no digit is active and the mark is
-    the plain one, which is what a still capture gets.
+
+def _mix(start: RGB, end: RGB, amount: float) -> RGB:
+    red, green, blue = (round(a + (b - a) * amount) for a, b in zip(start, end, strict=True))
+    return red, green, blue
+
+
+def frame(elapsed: float, base_rgb: RGB = BASE_RGB) -> tuple[Style, ...] | None:
+    """Foreground overlays for all 11 columns, or ``None`` while the mark rests.
+
+    A frame is colour and nothing else: the digits are never redrawn, and both
+    character rows take the same column colours, so the highlight crosses the
+    mark as one vertical band rather than as two rows sliding on their own.
     """
     t = elapsed % CYCLE - INITIAL_PAUSE
-    if t < 0 or t >= len(DIGITS) * PER_DIGIT:
-        return DIGITS, None, "h.logo"
-    index = int(t // PER_DIGIT)
-    within = t - index * PER_DIGIT
-    digits = list(DIGITS)
-    step = int(within // FRAME_DELAY)
-    if step >= len(STAGES):
-        # Restored to its exact shape, held bright for a beat: the digit coming *back* is the
-        # readable half of the animation, and at one frame delay it is gone before it reads.
-        return tuple(digits), index, "bold white"
-    character, colour = STAGES[step]
-    digits[index] = morph(DIGITS[index], character)
-    return tuple(digits), index, f"bold {colour}"
+    if t < 0.0 or t >= SWEEP_DURATION:
+        return None
+
+    progress = _smoothstep(t / SWEEP_DURATION)
+    center = -3.0 + (WIDTH + 6.0) * progress
+    envelope = _smoothstep(t / EDGE_FADE) * _smoothstep((SWEEP_DURATION - t) / EDGE_FADE)
+    styles = []
+    for column in range(WIDTH):
+        distance = column + 0.5 - center
+        halo = math.exp(-0.5 * (distance / HALO_WIDTH) ** 2) * envelope
+        core = math.exp(-0.5 * (distance / CORE_WIDTH) ** 2) * envelope * 0.8
+        colour = _mix(_mix(base_rgb, CYAN_RGB, halo), WHITE_RGB, core)
+        styles.append(Style(color="#{:02x}{:02x}{:02x}".format(*colour)))
+    return tuple(styles)
 
 
 def render(
-    digits: tuple[Digit, ...], active: int | None = None, active_style: str = "h.logo"
+    digits: tuple[Digit, ...],
+    active: int | None = None,
+    active_style: str = "h.logo",
+    *,
+    column_styles: tuple[Style, ...] | None = None,
+    base_style: str | Style = "h.logo",
 ) -> Text:
     """The two rows of the mark, as one ``Text`` with a newline between them.
 
-    Left-aligned, never justified: the header puts the mark in a fixed column beside the run
-    id, and a centred mark would drift by a cell whenever the column did.
+    Left-aligned, never justified: the header puts the mark in a fixed column
+    beside the run id, and a centred mark would drift by a cell whenever the
+    column did. ``column_styles`` paints the sweep over the glyphs and leaves
+    the holes in the digits unpainted; ``active`` draws one whole digit in
+    another style, which is a still emphasis rather than a moving one.
     """
     out = Text(no_wrap=True)
     for row in range(2):
+        column = 0
         for index, digit in enumerate(digits):
-            out.append(digit[row], style=active_style if index == active else "h.logo")
+            style = active_style if index == active else base_style
+            for character in digit[row]:
+                start = len(out)
+                out.append(character, style=style)
+                if column_styles is not None and character != " ":
+                    out.stylize(column_styles[column], start, start + 1)
+                column += 1
             if index < len(digits) - 1:
                 out.append(" ")
+                column += 1
         if row == 0:
             out.append("\n")
     return out
 
 
-def still() -> Text:
-    """The mark at rest. What a print, an export or a non-terminal console gets."""
-    return render(DIGITS)
+def still(*, base_style: str | Style = "h.logo") -> Text:
+    """The unchanged mark for print, export or a disabled animation."""
+    return render(DIGITS, base_style=base_style)
 
 
 class LogoMark:
-    """The mark, animated off the clock.
+    """A clock-driven renderable; no mutable frame counter or internal timer."""
 
-    Constructed per frame — it holds no state of its own, so there is nothing to keep alive
-    between redraws and nothing to reset when the surface is torn down and rebuilt.
-    """
-
-    def __init__(self, animated: bool = True) -> None:
+    def __init__(self, animated: bool = True, *, started_at: float = STARTED_AT) -> None:
         self.animated = animated
+        self.started_at = started_at
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        if not self.animated:
-            yield still()
+        base_style = console.get_style("h.logo", default=DEFAULT_STYLE)
+        if (
+            not self.animated
+            or not console.is_terminal
+            or console.is_dumb_terminal
+            or console.no_color
+        ):
+            yield still(base_style=base_style)
             return
-        digits, active, style = frame(time.monotonic())
-        yield render(digits, active, style)
+
+        color = base_style.color
+        if color is None or color.is_default:
+            # Resolve a terminal-default foreground to an explicit resting
+            # colour so the sweep can interpolate and return without a jump.
+            base_style = base_style + DEFAULT_STYLE
+            base_rgb = BASE_RGB
+        else:
+            red, green, blue = color.get_truecolor()
+            base_rgb = (red, green, blue)
+
+        styles = frame(time.monotonic() - self.started_at, base_rgb)
+        yield render(DIGITS, column_styles=styles, base_style=base_style)

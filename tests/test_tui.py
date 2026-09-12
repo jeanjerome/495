@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from rich.cells import cell_len
 from rich.console import Console
+from rich.style import Style
 
 from harness495.core.models import (
     DecisionKind,
@@ -355,20 +356,45 @@ def test_the_turning_mark_advances_with_the_clock_and_never_changes_width() -> N
 # --------------------------------------------------------------------- the mark
 
 
-def test_the_mark_dissolves_each_digit_once_per_cycle() -> None:
-    seen = {logo.frame(t / 100)[1] for t in range(int(logo.CYCLE * 100))}
-    assert seen == {None, 0, 1, 2}
+def _lit_column(columns: tuple[Style, ...]) -> int | None:
+    """Which column the highlight is on, or ``None`` where the mark is evenly coloured.
+
+    The sweep fades in and out at its ends, and a frame caught there has every column at the
+    resting colour — lit nowhere rather than lit at the left.
+    """
+    light = [sum(c.color.get_truecolor()) for c in columns if c.color is not None]
+    if len(set(light)) == 1:
+        return None
+    return max(range(len(light)), key=lambda i: light[i])
+
+
+def test_the_highlight_crosses_the_mark_once_per_cycle() -> None:
+    """Left to right, then away: a highlight that walked back would read as a flicker."""
+    assert logo.frame(0.0) is None, "the cycle opens at rest"
+    assert logo.frame(logo.CYCLE - 0.01) is None, "and closes at rest"
+    sweep = [
+        logo.frame(logo.INITIAL_PAUSE + t / 100) for t in range(int(logo.SWEEP_DURATION * 100))
+    ]
+    assert all(columns is not None for columns in sweep), "it is one continuous pass"
+    lit = [c for c in (_lit_column(f) for f in sweep if f is not None) if c is not None]
+    assert lit == sorted(lit)
+    assert lit[0] == 0 and lit[-1] == logo.WIDTH - 1
 
 
 def test_the_mark_is_a_pure_function_of_the_clock() -> None:
     """Two surfaces refreshing at different rates must draw the same frame at the same instant."""
     assert logo.frame(2.5) == logo.frame(2.5 + logo.CYCLE)
-    assert logo.frame(0.0) == (logo.DIGITS, None, "h.logo")
+    assert logo.frame(0.5) is logo.frame(0.5 + logo.CYCLE) is None
 
 
-def test_the_mark_keeps_its_holes_when_it_dissolves() -> None:
-    """A morph that filled the gaps would print three rectangles instead of 4 9 5."""
-    assert logo.morph(logo.DIGITS[0], "░") == ("░ ░", "░░░")
+def test_the_highlight_paints_the_ink_and_not_the_holes() -> None:
+    """Painting the gaps would light three rectangles instead of 4 9 5."""
+    console = Console(theme=THEME, file=io.StringIO())
+    lit = logo.render(logo.DIGITS, column_styles=logo.frame(logo.INITIAL_PAUSE + 0.9))
+    assert lit.plain == logo.still().plain, "no glyph is replaced; only the colour moves"
+    resting = console.get_style("h.logo")
+    assert lit.get_style_at_offset(console, lit.plain.index(" ")) == resting
+    assert lit.get_style_at_offset(console, 0) != resting
 
 
 def test_a_still_capture_gets_the_whole_mark() -> None:
