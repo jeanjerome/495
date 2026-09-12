@@ -71,6 +71,8 @@ class Driver(Protocol):
 
     def integrate(self, run_id: str, ref: str, rerun: bool) -> None: ...
 
+    def merge(self, run_id: str, rerun: bool) -> None: ...
+
     def create(self, intent: str, evaluate_ref: str = "") -> str: ...
 
 
@@ -104,6 +106,9 @@ class ReadOnly:
         self._refuse()
 
     def integrate(self, run_id: str, ref: str, rerun: bool) -> None:
+        self._refuse()
+
+    def merge(self, run_id: str, rerun: bool) -> None:
         self._refuse()
 
     def create(self, intent: str, evaluate_ref: str = "") -> str:
@@ -199,6 +204,21 @@ class StoreDriver:
             "checking the integration",
             run_id,
             lambda: self.engine().check_integration(run_id, ref, rerun),
+            interruptible=False,
+        )
+
+    def merge(self, run_id: str, rerun: bool) -> None:
+        """Merge the delivered branch into the tree you have checked out, then check it.
+
+        On the thread like the rest, and for the same reason: with the checks re-run it is as
+        long as a verification pass. Not interruptible — the merge is one command that either
+        happened or was aborted, and asking it to stop between the two is asking for the state
+        this control exists to avoid.
+        """
+        self._spawn(
+            "merging the delivered branch",
+            run_id,
+            lambda: self.engine().merge_delivery(run_id, rerun),
             interruptible=False,
         )
 

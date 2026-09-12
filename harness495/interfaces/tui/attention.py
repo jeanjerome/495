@@ -136,6 +136,10 @@ def attention(
         # once you are there, which is one discovery too many for the last thing left to do.
         acts = ours and bool(run.result.report_ref)
         key = "i" if acts else "8"
+        # The band names the move that has not been made. While nothing of the run is in the
+        # tree that is the merge, not the check: offering the check first sends you to confirm
+        # the absence of something you have not put there yet.
+        merges = ours and bool(run.result.branch)
         g = run.result.integration
         state = run.integration_state()
         if state in ("unchecked", "unmerged"):
@@ -152,11 +156,15 @@ def attention(
                     else f"{g.target_ref} has not been merged into: it is still "
                     f"{short(g.target_commit, 12)}, the commit the run started from"
                 ),
-                key=key,
+                key="m" if merges else key,
                 action=(
-                    "check what you merged"
-                    if g is None
-                    else ("ask again once you have merged" if acts else "the integration check")
+                    "merge it into the branch you are on"
+                    if merges
+                    else (
+                        "check what you merged"
+                        if g is None
+                        else ("ask again once you have merged" if acts else "the integration check")
+                    )
                 ),
             )
         landed = state == "landed"

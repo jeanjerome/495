@@ -22,7 +22,7 @@ from harness495.core.store import DRIVER_FLAG, RunStore
 from harness495.interfaces.tui import Shell, StoreSource
 from harness495.interfaces.tui.attention import attention
 from harness495.interfaces.tui.driving import StoreDriver
-from harness495.interfaces.tui.loops import _wind_down
+from harness495.interfaces.tui.loops import _press, _wind_down, answer, open_merge
 from harness495.interfaces.tui.stages import stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
 from harness495.interfaces.tui.views import ask_intent
@@ -249,19 +249,83 @@ def test_a_tree_that_carries_something_else_is_named_as_such(
     assert attention(shell.run, can_drive=True).tone == "bad"
 
 
-def test_the_check_is_offered_from_wherever_you_are_standing(
+def test_the_last_moves_are_offered_from_wherever_you_are_standing(
     store: RunStore, pilot: StoreDriver, sample_project: Path
 ) -> None:
-    """The last thing left to do on a delivered run is not hidden behind the stop that owns it."""
+    """What is left to do on a delivered run is not hidden behind the stop that owns it."""
     run_id = pilot.create("add subtract to calc")
     settle(pilot)
     shell = surface(store, pilot)
     shell.select(run_id)
     shell.view = "change"
-    assert shell.resolve("i") == "integrate"
+    assert shell.resolve("m") == "merge" and shell.resolve("i") == "integrate"
+    assert ("m", "merge the branch") in shell.controls()
     assert ("i", "check a ref") in shell.controls()
-    assert attention(shell.run, can_drive=True).key == "i", "the band names the key, not the stop"
+    assert attention(shell.run, can_drive=True).key == "m", "nothing is in the tree yet"
     assert attention(shell.run, can_drive=False).key == "8", "and the stop where it cannot act"
+
+
+def test_the_surface_makes_the_merge_it_then_checks(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """One control for one act: the merge is what the check that follows it exists to inspect."""
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+    assert shell.run.integration_state() == "unchecked"
+
+    pilot.merge(run_id, False)
+    settle(pilot)
+    shell.source.refresh(force=True)
+
+    assert shell.run.integration_state() == "landed", shell.driver.notice
+    assert stage_state(shell.run, "integration") == "done"
+    assert not shell.can("merge"), "there is nothing left to merge"
+    assert attention(shell.run, can_drive=True).key == "i"
+
+
+def test_pressing_the_key_merges_and_the_run_says_so_afterwards(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """The whole path, keystroke to merge commit: nothing acts until the question is answered."""
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+    shell.view = "integration"
+    before = _git_out(sample_project, "rev-parse", "HEAD")
+
+    _press(shell, "m", None, None)
+    assert shell.asking is not None, shell.driver.notice
+    assert _git_out(sample_project, "rev-parse", "HEAD") == before, "the question has not acted"
+
+    answer(shell, "enter")  # merge it, then compare
+    settle(pilot)
+    shell.source.refresh(force=True)
+
+    assert shell.asking is None
+    assert shell.driver.notice is None
+    assert _git_out(sample_project, "rev-parse", "HEAD") != before
+    assert shell.run.integration_state() == "landed"
+
+
+def test_a_tree_with_uncommitted_work_is_told_so_before_the_question_opens(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """A question whose only outcome is a refusal is a refusal asked in four keystrokes."""
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    calc = sample_project / "calc.py"
+    calc.write_text(calc.read_text(encoding="utf-8") + "\n# half an idea\n", encoding="utf-8")
+    shell = surface(store, pilot)
+    shell.select(run_id)
+
+    open_merge(shell)
+
+    assert shell.asking is None
+    assert "uncommitted changes" in (shell.driver.notice or "")
+    assert calc.read_text(encoding="utf-8").endswith("# half an idea\n"), "it was left alone"
 
 
 # --------------------------------------------------------------------- two terminals
@@ -337,6 +401,12 @@ def test_leaving_the_surface_pauses_the_run_it_was_advancing(
     _wind_down(shell, None, timeout=WAIT)
     assert pilot.working() is None
     assert store.stop_requested(run.id) is not None
+
+
+def _git_out(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
 
 
 def _git(root: Path, *args: str) -> None:

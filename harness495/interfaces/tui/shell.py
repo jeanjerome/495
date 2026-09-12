@@ -79,6 +79,7 @@ BINDINGS: tuple[Binding, ...] = (
     Binding("s", "control:start", "start"),
     Binding("p", "control:pause", "pause the run"),
     Binding("c", "create", "new run"),
+    Binding("m", "merge", "merge the branch"),
     Binding("i", "integrate", "check a ref"),
     Binding("space", "freeze", "freeze"),
     Binding("r", "refresh", "refresh", hidden=True),
@@ -273,6 +274,11 @@ class Shell:
             return self.startable() is not None
         if action == "integrate":
             return bool(self.run.result.report_ref)
+        if action == "merge":
+            # Offered until the check says the branch is in. Whether the tree is clean enough
+            # for it is a question for git, and asking git on every frame would put a
+            # subprocess behind the footer; the question asks once, when it is pressed.
+            return bool(self.run.result.branch) and self.run.integration_state() != "landed"
         return False
 
     def refusal(self, action: str) -> str | None:
@@ -294,6 +300,8 @@ class Shell:
         verb = self.startable()
         if verb is not None and self.can("control:start"):
             out.append(("s", verb))
+        if self.can("merge"):
+            out.append(("m", "merge the branch"))
         if self.can("integrate"):
             # Not only on the eighth stop. It is the one thing left to do on a delivered run,
             # and a control that appears only once you have found the stop it belongs to is a

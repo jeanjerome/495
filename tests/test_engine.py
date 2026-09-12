@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from harness495.core import git
+from harness495.core.engine import EngineError
 from harness495.core.models import (
     DecisionKind,
     InterventionStatus,
@@ -297,6 +298,65 @@ def test_evaluate_working_tree_and_patch(
     )
     run2 = engine_factory().run(run2.id)
     assert run2.status is RunStatus.delivered and run2.result.outcome is Verdict.accept
+
+
+def _commit(root: Path, message: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-aqm", message],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_merge_delivery_makes_the_merge_and_then_recognises_it(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    assert run.status is RunStatus.delivered
+    run = engine_factory().merge_delivery(run.id)
+    ic = run.result.integration
+    assert ic and ic.contains_commit and ic.files_identical
+    assert run.integration_state() == "landed", "merging and checking are one command"
+    assert git.is_ancestor(sample_project, ic.target_commit, "HEAD")
+    with pytest.raises(EngineError, match="already contains"):
+        engine_factory().merge_delivery(run.id)
+
+
+def test_a_merge_that_conflicts_leaves_the_repository_where_it_was(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """The one command that writes to the tree people work in never leaves it half-written."""
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    calc = sample_project / "calc.py"
+    calc.write_text(
+        calc.read_text(encoding="utf-8")
+        + "\n\ndef subtract(a: int, b: int) -> int:\n    return b - a\n",
+        encoding="utf-8",
+    )
+    _commit(sample_project, "a subtract of its own")
+    before = git.head_commit(sample_project)
+
+    with pytest.raises(git.GitError, match="nothing was changed"):
+        engine_factory().merge_delivery(run.id)
+
+    assert git.head_commit(sample_project) == before
+    assert not (sample_project / ".git" / "MERGE_HEAD").exists(), "the merge was aborted, not left"
+    assert not git.is_dirty(sample_project)
+
+
+def test_a_dirty_tree_is_refused_rather_than_stashed(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    calc = sample_project / "calc.py"
+    calc.write_text(calc.read_text(encoding="utf-8") + "\n# half an idea\n", encoding="utf-8")
+    with pytest.raises(EngineError, match="uncommitted changes"):
+        engine_factory().merge_delivery(run.id)
+    assert calc.read_text(encoding="utf-8").endswith("# half an idea\n"), "it was left alone"
 
 
 def test_check_integration(sample_project: Path, config: Any, engine_factory: Any) -> None:

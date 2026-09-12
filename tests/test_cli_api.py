@@ -87,6 +87,17 @@ def test_cli_run_lifecycle(sample_project: Path, monkeypatch: pytest.MonkeyPatch
     # not.
     res = _cli(sample_project, "--json", "check-integration", run_id)
     assert res.exit_code == 0 and json.loads(res.output)["state"] == "unmerged"
+    # `out.tgz` sits untracked in the project right now, and does not stand in the way.
+    res = _cli(sample_project, "--json", "merge", run_id)
+    assert res.exit_code == 0 and json.loads(res.output)["state"] == "landed"
+    res = _cli(sample_project, "--json", "check-integration", run_id)
+    assert res.exit_code == 0 and json.loads(res.output)["state"] == "landed"
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "reset", "-q", "--hard", "HEAD~1"],
+        cwd=sample_project,
+        check=True,
+        capture_output=True,
+    )
     subprocess.run(
         ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--allow-empty", "-m", "on"],
         cwd=sample_project,

@@ -16,7 +16,8 @@ CONTROLS = (
     ("s", "start", "advance until it finishes or needs you; a paused or failed run resumes"),
     ("p", "pause", "stop after the step it is on — the agent is killed, nothing is lost"),
     ("d", "answer", "answer what the run stopped on, and let it carry on"),
-    ("i", "integrate", "stop 8: check the ref you merged into against the verified version"),
+    ("m", "merge", "merge the delivered branch into the branch you are on, then check it"),
+    ("i", "integrate", "check the ref you merged into against the verified version"),
 )
 """A control appears only where it applies: the footer offers what can act on this run now."""
 

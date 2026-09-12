@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Callable, Iterator
+from pathlib import Path
 
 from rich.console import Console
 from rich.live import Live
@@ -16,6 +17,7 @@ from rich.prompt import IntPrompt, Prompt
 from rich.syntax import Syntax
 from rich.text import Text
 
+from harness495.core import git
 from harness495.core.engine import EngineError
 from harness495.core.models import Event, RunStatus
 from harness495.core.store import RunBusy, RunNotFound
@@ -30,6 +32,7 @@ from harness495.interfaces.tui.views import (
     integration_question,
     intent_question,
     intent_taken,
+    merge_question,
 )
 from harness495.interfaces.tui.widgets import clip, short
 
@@ -213,12 +216,52 @@ def _integrated(shell: Shell, run_id: str, answers: Answers) -> None:
         shell.driver.notice = f"could not check it: {exc}"
 
 
+def open_merge(shell: Shell) -> None:
+    """Read the repository once, then ask whether to merge into what is checked out there.
+
+    The two facts the question rests on — which branch you are on, whether it is clean — are
+    not on the run, and the surface cannot ask git for them on every frame. So they are read
+    here, on the keystroke: a tree that would refuse the merge says so instead of opening a
+    question whose only outcome is that refusal.
+    """
+    run = shell.run
+    it = run.current_iteration
+    head = (it.version.head_commit if it and it.version else "") or ""
+    branch = run.result.branch or (it.version.branch if it and it.version else None)
+    if not branch:
+        shell.driver.notice = "the run delivered no branch to merge"
+        return
+    root = Path(run.project_root)
+    try:
+        into = git.current_branch(root) or "HEAD"
+        dirty = git.has_uncommitted_changes(root)
+    except (git.GitError, OSError) as exc:
+        shell.driver.notice = f"could not read {root}: {exc}"
+        return
+    if dirty:
+        shell.driver.notice = f"{into} has uncommitted changes; commit or stash them first"
+        return
+    run_id = run.id
+    shell.asking = Ask(
+        merge_question(branch, into, head),
+        commit=lambda answers: _merged(shell, run_id, answers),
+    )
+
+
+def _merged(shell: Shell, run_id: str, answers: Answers) -> None:
+    try:
+        shell.driver.merge(run_id, answers.get("how") == "verify")
+    except CONTROL_ERRORS as exc:
+        shell.driver.notice = f"could not merge it: {exc}"
+
+
 #: The controls that ask something before they act. On a terminal the question is drawn on the
 #: surface; a prompted session asks the same steps in words. Both end in the same commit.
 OPENS: dict[str, Callable[[Shell], None]] = {
     "decide": open_decide,
     "create": open_create,
     "integrate": open_integrate,
+    "merge": open_merge,
 }
 
 
@@ -353,6 +396,15 @@ def run_prompted(shell: Shell) -> None:
             if answers is not None:
                 _created(shell, answers)
                 _settle(shell)
+        elif key == "m" and shell.can("merge"):
+            open_merge(shell)
+            ask = shell.asking
+            shell.asking = None
+            if ask is not None:
+                answers = ask_in_prompt(console, ask.question)
+                if answers is not None:
+                    _merged(shell, shell.run.id, answers)
+                    _settle(shell)
         elif key == "i" and shell.can("integrate"):
             it = shell.run.current_iteration
             head = (it.version.head_commit if it and it.version else "") or ""

@@ -250,7 +250,7 @@ def _deliver(run: Run) -> Text:
     out = Text()
     out.append(f"Delivered: {res.summary or 'the change is ready to integrate'}.", "req.satisfied")
     out.append(
-        f" Patch at {res.patch_ref}, branch {res.branch}. Nothing is merged — that is your call.",
+        f" Patch at {res.patch_ref}, branch {res.branch}. Nothing is merged until you say so.",
         style="h.value",
     )
     if res.integration is not None:

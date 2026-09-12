@@ -48,6 +48,7 @@ a producer escape stops the run.
 | review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
+| merge | on request only: `git merge --no-ff` of the delivered branch into the branch you have checked out, followed by the integration check. Refuses an unclean tree or a branch that already carries the change, and aborts a conflict rather than leaving one | harness, at your word |
 | check-integration | after you merged or applied the patch: does the target ref contain the commit / identical files, optionally re-run the verifications. A ref still sitting on the commit the run branched from is reported as not merged into yet, which is not a mismatch and not a failure | harness |
 
 A correction request says which requirement is not demonstrated and what was observed, never what

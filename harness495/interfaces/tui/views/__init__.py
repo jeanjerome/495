@@ -17,7 +17,11 @@ from harness495.interfaces.tui.views.decision import (
 )
 from harness495.interfaces.tui.views.deliver import build_deliver
 from harness495.interfaces.tui.views.help import help_view
-from harness495.interfaces.tui.views.integration import build_integration, integration_question
+from harness495.interfaces.tui.views.integration import (
+    build_integration,
+    integration_question,
+    merge_question,
+)
 from harness495.interfaces.tui.views.intent import ask_intent, intent_question, intent_taken
 from harness495.interfaces.tui.views.log import build_log
 from harness495.interfaces.tui.views.profile import build_profile
@@ -50,6 +54,7 @@ __all__ = [
     "decision_question",
     "help_view",
     "integration_question",
+    "merge_question",
     "intent_question",
     "intent_taken",
 ]

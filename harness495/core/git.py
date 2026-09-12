@@ -53,6 +53,17 @@ def is_dirty(path: Path) -> bool:
     return bool(git(["status", "--porcelain", "--untracked-files=normal"], path).strip())
 
 
+def has_uncommitted_changes(path: Path) -> bool:
+    """Tracked files changed and not committed, staged or not — untracked files aside.
+
+    The question a merge asks, as opposed to :func:`is_dirty`, which asks whether a worktree
+    has been touched at all. A file of your own that git does not track is not in a merge's
+    way unless the merge would write over it, and git says so itself when that happens.
+    Refusing every stray file would make the control unusable in the tree people work in.
+    """
+    return bool(git(["status", "--porcelain", "--untracked-files=no"], path).strip())
+
+
 def status_porcelain(path: Path) -> str:
     return git(["status", "--porcelain", "--untracked-files=normal"], path)
 
@@ -188,6 +199,42 @@ def sha256_text(text: str) -> str:
 def reset_hard_clean(path: Path, ref: str = "HEAD") -> None:
     git(["reset", "-q", "--hard", ref], path)
     git(["clean", "-fdq"], path)
+
+
+def merge_no_ff(path: Path, branch: str, message: str) -> str:
+    """Merge ``branch`` into the checked-out branch, keeping the merge commit.
+
+    A merge that does not go through cleanly is undone rather than left half-made: a
+    conflicted index is a state only the person at the keyboard can resolve, and it would be
+    left behind by a thread they cannot see. Aborting puts the branch back where it was and
+    hands the conflict back as a refusal, which is something a surface can say in one line.
+
+    ``--no-ff`` because the merge commit is the record: it is what makes the delivered commit
+    an ancestor of the branch under a name, so the check that follows can find it there and
+    the history says where the change came from.
+    """
+    proc = subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=495 harness",
+            "-c",
+            "user.email=495@localhost",
+            "merge",
+            "--no-ff",
+            "-m",
+            message,
+            branch,
+        ],
+        cwd=str(path),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        git(["merge", "--abort"], path, check=False)
+        detail = (proc.stdout + proc.stderr).strip().replace("\n", "; ")
+        raise GitError(f"merging {branch} did not go through, nothing was changed: {detail}")
+    return head_commit(path)
 
 
 def is_ancestor(path: Path, commit: str, ref: str) -> bool:

@@ -1837,6 +1837,56 @@ class Engine:
 
     # ------------------------------------------------------------------ post-integration
 
+    def merge_delivery(self, run_id: str, rerun_verifications: bool = False) -> Run:
+        """Merge the delivered branch into the branch checked out in the project, then look.
+
+        The one command that writes to the tree people work in. Everything else 495 does
+        happens in a worktree of its own, which is why the run can be walked without asking
+        anyone: nothing it does is visible in the repository until this. So the preconditions
+        are refusals rather than repairs — an unclean tree is not stashed, a conflict is not
+        resolved, a branch already merged is not merged twice — and each of them leaves the
+        repository exactly as it was found.
+
+        Merging and checking are one command because they are one act: the merge is what the
+        check exists to inspect, and a merge left unchecked would be the only integration 495
+        ever performed and never verified.
+        """
+        self.store.claim(run_id, self.label)
+        try:
+            self._merge_delivery(run_id)
+            return self._check_integration(run_id, "HEAD", rerun_verifications)
+        finally:
+            self.store.release(run_id)
+
+    def _merge_delivery(self, run_id: str) -> Run:
+        run = self.store.load(run_id)
+        it = run.current_iteration
+        if it is None or it.version is None or not it.version.head_commit:
+            raise EngineError("the run has no evaluated version")
+        branch = run.result.branch or it.version.branch
+        if not branch:
+            raise EngineError("the run delivered no branch to merge")
+        root = Path(run.project_root)
+        into = git.current_branch(root) or "HEAD"
+        if git.has_uncommitted_changes(root):
+            raise EngineError(
+                f"{root} has uncommitted changes; commit or stash them before merging into {into}"
+            )
+        if git.is_ancestor(root, it.version.head_commit, "HEAD"):
+            raise EngineError(f"{into} already contains {it.version.head_commit[:12]}")
+        before = git.head_commit(root)
+        merged = git.merge_no_ff(
+            root, branch, f"Merge branch '{branch}'\n\n{run.intent.text.strip()}"
+        )
+        self.emit(
+            run,
+            "integration.merged",
+            f"{branch} merged into {into}: {before[:12]} -> {merged[:12]}",
+            {"branch": branch, "into": into, "before": before, "after": merged},
+        )
+        self.store.save(run)
+        return run
+
     def check_integration(
         self, run_id: str, target_ref: str = "HEAD", rerun_verifications: bool = False
     ) -> Run:

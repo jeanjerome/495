@@ -39,6 +39,54 @@ RERUN = (
 )
 
 
+MERGE = (
+    # Not the ``no``/``yes`` the other question uses: both answers here make the merge, and a
+    # grid whose first key reads "no" under "merge it into main?" says the opposite of what
+    # taking it does.
+    Choice(
+        "merge",
+        "merge it, then compare",
+        "the merge commit is made, and the commit and the file contents are looked for in it",
+    ),
+    Choice(
+        "verify",
+        "merge it, then run the checks too",
+        "the same, and the verification commands are run again on the merged tree",
+    ),
+)
+
+
+def merge_question(branch: str, into: str, head: str) -> Question:
+    """Whether to merge the delivered branch into the tree you have checked out.
+
+    The one question on this surface whose answer writes to the repository you work in, so the
+    lead states the three facts you would otherwise have to go and check — what is merged,
+    where it lands, and that the tree is clean enough for it — and both answers are the same
+    merge. Leaving is ``escape``, on the panel with the rest.
+    """
+
+    def step(answers: Answers) -> Step | None:
+        if "how" not in answers:
+            return Step("how", f"merge {branch} into {into}?", options=MERGE)
+        return None
+
+    return Question(
+        title="merge what was delivered",
+        glyph=ICON["integration"],
+        next=step,
+        lead=Text.assemble(
+            ("495 runs ", "h.value"),
+            (f"git merge --no-ff {branch}", "h.ref"),
+            (f" on {into}, which is clean and does not carry ", "h.value"),
+            (short(head, 12), "h.ref"),
+            (
+                " yet. A merge that does not go through cleanly is aborted, and nothing changes.",
+                "h.value",
+            ),
+        ),
+    )
+
+
 def integration_question(head: str) -> Question:
     """Which ref you merged into, and whether the checks are run again on it."""
 
@@ -120,10 +168,27 @@ def build_integration(ctx: ViewContext) -> StageContent:
                 Text(
                     "The check asks three things of the ref you name: does it contain the "
                     "delivered commit, are the changed files identical to the verified ones, "
-                    "and — if you ask for it — do the verification commands still pass there.",
+                    "and — if you ask for it — do the verification commands still pass there. "
+                    "495 can make the merge it then inspects, into the branch you have checked "
+                    "out; everything else it does happens in a worktree of its own.",
                     style="h.value",
                 ),
                 Text(),
+                *(
+                    [
+                        Text.assemble(
+                            (" m ", "cursor"),
+                            (
+                                f"  merge {res.branch} into the branch you have checked out, "
+                                "then check the result",
+                                "attn.hint",
+                            ),
+                        ),
+                        Text(),
+                    ]
+                    if ctx.can_drive and res.branch and state != "landed"
+                    else []
+                ),
                 *(
                     [
                         Text.assemble(
@@ -140,10 +205,11 @@ def build_integration(ctx: ViewContext) -> StageContent:
                     else []
                 ),
                 commands(
+                    (f"495 merge {run.id}", "the same merge, from any shell"),
                     (
                         f"495 check-integration {run.id} --ref main --rerun",
                         "the same check, from any shell",
-                    )
+                    ),
                 ),
             ),
             ICON["integration"],

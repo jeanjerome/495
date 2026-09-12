@@ -126,6 +126,7 @@ EVENT_STYLE = {
     "run.failed": "attn.dead",
     "run.aborted": "attn.dead",
     "run.delivered": "attn.done",
+    "integration.merged": "attn.done",
     "decision.requested": "attn.you",
     "iteration.started": "h.ref",
     "iteration.assessed": "h.ref",
