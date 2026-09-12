@@ -12,7 +12,7 @@ from harness495.interfaces.tui.logs import Logs, NoLogs
 
 @dataclass
 class StageContent:
-    """One stage, in the shape all seven share: headline · list · detail.
+    """One stage, in the shape all eight share: headline · list · detail.
 
     The detail follows the cursor rather than replacing the list, which is what lets you read
     six command outputs by pressing ↓ six times.
@@ -38,3 +38,7 @@ class ViewContext:
     run: Run
     cursor: int = 0
     logs: Logs = NoLogs()
+    can_drive: bool = False
+    """Whether this surface can act on the run. A view names a key only where pressing it
+    would do something: a still capture and a ``--read-only`` surface state the command line
+    instead."""

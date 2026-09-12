@@ -12,7 +12,7 @@ from harness495 import __version__
 from harness495.core.engine import Engine, EngineError
 from harness495.core.models import RunMode
 from harness495.core.report import render_markdown
-from harness495.core.store import RunNotFound
+from harness495.core.store import RunBusy, RunNotFound
 from harness495.interfaces.render import (
     RunMonitor,
     console,
@@ -85,7 +85,7 @@ def interactive_session(c: Ctx) -> None:
                     ["--project", str(c.project), "--state-dir", str(c.state_dir), "doctor"],
                     standalone_mode=False,
                 )
-        except (EngineError, RunNotFound) as exc:
+        except (EngineError, RunBusy, RunNotFound) as exc:
             console.print(f"[red]error:[/] {exc}")
         except KeyboardInterrupt:
             console.print("\n[yellow]interrupted[/]")
@@ -140,14 +140,14 @@ def _evaluate(c: Ctx) -> None:
 
 
 def _open(c: Ctx, run_id: str | None = None) -> None:
-    """Hand the terminal to the run surface: the pipeline, the evidence, the pending question.
+    """Hand the terminal to the run surface: the pipeline, the evidence, the question, the keys.
 
-    A run's state is a pipeline of seven stops with a decision somewhere in it, and a printed
+    A run's state is a pipeline of eight stops with a decision somewhere in it, and a printed
     summary can only ever be the last stop flattened into a paragraph. The surface is the same
-    data arranged as the workflow, so it is what the menu opens for both "which runs are
-    there" and "what is this one doing".
+    data arranged as the workflow, and every control acts at the stop it belongs to, so it is
+    what the menu opens for "which runs are there", "what is this one doing" and "carry on".
     """
-    watch(c.store, run_id=run_id, console=build_console())
+    watch(c.store, run_id=run_id, console=build_console(), project=c.project)
 
 
 def _resume(c: Ctx) -> None:

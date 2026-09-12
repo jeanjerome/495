@@ -62,37 +62,48 @@ themselves are not printed, since the line already says where the run is.
 
 ## The run surface
 
-`495 watch` opens the run as the workflow: seven stops in the order the engine walks them, in
-the vocabulary of the table above. A stop is both *where the run is* and *the tab that shows
-what that stage produced*, so there is no menu to learn — you look for a fact at the stage that
-produced it.
+`495 watch` opens the run as the workflow: eight stops in the order the engine walks them, in
+the vocabulary of the table above. A stop is *where the run is*, *the tab that shows what that
+stage produced*, and *where the controls that act on it live*, so there is no menu to learn —
+you look for a fact, or act on it, at the stage it belongs to. It is also where a run starts:
+type an intent, and the run it opens walks the same eight stops in front of you.
 
-Three things carry the surface:
+Four things carry the surface:
 
 - **The navigation bar is the pipeline.** Each stop is a framed tab with its own key and its own
   count, so the strip is also a dashboard: checks at 4/6 and a blocker on the review are legible
   without opening either. Colour is the state of the *run* at that stop — green walked, cyan
   working, grey ahead, magenta stopped to ask you; a heavy frame is where *you* are looking.
-- **One line always says what the run needs from you** — working, waiting on you, or finished —
-  with the key that answers it. A decision is rendered in the body of the stage that raised it,
-  not behind a keystroke.
+- **One line always says what the run needs from you** — not started, working, waiting on you,
+  delivered, or standing still because nothing is advancing it — with the key that answers it.
+  A decision is rendered in the body of the stage that raised it, not behind a keystroke.
 - **Every stage has the same shape: headline, list, detail.** The headline is one sentence
   stating what the stage concluded and why. The detail follows the cursor rather than replacing
   the list, so arrowing down a list of checks reads their outputs in place; `enter` sends the
   full command log to your pager.
+- **The run is driven from where it is read.** `c` takes an intent — or an existing change to
+  evaluate — and starts the run on it; `s` advances it until it finishes or needs you, and
+  resumes a paused or failed one at the phase it stopped at; `p` pauses it after the step it is
+  on; `d` answers the question it stopped on and lets it carry on; `i`, at the last stop, checks
+  the ref you merged into against the verified version. A control is offered only where pressing
+  it would do something, so the keys on screen are the moves that exist right now.
 
-Keys: `1`-`7` or `←` `→` walk the pipeline, `n` catches up to where the run is, `↑` `↓` move the
-cursor, `g` the event log (`f` filters it), `l` every run in the store, `d` answers the pending
-decision, `space` freezes the display, `?` help, `q` quit. Without a terminal the same surface
-prints and asks with the same vocabulary, so a piped session loses nothing.
+Keys: `1`-`8` or `←` `→` walk the pipeline, `n` catches up to where the run is, `↑` `↓` move the
+cursor, `g` the event log (`f` filters it), `l` every run in the store, `space` freezes the
+display, `?` help, `q` quit — the run keeps going without the surface. Without a terminal the
+same surface prints and asks with the same vocabulary, controls included, so a piped session
+loses nothing.
 
-The surface reads the store and never advances a run, so it can be left up in one terminal while
-another drives the same run — both are looking at the same files. `--print` renders one view and
-exits, `--export view.svg` captures it. `HARNESS495_ICONS=ascii` (or `--ascii-icons`) draws panel
-titles with geometric marks instead of emoji.
+The engine claims a run while it advances it, so a surface opened on a run another terminal is
+already driving watches it rather than joining in, and both are looking at the same files. A
+claim left by a process that is gone is taken over rather than honoured. `--read-only` shows the
+surface without its controls; `--print` renders one view and exits, `--export view.svg` captures
+it. `HARNESS495_ICONS=ascii` (or `--ascii-icons`) draws panel titles with geometric marks
+instead of emoji.
 
-Interruptions (Ctrl-C, `495 stop <id>` from another shell) pause the run after killing the
-current agent; `495 resume <id>` continues at the phase that was interrupted.
+Interruptions (`p` on the surface, Ctrl-C, `495 stop <id>` from another shell) pause the run
+after killing the current agent; `s` on the surface, or `495 resume <id>`, continues at the
+phase that was interrupted.
 
 ## Commands
 
@@ -105,7 +116,7 @@ current agent; `495 resume <id>` continues at the phase that was interrupted.
 495 decide <id> <choice> [--note "..."]          # answer a pending decision
 495 spec <id>                                    # the specification: requirements and checks
 495 status <id> | list | events <id> [-f] | report <id> [--format md|json] [-o file]
-495 watch [<id>] [--stage checks] [--print] [--export view.svg]   # the run surface
+495 watch [<id>] [--stage checks] [--read-only] [--print] [--export view.svg]   # the run surface
 495 check-integration <id> [--ref main] [--rerun]
 495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config | validate run.json
 495 profile | init | doctor | serve [--port 4950]

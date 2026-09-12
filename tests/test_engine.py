@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import socket
 import subprocess
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from harness495.core import git
 from harness495.core.models import (
@@ -17,6 +20,7 @@ from harness495.core.models import (
     Verdict,
 )
 from harness495.core.report import render_markdown
+from harness495.core.store import DRIVER_FLAG, RunBusy
 from tests.conftest import Scenario, accept_review, bad_producer, good_producer, reject_review
 
 
@@ -548,3 +552,33 @@ def test_a_red_baseline_can_be_answered_by_opening_the_network(
 
     run = engine.decide(run.id, "proceed")
     assert run.status is RunStatus.profiled
+
+
+def test_a_run_being_advanced_elsewhere_is_refused_not_joined(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """Two engines stepping one run write the same document from two phases; the last wins."""
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    (engine.store.run_dir(run.id) / DRIVER_FLAG).write_text(
+        json.dumps({"pid": 1, "host": socket.gethostname(), "label": "495 run", "since": "now"}),
+        encoding="utf-8",
+    )
+    try:
+        with pytest.raises(RunBusy):
+            engine.run(run.id)
+        assert engine.store.load(run.id).status is RunStatus.created
+    finally:
+        (engine.store.run_dir(run.id) / DRIVER_FLAG).unlink()
+    assert engine.run(run.id).status is RunStatus.delivered
+
+
+def test_the_claim_is_given_back_when_the_run_blocks(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    config.auto_approve = False
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+    assert run.status is RunStatus.awaiting_decision
+    assert not (engine.store.run_dir(run.id) / DRIVER_FLAG).exists()

@@ -24,10 +24,10 @@ ARRANGEMENTS = ((True, "full", 1), (False, "full", 1), (False, "short", 1), (Fal
 
 
 def nav_bar(run: Run, viewed: str, width: int) -> RenderableType:
-    """Seven stops, each in a box of its own.
+    """Eight stops, each in a box of its own.
 
     A single dense line of coloured words does not read as navigation — it reads as one more
-    status line, and at seven stops the eye cannot tell where one stop ends and the next
+    status line, and at eight stops the eye cannot tell where one stop ends and the next
     begins. So each stop is a ``Panel``: its own frame, its own key printed on that frame the
     way a tab carries a label, and room to breathe between it and its neighbours.
 
@@ -43,7 +43,7 @@ def nav_bar(run: Run, viewed: str, width: int) -> RenderableType:
       block is needed to say it.
 
     ``log`` and ``runs`` are not on the strip. They are not stages, and putting them here
-    would make the pipeline look like it has nine steps; the footer carries them instead.
+    would make the pipeline look like it has ten steps; the footer carries them instead.
     """
     cells: list[Text] = []
     widths: list[int] = []

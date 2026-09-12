@@ -1,8 +1,9 @@
 """The stage model: one structure drives navigation, progress and the badges.
 
-The engine's own phases, collapsed to the seven a user has a question about. A stop is both
-"where the run is" and "the tab that shows what that stage produced", so there is no menu to
-learn: you look for a fact at the stage that produced it.
+The engine's own phases, collapsed to the eight a user has a question about. A stop is both
+"where the run is", "the tab that shows what that stage produced" and "where the controls that
+act on it live", so there is no menu to learn: you look for a fact, or act on it, at the stage
+it belongs to.
 """
 
 from __future__ import annotations
@@ -93,13 +94,23 @@ STAGES: tuple[Stage, ...] = (
         "what you got, and the commands that act on it",
         frozenset({RunStatus.accepted}),
     ),
+    # The run ends where the harness stops being able to observe anything: it delivers a patch
+    # and a branch, you integrate them, and only then can anyone ask whether what landed is
+    # what was verified. A delivered run therefore stands *here*, waiting on a merge that is
+    # yours to make.
+    Stage(
+        "8",
+        "integration",
+        "int",
+        "whether what you merged is what was verified",
+        frozenset({RunStatus.delivered}),
+    ),
 )
 STAGE_INDEX = {s.name: i for i, s in enumerate(STAGES)}
 STAGE_BY_KEY = {s.key: s.name for s in STAGES}
 
 # A run that stopped is still somewhere: it stopped at the stage that could not go on.
 TERMINAL_STAGE = {
-    RunStatus.delivered: "deliver",
     RunStatus.accepted: "deliver",
     RunStatus.rejected: "verdict",
     RunStatus.undetermined: "verdict",
@@ -144,6 +155,8 @@ def stage_of(run: Run) -> str:
 
 def furthest_stage(run: Run) -> str:
     """The last stage that left something behind."""
+    if run.result.integration is not None:
+        return "integration"
     if run.result.report_ref:
         return "deliver"
     if any(r.status is not RequirementStatus.pending for r in run.spec.requirements):
@@ -170,8 +183,17 @@ def stage_state(run: Run, name: str) -> str:
     """
     here = STAGE_INDEX[stage_of(run)]
     index = STAGE_INDEX[name]
-    if run.status is RunStatus.delivered:
-        return "done"
+    if name == "integration":
+        # The only stop whose state is not the run's: the harness cannot walk it, it can only
+        # report what it found when you asked it to look at the ref you merged into.
+        g = run.result.integration
+        if g is not None:
+            landed = g.contains_commit or g.files_identical
+            return "done" if landed and g.verifications_passed is not False else "failed"
+        if run.status is RunStatus.delivered:
+            # Delivered and unchecked is the run standing still, not the run working: it has
+            # done everything it can, and the merge it is waiting for is a human act.
+            return "blocked"
     if index < here:
         return "done"
     if index > here:
@@ -189,7 +211,7 @@ def stage_badge(run: Run, name: str) -> Text | None:
     """The count a stop carries, in the colour of its health.
 
     A badge is for scanning: it says *where* to look. The headline inside the view says what
-    happened, in words. Splitting the two is what keeps the bar readable at 7 stops.
+    happened, in words. Splitting the two is what keeps the bar readable at 8 stops.
     """
     count, bad = stage_count(run, name)
     if count is None:
@@ -250,6 +272,13 @@ def stage_count(run: Run, name: str) -> tuple[str | None, bool]:
         return None, False
     if name == "deliver":
         return ("✓", False) if run.status is RunStatus.delivered else (None, False)
+    if name == "integration":
+        g = run.result.integration
+        if g is None:
+            return None, False
+        if g.contains_commit or g.files_identical:
+            return ("✓", False) if g.verifications_passed is not False else ("✕", True)
+        return "✕", True
     return None, False
 
 

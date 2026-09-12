@@ -18,6 +18,7 @@ import contextlib
 import json
 import os
 import shutil
+import socket
 import tarfile
 import tempfile
 from collections.abc import Iterator
@@ -28,10 +29,15 @@ from harness495.core.models import Event, Run, utcnow
 
 STATE_DIR_NAME = ".495"
 STOP_FLAG = "STOP"
+DRIVER_FLAG = "DRIVER"
 
 
 class RunNotFound(LookupError):
     pass
+
+
+class RunBusy(RuntimeError):
+    """Another process is already advancing this run."""
 
 
 def default_state_dir(project_root: Path) -> Path:
@@ -52,6 +58,27 @@ def _atomic_write_text(path: Path, text: str) -> None:
         with contextlib.suppress(OSError):
             os.unlink(tmp)
         raise
+
+
+def _read_claim(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _alive(pid: Any) -> bool:
+    """Whether a pid on this host still exists. Signal 0 asks without sending anything."""
+    if not isinstance(pid, int):
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # someone else's process, but it is there
+    return True
 
 
 class RunStore:
@@ -188,6 +215,58 @@ class RunStore:
         p = self.run_dir(run_id) / STOP_FLAG
         if p.exists():
             p.unlink()
+
+    # ---- who is advancing the run
+
+    def claim(self, run_id: str, label: str = "") -> None:
+        """Take the run for this process, or raise :class:`RunBusy` if someone else holds it.
+
+        Two engines stepping the same run write the same ``run.json`` from two phases at once,
+        and the last writer wins: an intervention, its evidence, or a whole iteration
+        disappears. A file naming the holder is enough to prevent that, because every
+        interface that advances a run goes through :meth:`Engine.run`.
+
+        The holder is identified by pid and host, and a claim whose process is gone is taken
+        over rather than honoured — a crashed run would otherwise stay locked until someone
+        deleted a file they have no reason to know about. A claim from another host cannot be
+        tested that way, so it is honoured until it is released.
+        """
+        held = self.holder(run_id)
+        if held is not None:
+            raise RunBusy(f"{run_id} is being advanced by {held}")
+        _atomic_write_text(
+            self.run_dir(run_id) / DRIVER_FLAG,
+            json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "host": socket.gethostname(),
+                    "label": label,
+                    "since": utcnow().isoformat(),
+                }
+            ),
+        )
+
+    def release(self, run_id: str) -> None:
+        """Give the run back. Releasing a claim this process does not hold does nothing."""
+        p = self.run_dir(run_id) / DRIVER_FLAG
+        claim = _read_claim(p)
+        if claim is not None and claim.get("pid") != os.getpid():
+            return
+        with contextlib.suppress(OSError):
+            p.unlink()
+
+    def holder(self, run_id: str) -> str | None:
+        """Who is advancing the run, if it is someone other than this process."""
+        claim = _read_claim(self.run_dir(run_id) / DRIVER_FLAG)
+        if claim is None:
+            return None
+        pid, host = claim.get("pid"), claim.get("host")
+        if pid == os.getpid() and host == socket.gethostname():
+            return None
+        if host == socket.gethostname() and not _alive(pid):
+            return None
+        label = claim.get("label") or "another process"
+        return f"{label} (pid {pid}{'' if host == socket.gethostname() else ' on ' + str(host)})"
 
     # ---- export
 

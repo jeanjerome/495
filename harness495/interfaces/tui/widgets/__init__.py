@@ -11,7 +11,9 @@ from harness495.interfaces.tui.widgets.events import FILTERS, events_table, visi
 from harness495.interfaces.tui.widgets.gauges import badge, gauge, meter
 from harness495.interfaces.tui.widgets.layout import Responsive, field_pairs, two_columns
 from harness495.interfaces.tui.widgets.lists import (
+    Choice,
     bullets,
+    choices,
     commands,
     cursor_cell,
     nothing_yet,
@@ -24,6 +26,7 @@ from harness495.interfaces.tui.widgets.text import clip, hms, plural, short
 __all__ = [
     "FILTERS",
     "TITLE_LEAD",
+    "Choice",
     "Responsive",
     "WorkingBar",
     "activity_bars",
@@ -31,6 +34,7 @@ __all__ = [
     "badge",
     "budget_panel",
     "bullets",
+    "choices",
     "clip",
     "commands",
     "cursor_cell",

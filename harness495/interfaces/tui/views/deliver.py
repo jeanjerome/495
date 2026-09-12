@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from rich.console import Group, RenderableType
-from rich.panel import Panel
 from rich.text import Text
 
-from harness495.core.models import IntegrationCheck, RunStatus
+from harness495.core.models import RunStatus
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.stages import STAGE_INDEX, STAGES, stage_of
 from harness495.interfaces.tui.theme import VERDICT_STYLE
 from harness495.interfaces.tui.views.base import StageContent, ViewContext
-from harness495.interfaces.tui.widgets import commands, field_pairs, panel, short
+from harness495.interfaces.tui.widgets import commands, field_pairs, panel
 
 
 def build_deliver(ctx: ViewContext) -> StageContent:
@@ -22,8 +21,10 @@ def build_deliver(ctx: ViewContext) -> StageContent:
     project = run.project_root
 
     if run.status is not RunStatus.delivered:
-        remaining = [s.name for s in STAGES if STAGE_INDEX[s.name] >= STAGE_INDEX[stage_of(run)]][
-            :-1
+        remaining = [
+            s.name
+            for s in STAGES
+            if STAGE_INDEX[stage_of(run)] <= STAGE_INDEX[s.name] < STAGE_INDEX["deliver"]
         ]
         body: list[RenderableType] = [
             Text(
@@ -77,10 +78,6 @@ def build_deliver(ctx: ViewContext) -> StageContent:
         (f"git -C {project} merge --no-ff {res.branch}", "take the branch as it is"),
         (f"git -C {project} am {res.patch_ref}", "or replay the patch on your own base"),
         (f"495 report {run.id} --format md", "read what was observed, requirement by requirement"),
-        (
-            f"495 check-integration {run.id} --ref main --rerun",
-            "confirm it landed, and re-run the checks there",
-        ),
         (f"495 cleanup {run.id}", "drop the worktree once you are done"),
     )
     body = [
@@ -89,6 +86,11 @@ def build_deliver(ctx: ViewContext) -> StageContent:
                 Text("nothing has been merged; that is your call", style="attn.done"),
                 Text(),
                 acts,
+                Text(),
+                Text(
+                    "once you have merged it, stop 8 asks whether what landed is what was verified",
+                    style="attn.hint",
+                ),
             ),
             ICON["deliver"],
             "what to do with it",
@@ -96,52 +98,4 @@ def build_deliver(ctx: ViewContext) -> StageContent:
         ),
         panel(artefacts, ICON["artefacts"], "what the run produced"),
     ]
-    if res.integration is not None:
-        body.append(_integration_panel(res.integration))
     return StageContent(Group(*body))
-
-
-def _integration_panel(g: IntegrationCheck) -> Panel:
-    ok = g.contains_commit and g.files_identical
-    return panel(
-        field_pairs(
-            [
-                ("target", Text(f"{g.target_ref} at {short(g.target_commit, 12)}", style="h.ref")),
-                (
-                    "contains",
-                    Text(
-                        "the delivered commit"
-                        if g.contains_commit
-                        else "not the delivered commit",
-                        style="req.satisfied" if g.contains_commit else "req.violated",
-                    ),
-                ),
-                (
-                    "files",
-                    Text(
-                        "identical to the candidate"
-                        if g.files_identical
-                        else "differ from the candidate",
-                        style="req.satisfied" if g.files_identical else "req.violated",
-                    ),
-                ),
-                (
-                    "checks there",
-                    Text(
-                        "not re-run"
-                        if not g.verifications_rerun
-                        else ("all pass" if g.verifications_passed else "some fail"),
-                        style="h.meta"
-                        if not g.verifications_rerun
-                        else ("req.satisfied" if g.verifications_passed else "req.violated"),
-                    ),
-                ),
-                ("detail", Text(g.detail or "—", style="h.meta")),
-            ],
-            width=13,
-        ),
-        ICON["integration"],
-        "integration check",
-        g.checked_at.astimezone().strftime("%Y-%m-%d %H:%M"),
-        tone="good" if ok else "bad",
-    )

@@ -19,7 +19,7 @@ from harness495.core.models import (
     RunStatus,
 )
 from harness495.core.store import RunStore
-from harness495.interfaces.tui import Shell, StaticSource, StoreSource
+from harness495.interfaces.tui import Shell, StoreSource
 from harness495.interfaces.tui.chrome import logo
 from harness495.interfaces.tui.logs import StoredLogs
 from harness495.interfaces.tui.stages import STAGES, stage_of, stage_state
@@ -112,7 +112,9 @@ def test_the_surface_never_advances_the_run(delivered: RunStore) -> None:
 
 
 def _bare(status: RunStatus) -> Run:
-    return Run(id="run-0", harness_version="0", intent=Intent(text="x"), project_root="/", status=status)
+    return Run(
+        id="run-0", harness_version="0", intent=Intent(text="x"), project_root="/", status=status
+    )
 
 
 @pytest.mark.parametrize(
@@ -125,7 +127,7 @@ def _bare(status: RunStatus) -> Run:
         (RunStatus.reviewing, "review"),
         (RunStatus.reviewed, "verdict"),
         (RunStatus.accepted, "deliver"),
-        (RunStatus.delivered, "deliver"),
+        (RunStatus.delivered, "integration"),
     ],
 )
 def test_a_status_maps_to_one_stop(status: RunStatus, expected: str) -> None:
@@ -146,9 +148,13 @@ def test_a_question_is_shown_at_the_stage_that_raised_it() -> None:
     assert stage_state(run, "profile") == "done"
 
 
-def test_a_delivered_run_leaves_every_stop_walked() -> None:
+def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration() -> None:
+    """Delivery ends what the harness can do alone: the merge, and its check, are yours."""
     run = _bare(RunStatus.delivered)
-    assert all(stage_state(run, s.name) == "done" for s in STAGES)
+    walked = [s.name for s in STAGES if s.name != "integration"]
+    assert all(stage_state(run, name) == "done" for name in walked)
+    assert stage_of(run) == "integration"
+    assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
 
 
 # --------------------------------------------------------------------- the mark
@@ -194,8 +200,10 @@ def test_a_missing_output_reads_as_nothing_rather_than_raising(delivered: RunSto
 # --------------------------------------------------------------------- a snapshot surface
 
 
-def test_a_snapshot_surface_renders_but_refuses_to_answer() -> None:
+def test_a_snapshot_surface_renders_but_offers_no_control() -> None:
     shell = Shell.over([_bare(RunStatus.created)], [], Console(file=io.StringIO()), animated=False)
     assert render(shell, "profile")
+    assert shell.controls() == []
+    assert shell.startable() is None
     with pytest.raises(RuntimeError):
-        StaticSource([]).decide("run-0", "approve", "")
+        shell.driver.start("run-0")

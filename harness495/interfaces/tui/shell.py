@@ -3,6 +3,11 @@
 Views read this; nothing in a view writes to it. Every key ends up in :meth:`Shell.act`,
 whether it was polled from a terminal in raw mode or typed at a prompt, so the two input paths
 cannot drift apart.
+
+Two objects sit behind the shell and are deliberately different things: a *source* says what
+the runs are, a *driver* makes one move. Which controls appear on screen is decided by asking
+the driver what it can do here — a snapshot surface offers none rather than offering keys that
+fail under the finger.
 """
 
 from __future__ import annotations
@@ -13,9 +18,13 @@ from collections.abc import Sequence
 
 from rich.console import Console, Group, RenderableType
 from rich.layout import Layout
+from rich.padding import Padding
+from rich.text import Text
 
-from harness495.core.models import Event, Run
+from harness495.core.models import Event, Run, RunStatus
+from harness495.interfaces.tui.attention import Attention, attention
 from harness495.interfaces.tui.chrome import attention_band, footer_bar, header, nav_bar
+from harness495.interfaces.tui.driving import Activity, Driver, ReadOnly
 from harness495.interfaces.tui.headlines import headline
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.keys import Binding
@@ -62,7 +71,11 @@ BINDINGS: tuple[Binding, ...] = (
     Binding("enter", "open", "open", scope="list"),
     Binding("f", "filter", "filter", scope="log"),
     Binding("d", "decide", "answer"),
-    Binding("space", "pause", "pause"),
+    Binding("s", "control:start", "start"),
+    Binding("p", "control:pause", "pause the run"),
+    Binding("c", "create", "new run"),
+    Binding("i", "integrate", "check a ref", scope="integration"),
+    Binding("space", "freeze", "freeze"),
     Binding("r", "refresh", "refresh", hidden=True),
     Binding("?", "help", "help"),
     Binding("q", "quit", "quit"),
@@ -82,10 +95,12 @@ class Shell:
         console: Console,
         selected: str | None = None,
         animated: bool = True,
+        driver: Driver | None = None,
     ) -> None:
         self.source = source
         self.console = console
         self.animated = animated
+        self.driver: Driver = driver or ReadOnly()
         self.selected = 0
         if selected is not None:
             self.select(selected)
@@ -145,6 +160,95 @@ class Shell:
         return max(0, len(visible_events(self.events, "loud")) - self.seen)
 
     @property
+    def activity(self) -> Activity | None:
+        """What this surface is doing — to *this* run, not to another one."""
+        work = self.driver.working()
+        return work if work is not None and work.run_id == self.run.id else None
+
+    @property
+    def held(self) -> str | None:
+        return self.driver.held_elsewhere(self.run.id) if self.driver.drives() else None
+
+    def attention(self) -> Attention:
+        return attention(self.run, self.paused, self.activity, self.held, self.driver.drives())
+
+    def startable(self) -> str | None:
+        """What pressing ``s`` would do here, or ``None`` when nothing would.
+
+        A run that is finished, that something else is advancing, or that is stopped on a
+        question has no answer to "start it" — and a key that does nothing is worse than a key
+        that is not offered, because it has to be tried before it can be ruled out.
+        """
+        if not self.driver.drives() or self.activity is not None or self.held is not None:
+            return None
+        status = self.run.status
+        if self.run.pending_decision is not None:
+            return None
+        if status is RunStatus.created:
+            return "start"
+        if status is RunStatus.paused:
+            return "continue"
+        if status is RunStatus.failed:
+            return "try again"
+        if status in {RunStatus.delivered, RunStatus.aborted, RunStatus.rejected}:
+            return None
+        return "continue"
+
+    def can(self, action: str) -> bool:
+        """Whether this key would do something here.
+
+        One rule for both ends: the footer offers what this allows and the loops refuse what it
+        does not, so an offered key and a working key are never two different sets. Anything a
+        run is not ours to act on — because another process is advancing it — is refused here
+        rather than written over there.
+        """
+        if not self.driver.drives():
+            return False
+        if action == "create":
+            return self.driver.creates()
+        if action == "control:pause":
+            # A stop is a file in the run directory, which is how ``495 stop`` reaches a run in
+            # another terminal. So this one control works on a run this surface does not hold.
+            work = self.activity
+            if work is not None:
+                return work.interruptible
+            return self.held is not None
+        if self.held is not None:
+            return False
+        if action == "decide":
+            return self.run.pending_decision is not None
+        if action == "control:start":
+            return self.startable() is not None
+        if action == "integrate":
+            return bool(self.run.result.report_ref)
+        return False
+
+    def refusal(self, action: str) -> str | None:
+        """Why a key did nothing, when the reason is not on the screen already."""
+        if self.can(action) or action == "create":
+            return None
+        held = self.held
+        if held is not None:
+            return f"{self.run.id} is being advanced by {held}; act on it there"
+        return None
+
+    def controls(self) -> list[tuple[str, str]]:
+        """The keys that act on the run right now, in the order they become relevant."""
+        out: list[tuple[str, str]] = []
+        if self.can("decide"):
+            out.append(("d", "answer"))
+        if self.can("control:pause"):
+            out.append(("p", "pause the run"))
+        verb = self.startable()
+        if verb is not None and self.can("control:start"):
+            out.append(("s", verb))
+        if self.view == "integration" and self.can("integrate"):
+            out.append(("i", "check a ref"))
+        if self.can("create"):
+            out.append(("c", "new run"))
+        return out
+
+    @property
     def scope(self) -> str:
         if self.view == "log":
             return "log"
@@ -160,6 +264,18 @@ class Shell:
         return None
 
     def act(self, action: str) -> None:
+        # Any key clears the last thing that went wrong: it has been read, or it has been
+        # overtaken by whatever is being done now.
+        self.driver.notice = None
+        if action.startswith("control:"):
+            if not self.can(action):
+                self.driver.notice = self.refusal(action)
+                return
+            if action == "control:start":
+                self.driver.start(self.run.id)
+            else:
+                self.driver.pause(self.run.id)
+            return
         if action.startswith("stage:"):
             arg = action.split(":", 1)[1]
             if arg in ("+1", "-1"):
@@ -185,7 +301,7 @@ class Shell:
                 self.view = stage_of(self.run)
         elif action == "filter":
             self.filter = FILTERS[(FILTERS.index(self.filter) + 1) % len(FILTERS)]
-        elif action == "pause":
+        elif action == "freeze":
             self.paused = not self.paused
         elif action == "refresh":
             self.source.refresh(force=True)
@@ -197,7 +313,12 @@ class Shell:
     # ---- content
 
     def context(self) -> ViewContext:
-        return ViewContext(run=self.run, cursor=self.cursor, logs=self.source.logs(self.run.id))
+        return ViewContext(
+            run=self.run,
+            cursor=self.cursor,
+            logs=self.source.logs(self.run.id),
+            can_drive=self.driver.drives(),
+        )
 
     def content(self, height: int = 40) -> StageContent:
         if self.view == "runs":
@@ -284,9 +405,7 @@ class Shell:
         that can say you are there.
         """
         rows = self.row_count()
-        keys: list[tuple[str, str, bool]] = []
-        if self.run.pending_decision is not None:
-            keys.append(("d", "answer", False))
+        keys: list[tuple[str, str, bool]] = [(k, label, False) for k, label in self.controls()]
         if self.scope == "list" and rows:
             keys.append(("↑↓", "move", False))
         if self.view == "checks" and rows:
@@ -306,17 +425,38 @@ class Shell:
 
     # ---- rendering
 
+    def notice_line(self) -> RenderableType | None:
+        """What the driver could not do, on a line of its own.
+
+        Not in the band: the band says what the *run* needs, and a refused keystroke must not
+        be able to hide a question the run is stopped on.
+        """
+        note = self.driver.notice
+        if not note:
+            return None
+        return Padding(
+            Text(f"✕  {note}", style="attn.dead", no_wrap=True, overflow="ellipsis"),
+            (0, 1),
+            style="chrome.bar",
+            expand=True,
+        )
+
     def screen(self, width: int, height: int) -> Layout:
-        root = Layout()
-        root.split_column(
+        note = self.notice_line()
+        rows = [
             Layout(name="header", size=2),
             Layout(name="band", size=3),
+            *([Layout(name="notice", size=1)] if note is not None else []),
             Layout(name="nav", size=3),
             Layout(name="body"),
             Layout(name="footer", size=1),
-        )
+        ]
+        root = Layout()
+        root.split_column(*rows)
         root["header"].update(header(self.run, self.animated))
-        root["band"].update(attention_band(self.run, self.paused, pulse("band")))
+        root["band"].update(attention_band(self.attention(), pulse("band")))
+        if note is not None:
+            root["notice"].update(note)
         root["nav"].update(Responsive(lambda w: nav_bar(self.run, self.view, w)))
         root["body"].update(self.body(width, height))
         root["footer"].update(
@@ -332,9 +472,11 @@ class Shell:
         A ``Layout`` clips whatever does not fit and says nothing about it; a surface meant to
         be read after the fact, or captured, has to flow instead.
         """
+        note = self.notice_line()
         return Group(
             header(self.run, self.animated),
-            attention_band(self.run, self.paused, None),
+            attention_band(self.attention(), None),
+            *([note] if note is not None else []),
             Responsive(lambda w: nav_bar(self.run, self.view, w)),
             self.body(width, 200),
             Responsive(

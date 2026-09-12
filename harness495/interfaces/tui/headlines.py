@@ -235,9 +235,7 @@ def _deliver(run: Run) -> Text:
                 + (f" — {clip(run.stop_reason, 90)}" if run.stop_reason else "."),
                 style="attn.dead",
             )
-        return Text(
-            "Nothing is delivered yet; the run has not reached a verdict.", style="h.meta"
-        )
+        return Text("Nothing is delivered yet; the run has not reached a verdict.", style="h.meta")
     out = Text()
     out.append(f"Delivered: {res.summary or 'the change is ready to integrate'}.", "req.satisfied")
     out.append(
@@ -254,6 +252,45 @@ def _deliver(run: Run) -> Text:
     return out
 
 
+def _integration(run: Run) -> Text:
+    g = run.result.integration
+    if g is None:
+        if run.status is not RunStatus.delivered:
+            return Text("Nothing to recognise yet: no version has been delivered.", style="h.meta")
+        return Text(
+            "Not checked yet. Merge the branch or apply the patch, then have 495 look at the "
+            "ref you merged into.",
+            style="attn.you",
+        )
+    when = g.checked_at.astimezone().strftime("%Y-%m-%d %H:%M")
+    out = Text()
+    if g.contains_commit and g.files_identical:
+        out.append(
+            f"{g.target_ref} at {short(g.target_commit)} carries the verified commit and the "
+            "same files.",
+            style="req.satisfied",
+        )
+    elif g.files_identical:
+        out.append(
+            f"{g.target_ref} does not contain the delivered commit, but every changed file is "
+            "identical to the verified one — the change landed by another route.",
+            style="h.value",
+        )
+    else:
+        out.append(
+            f"What is in {g.target_ref} is not what was verified: {clip(g.detail, 120)}",
+            style="req.violated",
+        )
+    if g.verifications_rerun:
+        out.append(
+            " The checks were re-run there and "
+            + ("all pass." if g.verifications_passed else "some fail."),
+            style="req.satisfied" if g.verifications_passed else "req.violated",
+        )
+    out.append(f" Checked {when}.", style="h.meta")
+    return out
+
+
 HEADLINES: dict[str, Callable[[Run], Text]] = {
     "profile": _profile,
     "spec": _spec,
@@ -262,6 +299,7 @@ HEADLINES: dict[str, Callable[[Run], Text]] = {
     "review": _review,
     "verdict": _verdict,
     "deliver": _deliver,
+    "integration": _integration,
 }
 
 __all__ = ["HEADLINES", "headline"]

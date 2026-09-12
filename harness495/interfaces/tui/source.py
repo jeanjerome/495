@@ -1,8 +1,9 @@
-"""Where the surface gets its runs, and where an answered decision goes.
+"""Where the surface gets its runs.
 
-The shell never touches the store. It asks a source for runs and events and hands it back the
-answer to a decision, which is what lets the same shell render a live run, a frozen snapshot
-for an export, and a fixture in a test.
+The shell never touches the store: it asks a source for runs, events and recorded output, and
+that is all a source does. Acting on a run — answering its question, advancing it, checking
+what you merged — belongs to a driver, so the same shell renders a live run, a frozen snapshot
+for an export, and a fixture in a test, none of which can advance anything by being drawn.
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ import time
 from collections.abc import Sequence
 from typing import Protocol
 
-from harness495.core.engine import Engine
 from harness495.core.models import Event, Run
 from harness495.core.store import RunNotFound, RunStore
 from harness495.interfaces.tui.logs import Logs, NoLogs, StoredLogs
@@ -29,8 +29,6 @@ class RunSource(Protocol):
     def refresh(self, force: bool = False) -> bool:
         """Take in whatever changed since the last call. ``True`` if anything did."""
         ...
-
-    def decide(self, run_id: str, choice: str, note: str) -> None: ...
 
 
 class StaticSource:
@@ -51,9 +49,6 @@ class StaticSource:
 
     def refresh(self, force: bool = False) -> bool:
         return False
-
-    def decide(self, run_id: str, choice: str, note: str) -> None:
-        raise RuntimeError("this surface is a snapshot; it cannot answer a decision")
 
 
 class StoreSource:
@@ -98,10 +93,6 @@ class StoreSource:
             seen = self._events.setdefault(run.id, [])
             seen.extend(self.store.events(run.id, offset=len(seen)))
         return True
-
-    def decide(self, run_id: str, choice: str, note: str) -> None:
-        Engine(self.store).decide(run_id, choice, note)
-        self.refresh(force=True)
 
     def load(self, run_id: str) -> Run:
         """One run by id, for a surface opened on a single run."""

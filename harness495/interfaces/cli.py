@@ -35,7 +35,7 @@ from harness495.core.models import (
 )
 from harness495.core.profile import detect_profile
 from harness495.core.report import render_markdown
-from harness495.core.store import RunNotFound, RunStore, default_state_dir
+from harness495.core.store import RunBusy, RunNotFound, RunStore, default_state_dir
 from harness495.interfaces.render import (
     RunMonitor,
     console,
@@ -163,6 +163,21 @@ def _finish(c: Ctx, run: Run) -> None:
         raise typer.Exit(EXIT_REJECTED)
     if run.status.value == "failed":
         raise typer.Exit(EXIT_FAILED)
+
+
+def _advance(c: Ctx, engine: Engine, run_id: str) -> Run:
+    """Walk the run to its next stop, or name whoever is already walking it.
+
+    A run is claimed while it is advanced, so a second `495 run` — or the run surface in
+    another terminal — is told where the run is being driven from instead of interleaving its
+    writes with the ones happening there.
+    """
+    try:
+        with c.watching():
+            return engine.run(run_id)
+    except RunBusy as exc:
+        _error(c, str(exc))
+        raise typer.Exit(EXIT_FAILED) from exc
 
 
 def _apply_overrides(
@@ -408,8 +423,7 @@ def new(
             console.print(f"created run [bold]{run.id}[/bold]; start it with: 495 run {run.id}")
         return
     _install_sigint(engine, run.id)
-    with c.watching():
-        run = engine.run(run.id)
+    run = _advance(c, engine, run.id)
     _finish(c, run)
 
 
@@ -470,8 +484,7 @@ def eval_cmd(
         _error(c, str(exc))
         return
     _install_sigint(engine, run.id)
-    with c.watching():
-        run = engine.run(run.id)
+    run = _advance(c, engine, run.id)
     _finish(c, run)
 
 
@@ -482,8 +495,7 @@ def run_cmd(ctx: typer.Context, run_id: str) -> None:
     engine = c.engine(interactive=True)
     _install_sigint(engine, run_id)
     try:
-        with c.watching():
-            run = engine.run(run_id)
+        run = _advance(c, engine, run_id)
     except RunNotFound:
         _error(c, f"run {run_id} not found")
         return
@@ -498,8 +510,7 @@ def resume(ctx: typer.Context, run_id: str) -> None:
     _install_sigint(engine, run_id)
     try:
         engine.resume(run_id)
-        with c.watching():
-            run = engine.run(run_id)
+        run = _advance(c, engine, run_id)
     except RunNotFound:
         _error(c, f"run {run_id} not found")
         return
@@ -542,8 +553,7 @@ def decide(
         return
     if resume_after and not run.is_blocked():
         _install_sigint(engine, run_id)
-        with c.watching():
-            run = engine.run(run_id)
+        run = _advance(c, engine, run_id)
     _finish(c, run)
 
 
@@ -679,7 +689,7 @@ def check_integration(
     engine = c.engine(interactive=False)
     try:
         run = engine.check_integration(run_id, ref, rerun)
-    except (EngineError, RunNotFound, git.GitError) as exc:
+    except (EngineError, RunBusy, RunNotFound, git.GitError) as exc:
         _error(c, str(exc))
         return
     ic = run.result.integration
@@ -740,19 +750,29 @@ def watch(
     ctx: typer.Context,
     run_id: str | None = typer.Argument(None, help="Run to open; omitted, the listing opens."),
     stage: str | None = typer.Option(
-        None, "--stage", help="Open on one stop: profile, spec, change, checks, review, verdict, deliver, log, runs."
+        None,
+        "--stage",
+        help="Open on one stop: profile, spec, change, checks, review, verdict, deliver, "
+        "integration, log, runs.",
     ),
     once: bool = typer.Option(False, "--print", help="Render the view once and exit."),
     export: Path | None = typer.Option(None, "--export", help="Write the view to an SVG file."),
     width: int | None = typer.Option(None, "--width", help="Force a render width."),
+    read_only: bool = typer.Option(
+        False, "--read-only", help="Show the surface without its controls; nothing can be driven."
+    ),
     ascii_icons: bool = typer.Option(
         False, "--ascii-icons", help="Panel titles with geometric marks instead of emoji."
     ),
 ) -> None:
-    """Open the run surface: the pipeline, what each stage produced, and the pending decision.
+    """Open the run surface: the pipeline, what each stage produced, and the controls.
 
-    It reads the store and never advances a run, so it can be left up in one terminal while
-    another drives the same run — both are looking at the same files.
+    The eight stops of the workflow, each showing what that stage produced and carrying what
+    acts on it: `c` opens a run from an intent, `s` advances it, `p` pauses it, `d` answers the
+    question it stopped on, `i` checks what you merged.
+
+    A run is claimed while it is being advanced, so a surface opened on a run another terminal
+    is driving watches it instead of joining in — both are looking at the same files.
     """
     from harness495.interfaces.tui import build_console
     from harness495.interfaces.tui import watch as watch_runs
@@ -771,6 +791,8 @@ def watch(
         console=build_console(width, record=export is not None),
         once=once,
         export=export,
+        project=c.project,
+        read_only=read_only,
     )
     if code:
         raise typer.Exit(code)

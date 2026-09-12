@@ -13,6 +13,8 @@ from harness495.interfaces.tui.views.checks import build_checks
 from harness495.interfaces.tui.views.decision import ask_decision, decision_panel
 from harness495.interfaces.tui.views.deliver import build_deliver
 from harness495.interfaces.tui.views.help import help_view
+from harness495.interfaces.tui.views.integration import build_integration
+from harness495.interfaces.tui.views.intent import ask_intent
 from harness495.interfaces.tui.views.log import build_log
 from harness495.interfaces.tui.views.profile import build_profile
 from harness495.interfaces.tui.views.review import build_review
@@ -29,6 +31,7 @@ STAGE_VIEWS: dict[str, Callable[[ViewContext], StageContent]] = {
     "review": build_review,
     "verdict": build_verdict,
     "deliver": build_deliver,
+    "integration": build_integration,
 }
 
 __all__ = [
@@ -36,6 +39,7 @@ __all__ = [
     "StageContent",
     "ViewContext",
     "ask_decision",
+    "ask_intent",
     "build_log",
     "build_runs",
     "decision_panel",

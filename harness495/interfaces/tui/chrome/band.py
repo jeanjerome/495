@@ -8,8 +8,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from harness495.core.models import Run
-from harness495.interfaces.tui.attention import attention
+from harness495.interfaces.tui.attention import Attention
 from harness495.interfaces.tui.theme import ASK, BAD, PAD_TIGHT
 from harness495.interfaces.tui.widgets.progress import WorkingBar
 
@@ -24,14 +23,13 @@ BAND_TONE = {
 }
 
 
-def attention_band(run: Run, paused: bool, working: WorkingBar | None) -> RenderableType:
+def attention_band(a: Attention, working: WorkingBar | None) -> RenderableType:
     """The one line that says what the run needs from you — given a frame of its own.
 
     Between a bordered header and a bordered tab strip, an unframed line reads as a gap
     between two things rather than as a thing. So the band takes the box the header gave up:
     it is the only part of the chrome that changes colour, and the eye goes there first.
     """
-    a = attention(run, paused)
     filled, border = BAND_TONE[a.tone]
 
     left = Text(no_wrap=True, overflow="ellipsis")

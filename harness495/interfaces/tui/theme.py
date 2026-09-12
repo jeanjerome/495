@@ -56,7 +56,7 @@ THEME = Theme(
         "tab.name.viewed": "bold white",
         "tab.name.todo": INERT,
         # A count is dim unless it reports something that blocks or misleads. Two reds on the
-        # strip point at the trouble; seven coloured counts point at nothing.
+        # strip point at the trouble; eight coloured counts point at nothing.
         "tab.count": "dim white",
         "tab.count.bad": f"bold {BAD}",
         # ---- attention. "Working" is LIVE, not WARN: an agent holding the worktree is the

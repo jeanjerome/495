@@ -29,14 +29,13 @@ from harness495.interfaces.tui.reading import requirement_counts
 from harness495.interfaces.tui.theme import PAD, REQ_STYLE
 from harness495.interfaces.tui.widgets import (
     TITLE_LEAD,
+    Choice,
     Responsive,
+    choices,
     field_pairs,
     hms,
     plural,
 )
-
-WIDE = 100
-"""Below this the consequence goes under its label rather than into a third column."""
 
 
 def decision_panel(run: Run, pending: PendingDecision, focused: bool = True) -> Panel:
@@ -77,30 +76,10 @@ def decision_panel(run: Run, pending: PendingDecision, focused: bool = True) -> 
 
 
 def _options_grid(pending: PendingDecision, width: int) -> Table:
-    """Every option, with what taking it does to the run.
-
-    The chip carries the whole key: it is what ``495 decide`` takes, and two options starting
-    on the same letter would otherwise be given the same shortcut.
-    """
-    keyed = max((len(o.key) for o in pending.options), default=6) + 2
-    grid = Table.grid(padding=(0, 2), expand=True)
-    grid.add_column(width=keyed, no_wrap=True)
-    if width >= WIDE:
-        grid.add_column(width=24, overflow="fold")
-        grid.add_column(ratio=1, overflow="fold")
-    else:
-        grid.add_column(ratio=1, overflow="fold")
-    for o in pending.options:
-        label = Text(o.label, style="h.title")
-        if o.needs_note:
-            label.append(" *", style="attn.you")
-        chip = Text(f" {o.key} ", style="cursor")
-        why = Text(o.consequence, style="h.meta")
-        if width >= WIDE:
-            grid.add_row(chip, label, why)
-        else:
-            grid.add_row(chip, Group(label, why))
-    return grid
+    """The decision's own options, in the shape every question 495 asks takes."""
+    return choices(
+        [Choice(o.key, o.label, o.consequence, o.needs_note) for o in pending.options], width
+    )
 
 
 NEEDS_LEDGER = frozenset(

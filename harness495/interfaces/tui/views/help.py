@@ -9,7 +9,16 @@ from rich.text import Text
 
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.stages import STAGES
-from harness495.interfaces.tui.widgets import panel
+from harness495.interfaces.tui.widgets import panel, two_columns
+
+CONTROLS = (
+    ("c", "new run", "an intent, or an existing change to evaluate; it starts straight away"),
+    ("s", "start", "advance until it finishes or needs you; a paused or failed run resumes"),
+    ("p", "pause", "stop after the step it is on — the agent is killed, nothing is lost"),
+    ("d", "answer", "answer what the run stopped on, and let it carry on"),
+    ("i", "integrate", "stop 8: check the ref you merged into against the verified version"),
+)
+"""A control appears only where it applies: the footer offers what can act on this run now."""
 
 OTHER_KEYS = (
     ("→ ← tab", "walk", "the next or previous stage of the pipeline"),
@@ -19,28 +28,30 @@ OTHER_KEYS = (
     ("g", "log", "the event stream, filtered"),
     ("f", "filter", "log: useful → all → loud"),
     ("l", "runs", "every run in the store; enter opens one"),
-    ("d", "decide", "answer the pending decision, wherever you are"),
-    ("space", "pause", "freeze the display; the run itself keeps going"),
+    ("space", "freeze", "stop refreshing the display; the run itself is untouched"),
     ("r", "refresh", "reload the run from the store and redraw now"),
     ("?", "help", "this"),
-    ("q", "quit", "anywhere; the run is not affected"),
+    ("q", "quit", "anywhere; the run keeps going without the surface"),
 )
+
+
+def _keys_table(rows: tuple[tuple[str, str, str], ...], width: int) -> Table:
+    table = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 2), show_edge=False)
+    table.add_column("key", width=width, style="cursor", no_wrap=True)
+    table.add_column("does", width=9, style="bold", no_wrap=True)
+    table.add_column("where", ratio=1, style="h.meta")
+    for key, does, where in rows:
+        table.add_row(f" {key} ", does, where)
+    return table
 
 
 def help_view() -> RenderableType:
     stages = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 2), show_edge=False)
     stages.add_column("key", width=5, style="cursor", no_wrap=True)
-    stages.add_column("stage", width=9, style="bold", no_wrap=True)
+    stages.add_column("stage", width=12, style="bold", no_wrap=True)
     stages.add_column("answers", ratio=1)
     for s in STAGES:
         stages.add_row(f" {s.key} ", s.name, s.question)
-
-    extra = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 2), show_edge=False)
-    extra.add_column("key", width=11, style="cursor", no_wrap=True)
-    extra.add_column("does", width=9, style="bold", no_wrap=True)
-    extra.add_column("where", ratio=1, style="h.meta")
-    for key, does, where in OTHER_KEYS:
-        extra.add_row(f" {key} ", does, where)
 
     legend = Table.grid(padding=(0, 3))
     legend.add_column()
@@ -73,6 +84,9 @@ def help_view() -> RenderableType:
     )
     return Group(
         panel(stages, ICON["pipeline"], "the pipeline is the navigation", "press a digit, or ← →"),
-        panel(extra, ICON["keys"], "everything else"),
+        two_columns(
+            panel(_keys_table(CONTROLS, 4), ICON["deliver"], "what drives the run"),
+            panel(_keys_table(OTHER_KEYS, 11), ICON["keys"], "what moves you around"),
+        ),
         panel(legend, ICON["legend"], "what the marks mean"),
     )

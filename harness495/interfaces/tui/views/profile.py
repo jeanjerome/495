@@ -104,9 +104,7 @@ def build_profile(ctx: ViewContext) -> StageContent:
                 ("read from", Text(", ".join(p.detected_from) or "—", style="h.meta")),
                 (
                     "base",
-                    Text(
-                        f"{short(p.base_commit, 12)} on {p.default_branch or '—'}", style="h.ref"
-                    ),
+                    Text(f"{short(p.base_commit, 12)} on {p.default_branch or '—'}", style="h.ref"),
                 ),
             ]
         ),

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
 from pathlib import Path
 
+import pytest
+
 from harness495.core.models import Event, HarnessConfig, Intent, Run, Spec, Usage
-from harness495.core.store import RunStore
+from harness495.core.store import DRIVER_FLAG, RunBusy, RunStore
 
 
 def test_usage_add_tracks_peak_and_upper_bound() -> None:
@@ -68,3 +72,52 @@ def test_config_agent_lookup() -> None:
     assert cfg.agent("openai_compat").kind.value == "openai_compat"
     spec = Spec()
     assert spec.requirement("R9") is None
+
+
+# --------------------------------------------------------------- who is advancing a run
+
+
+def _store_with_run(tmp_path: Path, run_id: str = "run-z") -> RunStore:
+    store = RunStore(tmp_path / ".495")
+    store.save(Run(id=run_id, intent=Intent(text="x"), project_root=str(tmp_path)))
+    return store
+
+
+def test_a_claim_refuses_a_second_holder_and_is_given_back(tmp_path: Path) -> None:
+    store = _store_with_run(tmp_path)
+    store.claim("run-z", "495 run")
+    assert store.holder("run-z") is None, "this process holds it; it is not held against us"
+    store.release("run-z")
+    assert not (store.run_dir("run-z") / DRIVER_FLAG).exists()
+
+
+def test_a_run_held_by_a_live_process_is_named_not_taken(tmp_path: Path) -> None:
+    store = _store_with_run(tmp_path)
+    _write_claim(store, "run-z", pid=1, label="495 run")  # pid 1 is always alive
+    held = store.holder("run-z")
+    assert held is not None and "495 run" in held and "pid 1" in held
+    with pytest.raises(RunBusy):
+        store.claim("run-z", "the run surface")
+
+
+def test_a_claim_left_by_a_dead_process_does_not_lock_the_run(tmp_path: Path) -> None:
+    """A crashed run would otherwise stay locked behind a file nobody knows to delete."""
+    store = _store_with_run(tmp_path)
+    _write_claim(store, "run-z", pid=2**30, label="495 run")
+    assert store.holder("run-z") is None
+    store.claim("run-z", "the run surface")
+
+
+def test_releasing_someone_else_s_claim_does_nothing(tmp_path: Path) -> None:
+    store = _store_with_run(tmp_path)
+    _write_claim(store, "run-z", pid=1, label="495 run")
+    store.release("run-z")
+    assert store.holder("run-z") is not None
+
+
+def _write_claim(store: RunStore, run_id: str, pid: int, label: str) -> None:
+    (store.run_dir(run_id) / DRIVER_FLAG).write_text(
+        json.dumps({"pid": pid, "host": socket.gethostname(), "label": label, "since": "now"}),
+        encoding="utf-8",
+    )
+    assert pid != os.getpid()

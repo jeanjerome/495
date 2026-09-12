@@ -46,7 +46,7 @@ def pulse(name: str, *, note: bool = False) -> WorkingBar:
 
     A spinner rebuilt every frame freezes on its first glyph, so the object has to persist —
     and a view built as a pure function of a run has nowhere to keep one. Naming them here
-    gives every caller the same bar without threading one through seven builders.
+    gives every caller the same bar without threading one through eight builders.
     """
     bar = _PULSES.get(name)
     if bar is None:

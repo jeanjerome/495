@@ -112,6 +112,7 @@ class Engine:
         on_event: EventHandler | None = None,
         decision_handler: DecisionHandler | None = None,
         agent_factory: Callable[[Any, Sandbox], Agent] | None = None,
+        label: str = "495",
     ) -> None:
         self.store = store
         self._sandbox = sandbox
@@ -119,6 +120,8 @@ class Engine:
         self.on_event = on_event
         self.decision_handler = decision_handler
         self.agent_factory = agent_factory or build_agent
+        #: How this engine names itself to whoever finds the run already claimed.
+        self.label = label
         self._stop = threading.Event()
 
     # ------------------------------------------------------------------ public API
@@ -158,18 +161,27 @@ class Engine:
         return run
 
     def run(self, run_id: str) -> Run:
-        """Advance until the run blocks (decision, pause, terminal state)."""
+        """Advance until the run blocks (decision, pause, terminal state).
+
+        The run is claimed for the duration: a second engine — another terminal, the run
+        surface, a CI job — is refused rather than allowed to interleave its writes with
+        these ones.
+        """
         run = self.store.load(run_id)
-        self.store.clear_stop(run_id)
-        self._stop.clear()
-        if run.status is RunStatus.paused or run.status is RunStatus.failed:
-            run = self.resume(run_id)
-        while not run.is_blocked():
-            try:
-                run = self.step(run)
-            except KeyboardInterrupt:
-                run = self._pause(run, "interrupted by user")
-                break
+        self.store.claim(run_id, self.label)
+        try:
+            self.store.clear_stop(run_id)
+            self._stop.clear()
+            if run.status is RunStatus.paused or run.status is RunStatus.failed:
+                run = self.resume(run_id)
+            while not run.is_blocked():
+                try:
+                    run = self.step(run)
+                except KeyboardInterrupt:
+                    run = self._pause(run, "interrupted by user")
+                    break
+        finally:
+            self.store.release(run_id)
         return run
 
     def resume(self, run_id: str) -> Run:
@@ -1828,6 +1840,13 @@ class Engine:
     def check_integration(
         self, run_id: str, target_ref: str = "HEAD", rerun_verifications: bool = False
     ) -> Run:
+        self.store.claim(run_id, self.label)
+        try:
+            return self._check_integration(run_id, target_ref, rerun_verifications)
+        finally:
+            self.store.release(run_id)
+
+    def _check_integration(self, run_id: str, target_ref: str, rerun_verifications: bool) -> Run:
         run = self.store.load(run_id)
         self._ensure_sandbox(run)
         it = run.current_iteration
