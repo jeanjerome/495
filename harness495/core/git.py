@@ -105,6 +105,23 @@ def add_worktree_detached(root: Path, dest: Path, commit: str) -> None:
     git(["worktree", "add", "--detach", str(dest), commit], root)
 
 
+def checkout_paths(path: Path, ref: str, paths: list[str]) -> list[str]:
+    """Bring ``paths`` as they are at ``ref`` into a worktree, leaving the rest of it alone.
+
+    Returns the paths that were actually brought in: one that does not exist at ``ref`` is
+    skipped rather than failing the lot, so a caller can ask for a set of files without first
+    checking which of them the ref happens to carry.
+    """
+    applied: list[str] = []
+    for p in paths:
+        try:
+            git(["checkout", ref, "--", p], path)
+        except GitError:
+            continue
+        applied.append(p)
+    return applied
+
+
 def remove_worktree(root: Path, dest: Path, force: bool = True) -> None:
     args = ["worktree", "remove"]
     if force:

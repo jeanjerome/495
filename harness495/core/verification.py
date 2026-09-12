@@ -11,6 +11,7 @@ from harness495.core import git
 from harness495.core.models import (
     Evidence,
     EvidenceKind,
+    RequirementKind,
     Spec,
     Sufficiency,
     Verification,
@@ -92,8 +93,18 @@ def normalise_command(command: str, interpreters: dict[str, str]) -> tuple[str, 
     return command, None
 
 
-def assess_sufficiency(spec: Spec, executable_commands: set[str] | None = None) -> list[str]:
-    """Flag verifications that are missing or insufficient. Mutates ``spec`` and returns the gaps."""
+def assess_sufficiency(
+    spec: Spec,
+    executable_commands: set[str] | None = None,
+    passing_on_base: set[str] | None = None,
+) -> list[str]:
+    """Flag verifications that are missing or insufficient. Mutates ``spec`` and returns the gaps.
+
+    ``passing_on_base`` holds the commands that were run before the change existed and reported
+    success. A requirement that states new behaviour cannot be carried by one of those alone: it
+    already reports success on a tree where the behaviour is absent, so whatever it reports
+    afterwards is the same and shows nothing.
+    """
     gaps: list[str] = []
     interpreters = project_interpreters(executable_commands or set())
     for v in spec.verifications:
@@ -128,12 +139,51 @@ def assess_sufficiency(spec: Spec, executable_commands: set[str] | None = None) 
         if all(v.sufficiency is not Sufficiency.sufficient for v in vs):
             reasons = "; ".join(f"{v.id}: {v.sufficiency.value} ({v.rationale})" for v in vs)
             gaps.append(f"{r.id} has no sufficient verification ({reasons})")
+        elif (
+            passing_on_base is not None
+            and r.kind is RequirementKind.behaviour
+            and all(not v.to_create and v.command in passing_on_base for v in vs)
+        ):
+            gaps.append(
+                f"{r.id} states new behaviour, but "
+                + ", ".join(v.id for v in vs)
+                + " already passed on the base version and creates nothing: its outcome cannot "
+                "tell the change from its absence"
+            )
     spec.gaps = gaps
     return gaps
 
 
 def _known_prefix(command: str, executable: set[str]) -> bool:
     return any(command.startswith(e.split()[0]) for e in executable if e.split())
+
+
+_TEST_DIRS = frozenset({"test", "tests", "spec", "specs", "__tests__", "testing"})
+_TEST_STEM = re.compile(r"(?:^|[._-])(?:tests?|specs?)(?:[._-]|$)", re.IGNORECASE)
+_TEST_CAMEL = re.compile(r"[a-z0-9](?:Test|Tests|Spec|Specs|IT)$")
+_TEST_SUFFIXES = frozenset({".feature"})
+_TEST_NAMES = frozenset({"conftest.py"})
+
+
+def looks_like_a_test(path: str) -> bool:
+    """Whether a repository path is where a project keeps its tests.
+
+    A naming convention, not a fact: this is how the harness guesses which files of a change are
+    the instrument rather than the thing measured. It spans the usual layouts (``tests/``,
+    ``test_x.py``, ``x_test.go``, ``x.spec.ts``, ``XTest.java``, ``.feature``) and misses a
+    project that follows none of them, which is why nothing is concluded from an empty result.
+    """
+    p = Path(path)
+    if any(part.lower() in _TEST_DIRS for part in p.parts[:-1]):
+        return True
+    if p.suffix.lower() in _TEST_SUFFIXES or p.name in _TEST_NAMES:
+        return True
+    return bool(_TEST_STEM.search(p.stem) or _TEST_CAMEL.search(p.stem))
+
+
+def instrument_files(files_changed: list[str]) -> list[str]:
+    """The files of a change that are how it is measured rather than what it delivers."""
+    return [f for f in files_changed if looks_like_a_test(f)]
 
 
 def run_verification(
@@ -213,16 +263,21 @@ def run_control(
     output_sink: Callable[[str, str], str],
     stop_check: Callable[[], bool] | None = None,
     network: bool = False,
+    applied: list[str] | None = None,
+    label: str | None = None,
 ) -> tuple[Evidence, CommandResult]:
-    """Run a failing verification against the base version, where the change does not exist.
+    """Run a verification against the base version, where the change does not exist.
 
-    A command that fails the same way with and without the change is not observing the change.
-    Whatever it is measuring, no edit inside the change can alter its outcome.
+    The tree it runs in carries the change's own test files when they could be identified, so
+    that the instrument is present and only the behaviour it measures is missing. What comes back
+    is half of a pair: a command whose outcome is the same here and on the change is not
+    observing the change, whatever it reports.
     """
     eid = new_id("ev")
-    assert v.command is not None
+    command = v.command
+    assert command is not None
     req = ExecRequest(
-        command=v.command,
+        command=command,
         cwd=base_worktree,
         timeout_s=v.timeout_s or timeout_s,
         writable=True,
@@ -237,11 +292,12 @@ def run_control(
             iteration=iteration,
             subject_version=base_commit,
             verification_id=v.id,
-            command=v.command,
+            command=command,
             exit_code=res.exit_code,
             expected_exit_code=v.expected_exit_code,
             passed=None,  # a statement about the instrument, not about the change
-            summary=f"control run on the base version: exit {res.exit_code}",
+            summary=f"{label or 'control run on the base version'}: exit {res.exit_code}"
+            + (f", with {len(applied)} test file(s) of the change applied" if applied else ""),
             output_ref=output_sink(eid, res.output),
             output_sha256=git.sha256_text(res.output),
             duration_s=res.duration_s,
@@ -268,3 +324,48 @@ def measures_the_change(
     if subject_exit != control.exit_code:
         return True
     return failure_signature(subject_output) != failure_signature(control.output)
+
+
+def classify_instrument(
+    v: Verification,
+    subject_passed: bool | None,
+    subject_exit: int | None,
+    subject_output: str,
+    subject_timed_out: bool,
+    control: CommandResult,
+    base_commit: str,
+    applied: list[str],
+) -> tuple[bool | None, Sufficiency, str]:
+    """Read a verification's pair of runs. Returns (discriminates, sufficiency, rationale).
+
+    Only a difference between the two runs carries information. When they agree, what the command
+    reported says which kind of instrument it is: one that never reports success, or one that
+    reports it whatever the tree contains.
+    """
+    if measures_the_change(subject_exit, subject_output, control, subject_timed_out):
+        return True, Sufficiency.sufficient, ""
+    where = base_commit[:12]
+    if subject_passed:
+        if not applied:
+            # The command was asked to run a test the change creates, and that test was not
+            # carried over to the base version, so it had nothing to run there. Passing on both
+            # sides is what that looks like, and it is also what a command that ignores the
+            # change looks like; the two are not separable here.
+            return (
+                None,
+                Sufficiency.sufficient,
+                f"passes on the base version {where} too, where none of the change's test files "
+                "could be identified to run: not enough to tell whether it observes the change",
+            )
+        return (
+            False,
+            Sufficiency.vacuous,
+            f"passes on the base version {where} as well, with the change's test files applied "
+            "and the behaviour they measure absent: it reports success either way",
+        )
+    return (
+        False,
+        Sufficiency.broken,
+        f"fails identically on the base version {where} (exit {control.exit_code}), so no edit "
+        "inside the change can make it report success",
+    )

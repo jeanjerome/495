@@ -75,8 +75,11 @@ THEME = Theme(
         "suf.sufficient": GOOD,
         "suf.insufficient": WARN,
         "suf.missing": WARN,
-        # A faulty check fails identically with and without the change: the instrument is
-        # broken, not the change. Red would say the opposite, and red is already spoken for.
+        # A check that reports the same thing with and without the change measures something
+        # else: the instrument is at fault, not the change. Red would say the opposite, and red
+        # is already spoken for.
+        "suf.broken": f"bold {WARN}",
+        "suf.vacuous": f"bold {WARN}",
         "suf.faulty": f"bold {WARN}",
         # ---- what a reviewer concluded, and how loudly
         "verdict.accept": f"bold {GOOD}",

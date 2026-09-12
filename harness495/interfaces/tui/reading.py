@@ -58,9 +58,12 @@ def requirement_counts(run: Run) -> dict[RequirementStatus, int]:
 
 def verification_state(run: Run, v: Verification) -> tuple[str, str, str]:
     """Glyph, style and one-line note for a check, from its latest evidence."""
-    it = run.current_iteration
-    if it and v.id in it.instrument_faults:
-        return "◐", "suf.faulty", "fails without the change too"
+    if v.id in instrument_faults(run):
+        return (
+            "◐",
+            f"suf.{v.sufficiency.value}",
+            v.rationale or "reports the same thing without the change",
+        )
     results = [
         e
         for e in run.evidence
@@ -91,9 +94,12 @@ def findings_on(run: Run, path: str) -> list[tuple[ReviewVerdict, Finding]]:
 
 
 def instrument_faults(run: Run) -> set[str]:
-    """Checks that fail identically with and without the change, so they measure something else."""
+    """Checks that report the same thing with and without the change, so they measure something else.
+
+    They are recorded as ``"V1: why"``; what the surface asks about is ``V1``.
+    """
     it = run.current_iteration
-    return set(it.instrument_faults) if it else set()
+    return {f.split(":", 1)[0].strip() for f in it.instrument_faults} if it else set()
 
 
 def evidence_for(run: Run, verification_id: str) -> list[Evidence]:

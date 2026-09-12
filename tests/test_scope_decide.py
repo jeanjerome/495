@@ -6,6 +6,7 @@ from harness495.core.models import (
     EvidenceKind,
     Finding,
     Requirement,
+    RequirementKind,
     RequirementStatus,
     ReviewVerdict,
     Severity,
@@ -273,3 +274,65 @@ def test_a_control_run_never_stands_in_for_the_verification_it_checks() -> None:
     a = assess(spec, [failing, control], [_review("p", Verdict.accept)])
     assert a.requirement_status["R1"] is RequirementStatus.violated
     assert any("not demonstrated" in c for c in a.correction_requests)
+
+
+def _suite(sufficiency: Sufficiency) -> Verification:
+    return Verification(
+        id="V1",
+        kind=VerificationKind.test,
+        description="the project's suite",
+        command="pytest -q",
+        sufficiency=sufficiency,
+        discriminates=False,
+        rationale="passes on the base version as well",
+    )
+
+
+def test_success_a_command_reports_either_way_is_not_success_the_change_earned() -> None:
+    spec = Spec(
+        requirements=[
+            Requirement(id="R1", statement="a new class exists", verification_ids=["V1"])
+        ],
+        verifications=[_suite(Sufficiency.vacuous)],
+    )
+    a = assess(spec, [_ev("V1", True)], [_review("p", Verdict.accept)])
+    assert a.requirement_status["R1"] is RequirementStatus.undetermined
+    assert a.outcome is Verdict.undetermined
+    assert a.uncredited and a.uncredited[0].startswith("R1: V1")
+    assert a.correction_requests == []
+
+
+def test_the_same_command_still_shows_that_what_worked_goes_on_working() -> None:
+    """Reporting success with and without the change is what non-regression means."""
+    spec = Spec(
+        requirements=[
+            Requirement(
+                id="R1",
+                statement="the existing suite still passes",
+                kind=RequirementKind.non_regression,
+                verification_ids=["V1"],
+            )
+        ],
+        verifications=[_suite(Sufficiency.vacuous)],
+    )
+    a = assess(spec, [_ev("V1", True)], [_review("p", Verdict.accept)])
+    assert a.requirement_status["R1"] is RequirementStatus.satisfied
+    assert a.outcome is Verdict.accept
+    assert a.uncredited == []
+
+
+def test_a_command_that_never_passes_shows_nothing_at_all_not_even_non_regression() -> None:
+    spec = Spec(
+        requirements=[
+            Requirement(
+                id="R1",
+                statement="the existing suite still passes",
+                kind=RequirementKind.non_regression,
+                verification_ids=["V1"],
+            )
+        ],
+        verifications=[_suite(Sufficiency.broken)],
+    )
+    a = assess(spec, [_ev("V1", False)], [_review("p", Verdict.accept)])
+    assert a.requirement_status["R1"] is RequirementStatus.undetermined
+    assert a.instrument_faults and a.instrument_faults[0].startswith("V1:")

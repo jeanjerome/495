@@ -12,12 +12,14 @@ from harness495.core import git
 from harness495.core.engine import EngineError
 from harness495.core.models import (
     DecisionKind,
+    EvidenceKind,
     InterventionStatus,
     RequirementStatus,
     Role,
     Run,
     RunMode,
     RunStatus,
+    Sufficiency,
     Verdict,
 )
 from harness495.core.report import render_markdown
@@ -545,9 +547,10 @@ def test_verification_blind_to_the_change_is_not_turned_into_a_correction(
     # The control run is kept as evidence, on the base version rather than on the change.
     control = [e for e in run.evidence if e.kind.value == "instrument_check"]
     assert len(control) == 1 and control[0].subject_version == run.profile.base_commit
-    # R1 is undetermined, not violated, and nobody was asked to make the command pass.
-    assert run.spec.requirements[0].status is RequirementStatus.undetermined
-    assert not any("not demonstrated: V1" in c for c in it.correction_requests)
+    # The question is put as soon as the measurement is made: no reviewer was asked to reason
+    # about a failure that is not the change's, and nobody was asked to make the command pass.
+    assert not [t for t in scenario.calls if t.role is Role.reviewer]
+    assert not it.correction_requests
 
     run = engine.decide(run.id, "respecify", "V1 never reaches the new code")
     assert run.status is RunStatus.profiled and not run.spec.approved
@@ -724,3 +727,130 @@ def test_the_claim_is_given_back_when_the_run_blocks(
     run = engine.run(run.id)
     assert run.status is RunStatus.awaiting_decision
     assert not (engine.store.run_dir(run.id) / DRIVER_FLAG).exists()
+
+
+def test_a_command_that_would_pass_anyway_is_not_proof_that_the_change_works(
+    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
+) -> None:
+    """The quiet half of a blind instrument: it reports success, and would report it regardless."""
+    import sys
+
+    scenario.spec["verifications"][0]["command"] = f'{sys.executable} -c "pass"'
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+
+    assert run.status is RunStatus.awaiting_decision
+    assert run.pending_decision and run.pending_decision.kind is DecisionKind.instrument_fault
+    assert run.spec.verification("V1").sufficiency is Sufficiency.vacuous
+    assert run.spec.verification("V1").discriminates is False
+    # It was run against the base version carrying the change's own test file, so the test was
+    # there and only what it measures was missing.
+    control = [e for e in run.evidence if e.kind is EvidenceKind.instrument_check]
+    assert len(control) == 1 and "test file(s) of the change applied" in control[0].summary
+    assert not [t for t in scenario.calls if t.role is Role.reviewer]
+
+    run = engine.decide(run.id, "ignore")
+    run = engine.run(run.id)
+    # Answered before the reviewers, the run picks up where it was: they are called, and then
+    # R1 is not credited by V1, while R2 asked only that the suite go on passing, and it did.
+    assert [t.role for t in scenario.calls].count(Role.reviewer) == 2
+    assert run.spec.requirement("R1").status is RequirementStatus.undetermined
+    assert run.spec.requirement("R2").status is RequirementStatus.satisfied
+
+
+def test_every_command_is_run_once_before_the_specification_is_approved(
+    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
+) -> None:
+    """Judged by nobody: the output is on file for whoever answers the approval question."""
+    config.auto_approve = False
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+
+    assert run.pending_decision and run.pending_decision.kind is DecisionKind.approve_spec
+    preflight = [e for e in run.evidence if e.kind is EvidenceKind.baseline and e.verification_id]
+    # V2 is the project's own command, already run at readiness; V1 is the invented one.
+    assert [e.verification_id for e in preflight] == ["V1"]
+    assert preflight[0].passed is None and preflight[0].output_ref
+    assert "V1 exits 0 on the base version" in run.pending_decision.question or (
+        "V1 exits" in run.pending_decision.question
+    )
+    assert run.pending_decision.context["preflight"][0]["verification"] == "V1"
+
+    run = engine.decide(run.id, "approve")
+    run = engine.run(run.id)
+    assert run.status is RunStatus.delivered
+
+
+def test_a_broken_command_is_replaced_and_measured_again_without_producing_anything_twice(
+    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
+) -> None:
+    import sys
+
+    working = scenario.spec["verifications"][0]["command"]
+    scenario.spec["verifications"][0]["command"] = (
+        f'{sys.executable} -c "import module_that_never_existed"'
+    )
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+    assert run.pending_decision and run.pending_decision.kind is DecisionKind.instrument_fault
+
+    run = engine.decide(run.id, "recalibrate", f"V1: {working}")
+    run = engine.run(run.id)
+
+    assert run.status is RunStatus.delivered
+    assert run.spec.verification("V1").command == working
+    assert run.spec.verification("V1").discriminates is True
+    assert run.spec.requirement("R1").status is RequirementStatus.satisfied
+    # One producer for the whole run: the change was not made again to fix a command.
+    assert len([t for t in scenario.calls if t.role is Role.producer]) == 1
+
+
+def test_replacing_a_command_asks_which_one_when_the_note_names_the_wrong_check(
+    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
+) -> None:
+    import sys
+
+    scenario.spec["verifications"][0]["command"] = (
+        f'{sys.executable} -c "import module_that_never_existed"'
+    )
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+    assert run.pending_decision and run.pending_decision.kind is DecisionKind.instrument_fault
+
+    with pytest.raises(EngineError) as exc:
+        engine.decide(run.id, "recalibrate", "V2: echo hi")
+    assert "V2 is not one of the verifications at fault: V1" in str(exc.value)
+    # The question is still open, and the specification was not touched.
+    run = engine.store.load(run.id)
+    assert run.status is RunStatus.awaiting_decision
+    assert run.spec.verification("V1").command.endswith('"import module_that_never_existed"')
+
+
+def test_a_command_the_producer_says_worked_is_run_on_both_versions_before_it_is_offered(
+    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
+) -> None:
+    import sys
+
+    working = scenario.spec["verifications"][0]["command"]
+    scenario.spec["verifications"][0]["command"] = (
+        f'{sys.executable} -c "import module_that_never_existed"'
+    )
+    scenario.producer_commands = [
+        {"command": scenario.spec["verifications"][0]["command"], "exit_code": 1},
+        {"command": working, "exit_code": 0},
+    ]
+    engine = engine_factory()
+    run = _create(engine, sample_project, config)
+    run = engine.run(run.id)
+
+    assert run.pending_decision and run.pending_decision.kind is DecisionKind.instrument_fault
+    assert run.pending_decision.context["measured"] == {"V1": working}
+    assert "reports success with the change and something else without it" in (
+        run.pending_decision.question
+    )
+    it = run.current_iteration
+    assert it and [c.exit_code for c in it.commands_reported] == [1, 0]

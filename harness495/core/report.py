@@ -118,7 +118,11 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
                 lines.append(f"- **{rv.perspective}**: {rv.verdict.value}{tag}. {rv.summary}")
                 for f in rv.findings:
                     where = f" `{f.file}:{f.line}`" if f.file else ""
-                    req = f" [{f.requirement_id}]" if f.requirement_id else ""
+                    req = (
+                        f" [{f.requirement_id or f.verification_id}]"
+                        if (f.requirement_id or f.verification_id)
+                        else ""
+                    )
                     lines.append(f"  - {f.severity.value}{req}: {f.title}{where}. {f.detail}")
                     if f.evidence:
                         lines.append(f"    - evidence: {f.evidence}")

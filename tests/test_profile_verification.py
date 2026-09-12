@@ -10,14 +10,23 @@ from harness495.core.models import (
     ProjectCommand,
     ProjectConfig,
     Requirement,
+    RequirementKind,
     Spec,
     Sufficiency,
     Verification,
     VerificationKind,
 )
 from harness495.core.profile import detect_profile, read_doc_excerpts
-from harness495.core.verification import VersionMismatch, assess_sufficiency, run_verification
+from harness495.core.verification import (
+    VersionMismatch,
+    assess_sufficiency,
+    classify_instrument,
+    instrument_files,
+    looks_like_a_test,
+    run_verification,
+)
 from harness495.sandbox import Sandbox
+from harness495.sandbox.base import CommandResult
 
 
 def test_detect_python_and_node_and_makefile(tmp_path: Path) -> None:
@@ -203,3 +212,106 @@ def test_measures_the_change_is_conservative() -> None:
     # Anything that blurs the comparison is resolved in favour of the instrument.
     assert measures_the_change(None, same, result(1, same), subject_timed_out=True)
     assert measures_the_change(1, same, result(None, same, timed_out=True))
+
+
+def _pair(exit_code: int, output: str = "") -> CommandResult:
+    return CommandResult(command="c", exit_code=exit_code, output=output, duration_s=0.1)
+
+
+def test_a_command_that_already_passes_cannot_carry_new_behaviour() -> None:
+    """It reported success on a tree without the change; it will report it again after."""
+    spec = Spec(
+        requirements=[
+            Requirement(id="R1", statement="a new class exists", verification_ids=["V1"]),
+            Requirement(
+                id="R2",
+                statement="the existing suite still passes",
+                kind=RequirementKind.non_regression,
+                verification_ids=["V1"],
+            ),
+            Requirement(id="R3", statement="the new test asserts it", verification_ids=["V2"]),
+        ],
+        verifications=[
+            Verification(id="V1", kind=VerificationKind.test, description="suite", command="mvn t"),
+            Verification(
+                id="V2",
+                kind=VerificationKind.test,
+                description="a new test",
+                command="mvn t -Dtest=New",
+                to_create=True,
+            ),
+        ],
+    )
+    gaps = assess_sufficiency(spec, {"mvn t"}, {"mvn t"})
+    # R1 leans on a command that was green before the change. R2 asks exactly that of it, and R3
+    # creates what it runs, so neither is a gap.
+    assert [g.split(" ")[0] for g in gaps] == ["R1"]
+    assert "already passed on the base version" in gaps[0]
+
+
+def test_the_same_command_carries_new_behaviour_once_it_has_not_been_run() -> None:
+    spec = Spec(
+        requirements=[Requirement(id="R1", statement="a", verification_ids=["V1"])],
+        verifications=[
+            Verification(id="V1", kind=VerificationKind.test, description="s", command="mvn t")
+        ],
+    )
+    assert assess_sufficiency(spec, {"mvn t"}, set()) == []
+
+
+@pytest.mark.parametrize(
+    "path,is_test",
+    [
+        ("infrastructure/src/test/java/io/x/UserFileRepositoryTest.java", True),
+        ("infrastructure/src/main/java/io/x/UserFileRepository.java", False),
+        ("tests/test_calc.py", True),
+        ("pkg/foo_test.go", True),
+        ("src/a.spec.ts", True),
+        ("src/__tests__/a.js", True),
+        ("features/login.feature", True),
+        ("src/latest.py", False),
+        ("docs/testing.md", False),
+    ],
+)
+def test_which_files_of_a_change_are_the_instrument(path: str, is_test: bool) -> None:
+    assert looks_like_a_test(path) is is_test
+    assert instrument_files([path]) == ([path] if is_test else [])
+
+
+def test_a_command_that_reports_something_else_without_the_change_is_believed() -> None:
+    v = Verification(id="V1", kind=VerificationKind.test, description="d", command="c")
+    discriminates, sufficiency, _ = classify_instrument(
+        v, True, 0, "2 passed", False, _pair(1, "ImportError"), "abc123", ["tests/t.py"]
+    )
+    assert discriminates is True and sufficiency is Sufficiency.sufficient
+
+
+def test_a_command_that_fails_on_both_versions_is_broken_not_a_defect() -> None:
+    v = Verification(id="V1", kind=VerificationKind.test, description="d", command="c")
+    same = "No tests matching pattern"
+    discriminates, sufficiency, why = classify_instrument(
+        v, False, 1, same, False, _pair(1, same), "abc123", ["tests/t.py"]
+    )
+    assert discriminates is False and sufficiency is Sufficiency.broken
+    assert "no edit inside the change can make it report success" in why
+
+
+def test_a_command_that_passes_on_both_versions_proves_nothing_either() -> None:
+    v = Verification(id="V1", kind=VerificationKind.test, description="d", command="c")
+    discriminates, sufficiency, why = classify_instrument(
+        v, True, 0, "ok", False, _pair(0, "ok"), "abc123", ["tests/t.py"]
+    )
+    assert discriminates is False and sufficiency is Sufficiency.vacuous
+    assert "either way" in why
+
+
+def test_passing_on_both_settles_nothing_when_the_test_could_not_be_carried_over() -> None:
+    """Without the change's test on the base version, the command had nothing to run there."""
+    v = Verification(
+        id="V1", kind=VerificationKind.test, description="d", command="c", to_create=True
+    )
+    discriminates, sufficiency, why = classify_instrument(
+        v, True, 0, "ok", False, _pair(0, "ok"), "abc123", []
+    )
+    assert discriminates is None and sufficiency is Sufficiency.sufficient
+    assert "not enough to tell" in why

@@ -24,6 +24,7 @@ from harness495.core.models import (
     Verdict,
 )
 from harness495.interfaces.tui.reading import (
+    instrument_faults,
     latest_results,
     requirement_counts,
     running_intervention,
@@ -136,8 +137,7 @@ def _checks(run: Run) -> Text:
     total = len(run.spec.verifications)
     passed = [vid for vid, e in results.items() if e and e.passed]
     failed = [vid for vid, e in results.items() if e and e.passed is False]
-    it = run.current_iteration
-    faults = [vid for vid in (it.instrument_faults if it else []) if vid in results]
+    faults = [vid for vid in instrument_faults(run) if vid in results]
     failed = [vid for vid in failed if vid not in faults]
     out = Text()
     # White for the count, colour for the exceptions. Painting the whole sentence red because

@@ -12,8 +12,10 @@ import re
 from dataclasses import dataclass, field
 
 from harness495.core.models import (
+    NON_DISCRIMINATING,
     Evidence,
     EvidenceKind,
+    RequirementKind,
     RequirementStatus,
     ReviewVerdict,
     Severity,
@@ -32,6 +34,8 @@ class Assessment:
     undetermined_reasons: list[str] = field(default_factory=list)
     instrument_faults: list[str] = field(default_factory=list)
     """Verifications that cannot observe the change. The specification is at fault, not the change."""
+    uncredited: list[str] = field(default_factory=list)
+    """Requirements a passing command was not allowed to credit, and why."""
     summary: str = ""
 
 
@@ -53,6 +57,7 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
     reasons: dict[str, str] = {}
     corrections: list[str] = []
     undetermined: list[str] = []
+    uncredited: list[str] = []
 
     # One failing verification usually carries several requirements; the observation is the same
     # for all of them, so it is stated once, against the set of requirements it concerns.
@@ -60,10 +65,10 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
     faulty_instruments: dict[str, str] = {}
 
     # A reviewer reads a failing verification as a defect of the change, because from where it
-    # stands that is what a failure means. The harness has since run that command without the
-    # change and seen it fail the same way, so a finding resting on it is reporting the broken
-    # instrument, and acting on it would send the producer after the wrong thing.
-    blind = {v.id for v in spec.verifications if v.sufficiency is Sufficiency.faulty}
+    # stands that is what a failure means. The harness has since run that command on a version
+    # without the change and seen it report the same thing, so a finding resting on it is
+    # reporting the instrument, and acting on it would send the producer after the wrong thing.
+    blind = {v.id for v in spec.verifications if v.sufficiency in NON_DISCRIMINATING}
     tainted = set(blind) | {e.id for e in evidence if e.verification_id in blind}
     tainted_pattern = (
         re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(tainted)) + r")\b")
@@ -90,13 +95,20 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
             if v is None:
                 not_run.append(f"{vid} (unknown verification)")
                 continue
-            if v.sufficiency is Sufficiency.faulty:
-                # The command fails the same way with and without the change: its result says
-                # nothing about the requirement, so it is not evidence of a violation.
+            settled_either_way = (
+                v.sufficiency is Sufficiency.vacuous and r.kind is RequirementKind.non_regression
+            )
+            if v.sufficiency in NON_DISCRIMINATING and not settled_either_way:
+                # The command reports the same thing with and without the change: its result says
+                # nothing about this requirement, so it is neither proof nor evidence of a defect.
+                # The exception is a requirement that something went on holding: a command that
+                # reports success on both versions is exactly what that means.
+                if v.sufficiency is Sufficiency.vacuous:
+                    uncredited.append(f"{r.id}: {vid} {v.rationale}")
                 faulty.append(f"{vid}: {v.rationale or 'does not observe the change'}")
                 faulty_instruments.setdefault(vid, v.rationale or "does not observe the change")
                 continue
-            if v.sufficiency is Sufficiency.sufficient:
+            if v.sufficiency is Sufficiency.sufficient or settled_either_way:
                 insufficient_only = False
             evs = by_verification.get(vid, [])
             if not evs:
@@ -239,5 +251,6 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
         correction_requests=list(dict.fromkeys(corrections)),
         undetermined_reasons=undetermined,
         instrument_faults=instrument_faults,
+        uncredited=uncredited,
         summary=summary,
     )

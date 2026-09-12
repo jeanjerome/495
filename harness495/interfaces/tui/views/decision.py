@@ -109,9 +109,9 @@ def decision_facts(run: Run, pending: PendingDecision) -> list[tuple[str, Render
             (
                 plural(n, "blind check"),
                 Text(
-                    f"{', '.join(it.instrument_faults)} {plural(n, 'fails', 'fail')} identically "
-                    "without the change",
-                    style="suf.faulty",
+                    f"{', '.join(it.instrument_faults)}: {plural(n, 'reports', 'report')} the "
+                    "same thing with and without the change",
+                    style="suf.broken",
                 ),
             )
         )

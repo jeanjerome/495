@@ -100,8 +100,23 @@ class Sufficiency(StrEnum):
     sufficient = "sufficient"
     insufficient = "insufficient"
     missing = "missing"
+    broken = "broken"
+    """The command fails with and without the change: nothing inside the change makes it pass."""
+    vacuous = "vacuous"
+    """The command passes with and without the change: it reports success either way."""
     faulty = "faulty"
-    """The command fails identically with and without the change: it measures something else."""
+    """Both of the above, before they were told apart; kept so that earlier runs still load."""
+
+
+NON_DISCRIMINATING = frozenset({Sufficiency.broken, Sufficiency.vacuous, Sufficiency.faulty})
+"""Verifications whose outcome does not depend on the change, whatever they report."""
+
+
+class RequirementKind(StrEnum):
+    behaviour = "behaviour"
+    """Something the change must make true. Proving it needs a command that fails without it."""
+    non_regression = "non_regression"
+    """Something that was already true and must stay true. A command that already passes shows it."""
 
 
 class RequirementStatus(StrEnum):
@@ -306,12 +321,15 @@ class Verification(StrictModel):
     """The verification (typically a test) must be created as part of the change."""
     sufficiency: Sufficiency = Sufficiency.sufficient
     rationale: str = ""
+    discriminates: bool | None = None
+    """Whether running it with and without the change gave different outcomes. None: not measured."""
     timeout_s: int | None = None
 
 
 class Requirement(StrictModel):
     id: str
     statement: str
+    kind: RequirementKind = RequirementKind.behaviour
     rationale: str = ""
     verification_ids: list[str] = Field(default_factory=list)
     status: RequirementStatus = RequirementStatus.pending
@@ -481,6 +499,8 @@ class Finding(StrictModel):
     file: str | None = None
     line: int | None = None
     requirement_id: str | None = None
+    verification_id: str | None = None
+    """Set when the finding is about how something is measured rather than about the change."""
     evidence: str = ""
     """What the reviewer observed that supports the finding (file, command output...)."""
 
@@ -541,6 +561,11 @@ class Version(StrictModel):
     files_changed: list[str] = Field(default_factory=list)
 
 
+class ReportedCommand(StrictModel):
+    command: str
+    exit_code: int
+
+
 class Iteration(StrictModel):
     n: int
     version: Version | None = None
@@ -551,8 +576,10 @@ class Iteration(StrictModel):
     correction_requests: list[str] = Field(default_factory=list)
     blocked_claims: list[str] = Field(default_factory=list)
     """What the producer reported it could not do. A claim to surface, never a fact."""
+    commands_reported: list[ReportedCommand] = Field(default_factory=list)
+    """Commands the producer says it ran. Claims too, but ones the harness can re-run itself."""
     instrument_faults: list[str] = Field(default_factory=list)
-    """Verifications that failed identically on the base version; the spec is at fault, not the change."""
+    """Verifications whose outcome did not change with the change; the spec is at fault, not the change."""
     outcome: Verdict | None = None
     started_at: dt.datetime = Field(default_factory=utcnow)
     ended_at: dt.datetime | None = None

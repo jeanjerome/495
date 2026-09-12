@@ -38,6 +38,7 @@ from harness495.core.context import (
 )
 from harness495.core.decide import Assessment, assess
 from harness495.core.models import (
+    NON_DISCRIMINATING,
     AgentIdentity,
     Capability,
     Cost,
@@ -57,7 +58,9 @@ from harness495.core.models import (
     Iteration,
     PendingDecision,
     ReadinessCheck,
+    ReportedCommand,
     Requirement,
+    RequirementKind,
     RequirementStatus,
     ReviewVerdict,
     Role,
@@ -83,12 +86,14 @@ from harness495.core.store import RunStore
 from harness495.core.verification import (
     VersionMismatch,
     assess_sufficiency,
+    classify_instrument,
+    instrument_files,
     measures_the_change,
     run_control,
     run_verification,
 )
 from harness495.sandbox import Sandbox, select_sandbox
-from harness495.sandbox.base import CommandResult, ExecRequest
+from harness495.sandbox.base import ExecRequest
 
 DecisionHandler = Callable[[Run, PendingDecision], tuple[str, str] | None]
 EventHandler = Callable[[Event], None]
@@ -416,7 +421,10 @@ class Engine:
                 run.result.summary = "rejected: the corrections produced no change"
                 self._set_status(run, RunStatus.rejected)
         elif kind is DecisionKind.instrument_fault:
-            if choice == "respecify":
+            if choice == "recalibrate":
+                self._recalibrate(run, note)
+                self._set_status(run, RunStatus.produced)
+            elif choice == "respecify":
                 run.spec.approved = False
                 run.spec.assumptions.append(f"revision requested: {note}")
                 self._set_status(run, RunStatus.profiled)
@@ -425,7 +433,7 @@ class Engine:
                 # as proof of nothing, so the requirements it carries stay undetermined rather
                 # than becoming violations the producer would be sent to fix. The answer holds
                 # for the rest of the run: the fault is in the specification and has not moved.
-                self._set_status(run, RunStatus.reviewed)
+                self._set_status(run, run.resume_status or RunStatus.reviewed)
         elif kind is DecisionKind.iteration_limit:
             if choice == "continue":
                 run.budget.max_iterations += 1
@@ -872,9 +880,12 @@ class Engine:
             for c in run.profile.commands
             if any(r.command_name == c.name and r.executable for r in run.profile.readiness)
         }
+        passing_on_base = {
+            r.command for r in run.profile.readiness if r.executable and r.exit_code == 0
+        }
         if run.spec.source == "user" and run.spec.requirements:
             _normalise_spec(run.spec)
-            assess_sufficiency(run.spec, executable)
+            assess_sufficiency(run.spec, executable, passing_on_base)
             self.emit(
                 run,
                 "spec.provided",
@@ -935,7 +946,7 @@ class Engine:
         if not spec.allowed_paths and run.config.project.scope.allowed_paths:
             spec.allowed_paths = list(run.config.project.scope.allowed_paths)
         run.spec = spec
-        assess_sufficiency(run.spec, executable)
+        assess_sufficiency(run.spec, executable, passing_on_base)
         # Written before the gate, not after it: the specification is what the requester is
         # asked to approve, so it has to be readable at the moment the question is put.
         run.spec.artifact_ref = self.store.write_json(
@@ -954,7 +965,69 @@ class Engine:
         self._set_status(run, RunStatus.specified)
         return run
 
+    def _preflight(self, run: Run) -> list[Evidence]:
+        """Run each proposed command once on the base version, before anything is produced.
+
+        Nothing is concluded from what comes back. The change does not exist yet, so a failure is
+        expected of the commands that measure it and means nothing on its own. What this buys is
+        that no command reaches the requester unexecuted: its output is on file at the moment the
+        specification is approved, for whoever reads the question to judge.
+        """
+        if run.mode is not RunMode.change or run.profile is None:
+            return []
+        wt = self._worktree(run)
+        if not wt.exists():
+            return []
+        already = {r.command for r in run.profile.readiness}
+        already |= {
+            e.command for e in run.evidence if e.kind is EvidenceKind.baseline and e.command
+        }
+        produced: list[Evidence] = []
+        for v in run.spec.verifications:
+            if not v.command or v.command in already or v.sufficiency is not Sufficiency.sufficient:
+                continue
+            already.add(v.command)
+            req = ExecRequest(
+                command=v.command,
+                cwd=wt,
+                timeout_s=v.timeout_s or run.budget.command_timeout_s,
+                writable=True,
+                network=run.config.sandbox.allow_network,
+                stop_check=self._stop_check(run),
+            )
+            res = self.sandbox.run(req)
+            if res.interrupted:
+                raise KeyboardInterrupt
+            ev = Evidence(
+                id=new_id("ev"),
+                kind=EvidenceKind.baseline,
+                iteration=0,
+                subject_version=run.profile.base_commit,
+                verification_id=v.id,
+                command=v.command,
+                exit_code=res.exit_code,
+                expected_exit_code=v.expected_exit_code,
+                passed=None,  # what it reports here is not yet about anything
+                summary=f"never run before: exit {res.exit_code} on the base version",
+            )
+            ev.output_ref = self.store.write_text(
+                run.id, str(self.store.evidence_dir(run.id, ev.id) / "output.txt"), res.output
+            )
+            ev.output_sha256 = git.sha256_text(res.output)
+            ev.duration_s = res.duration_s
+            ev.sandbox = self.sandbox.describe(req)
+            produced.append(ev)
+            self.emit(
+                run,
+                "preflight",
+                f"{v.id}: exit {res.exit_code} on the base version, before the change exists",
+                {"id": ev.id, "verification": v.id},
+            )
+        run.evidence.extend(produced)
+        return produced
+
     def _gate(self, run: Run) -> Run:
+        preflight = self._preflight(run)
         gaps = run.spec.gaps
         if run.config.auto_approve and not gaps:
             run.spec.approved = True
@@ -983,6 +1056,12 @@ class Engine:
                 + ". Approve anyway (affected requirements can only end undetermined), ask for a "
                 "revision, or abort?" + where
             )
+        if preflight:
+            # Said, not read: on a tree without the change, a command that measures the change is
+            # meant to fail. This is what each of them printed there, and what it means is the
+            # reader's to decide.
+            printed = "; ".join(f"{e.verification_id} exits {e.exit_code}" for e in preflight)
+            question += f" Run once on the base version, before the change exists: {printed}."
         options = [
             DecisionOption(
                 key="approve",
@@ -1022,6 +1101,15 @@ class Engine:
             options=options,
             context={
                 "gaps": gaps,
+                "preflight": [
+                    {
+                        "verification": e.verification_id,
+                        "command": e.command,
+                        "exit_code": e.exit_code,
+                        "output_ref": e.output_ref,
+                    }
+                    for e in preflight
+                ],
                 "spec_path": spec_path,
                 "spec": run.spec.model_dump(mode="json"),
             },
@@ -1171,6 +1259,15 @@ class Engine:
             iteration.blocked_claims = [str(c).strip()[:500] for c in claims if str(c).strip()][:20]
             for claim in iteration.blocked_claims:
                 self.emit(run, "producer.blocked", claim)
+            iteration.commands_reported = [
+                ReportedCommand(
+                    command=str(c["command"]).strip()[:500], exit_code=int(c["exit_code"])
+                )
+                for c in (result.structured.get("commands_run") or [])
+                if isinstance(c, dict)
+                and str(c.get("command", "")).strip()
+                and isinstance(c.get("exit_code"), int)
+            ][:20]
         # Freeze the delivered version.
         head = git.commit_all(wt, f"495 iteration {n}: {run.intent.text[:60]}") or git.head_commit(
             wt
@@ -1342,33 +1439,174 @@ class Engine:
             )
             if ev.summary == "interrupted":
                 raise KeyboardInterrupt
-        evidence.extend(self._control_failing(run, it, evidence))
+        it.instrument_faults = []
+        calibration, proposals = self._calibrate(run, it, evidence)
+        evidence.extend(calibration)
         # Verification runs may write caches; restore the exact version for the reviewers.
         git.reset_hard_clean(wt, it.version.head_commit)
         run.evidence.extend(evidence)
         it.evidence_ids.extend(e.id for e in evidence)
         self._set_status(run, RunStatus.verified)
+        if it.instrument_faults and not self._instrument_fault_settled(run):
+            # Nothing downstream can recover from this. Reviewers would be handed a failure that
+            # is not the change's, or a success that is not the change's either, and would spend a
+            # full round reasoning about the wrong object.
+            return self._raise_decision(
+                run, self._instrument_decision(run, it, proposals), RunStatus.verified
+            )
         return run
 
-    def _control_failing(self, run: Run, it: Iteration, evidence: list[Evidence]) -> list[Evidence]:
-        """Re-run every failing verification on the base version, where the change does not exist.
+    def _recalibrate(self, run: Run, note: str) -> None:
+        """Point a verification at another command, keeping the requirement it carries.
 
-        A failure that reproduces identically without the change is not telling us anything about
-        the change. Asking the producer to make such a command pass sends it to work on whatever
-        the command is actually measuring, which is never what the requirement is about.
+        The command is not adopted on anyone's say-so: the run goes back to verifying, and the
+        replacement is measured on both versions exactly as the one it replaces was.
         """
-        assert run.profile is not None and run.profile.base_commit
+        it = run.current_iteration
+        faulty = [v for v in run.spec.verifications if v.sufficiency in NON_DISCRIMINATING]
+        if not faulty:
+            raise EngineError("no verification is at fault, so there is no command to replace")
+        head, sep, tail = note.partition(":")
+        named = head.strip()
+        chosen = next((v for v in faulty if v.id == named), None)
+        command = tail if chosen is not None else note
+        if chosen is None:
+            # A note that opens on the id of a verification is naming one, and naming the wrong
+            # one is a mistake to report rather than a command that happens to start with `V2:`.
+            if sep and any(v.id == named for v in run.spec.verifications):
+                raise EngineError(
+                    f"{named} is not one of the verifications at fault: "
+                    + ", ".join(v.id for v in faulty)
+                )
+            if len(faulty) != 1:
+                raise EngineError(
+                    "name the verification the command is for, as `" + faulty[0].id + ": <command>`"
+                )
+            chosen = faulty[0]
+        command = command.strip()
+        if not command:
+            raise EngineError("the note must carry the command to use instead")
+        previous = chosen.command
+        chosen.command = command
+        chosen.sufficiency = Sufficiency.sufficient
+        chosen.discriminates = None
+        chosen.rationale = f"replaced `{previous}` on the requester's instruction"
+        if it is not None:
+            it.instrument_faults = [
+                f for f in it.instrument_faults if not f.startswith(f"{chosen.id}:")
+            ]
+        run.spec.artifact_ref = self.store.write_json(
+            run.id,
+            str(self.store.artifacts_dir(run.id) / "spec.json"),
+            run.spec.model_dump(mode="json"),
+        )
+        self.emit(
+            run,
+            "verification.replaced",
+            f"{chosen.id}: `{command}` replaces `{previous}`; it is measured on both versions "
+            "before it counts",
+            {"verification": chosen.id},
+        )
+
+    @staticmethod
+    def _instrument_fault_settled(run: Run) -> bool:
+        return any(
+            d.kind is DecisionKind.instrument_fault and d.outcome == "ignore" for d in run.decisions
+        )
+
+    def _instrument_decision(
+        self, run: Run, it: Iteration, proposals: dict[str, str]
+    ) -> PendingDecision:
+        measured = "; ".join(f"{vid}: `{cmd}`" for vid, cmd in proposals.items())
+        question = (
+            "These verifications report the same thing with and without the change, so they "
+            "cannot show whether the requirements they carry hold: "
+            + "; ".join(it.instrument_faults)
+            + "."
+        )
+        if measured:
+            question += (
+                " The producer reported another command, and it was run on both versions: "
+                + measured
+                + " reports success with the change and something else without it."
+            )
+        question += (
+            " Replace the command, go back to the specification, keep them as no proof either "
+            "way, or abort?"
+        )
+        return PendingDecision(
+            kind=DecisionKind.instrument_fault,
+            question=question,
+            options=[
+                DecisionOption(
+                    key="recalibrate",
+                    label="Use another command (note: the command, or `V2: the command`)",
+                    needs_note=True,
+                    consequence="The command replaces the one in the specification, and the "
+                    "change already produced is verified again with it, on both versions. "
+                    "Nothing is implemented again and no agent is called.",
+                ),
+                DecisionOption(
+                    key="respecify",
+                    label="Write a specification these commands can actually check",
+                    needs_note=True,
+                    consequence="The specifier runs again with your note and proposes new "
+                    "verifications. The work already produced stays on the branch but is "
+                    "judged afresh against the new specification.",
+                ),
+                DecisionOption(
+                    key="ignore",
+                    label="Leave them; accept that they prove nothing either way",
+                    consequence="The run continues and stops asking. The requirements these "
+                    "commands were meant to cover can only end undetermined, so the run will "
+                    "ask you once more before concluding.",
+                ),
+                DecisionOption(
+                    key="abort",
+                    label="Abort the run",
+                    consequence="The run stops for good. The branch and the patch stay on disk.",
+                ),
+            ],
+            context={"faults": it.instrument_faults, "measured": proposals},
+        )
+
+    def _calibrate(
+        self, run: Run, it: Iteration, evidence: list[Evidence]
+    ) -> tuple[list[Evidence], dict[str, str]]:
+        """Run every demonstrating verification again on the base version and read the pair.
+
+        The tree it runs against is the base version carrying the change's own test files: the
+        instrument is there, what it measures is not. A command whose outcome is the same on both
+        trees is not looking at the change — it either never reports success, or reports it
+        whatever the tree holds — and no edit the producer could make would alter that.
+
+        Pass or fail, every verification that a behaviour requirement leans on is measured this
+        way. Checking only the failing ones catches the loud half and credits the silent one.
+        """
+        assert run.profile is not None and run.profile.base_commit and it.version is not None
+        assert it.version.head_commit
         base = run.profile.base_commit
-        failing = [
+        head = it.version.head_commit
+        leaned_on = {
+            vid
+            for r in run.spec.requirements
+            if r.kind is RequirementKind.behaviour
+            for vid in r.verification_ids
+        }
+        subjects = [
             (v, e)
             for e in evidence
-            if e.passed is False and e.kind is EvidenceKind.command_result and e.verification_id
+            if e.kind is EvidenceKind.command_result and e.verification_id
             for v in [run.spec.verification(e.verification_id)]
-            if v is not None and v.command
+            if v is not None
+            and v.command
+            and v.sufficiency is Sufficiency.sufficient
+            and (v.to_create or v.id in leaned_on)
         ]
-        if not failing:
-            return []
+        if not subjects:
+            return [], {}
         produced: list[Evidence] = []
+        proposals: dict[str, str] = {}
         control_wt = self._worktree(run).parent / f"{run.id}.control"
         root = Path(run.project_root)
         git.remove_worktree(root, control_wt)
@@ -1377,83 +1615,159 @@ class Engine:
             git.add_worktree_detached(root, control_wt, base)
         except git.GitError as exc:
             self._warn(run, f"cannot check the verifications against the base version: {exc}")
-            return []
+            return [], {}
+
+        def sink(eid: str, text: str) -> str:
+            return self.store.write_text(
+                run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), text
+            )
+
         try:
-            for v, ev in failing:
-                previous = next(
-                    (
-                        e
-                        for e in run.evidence
-                        if e.kind is EvidenceKind.instrument_check
-                        and e.verification_id == v.id
-                        and e.command == v.command
-                        and e.subject_version == base
-                    ),
-                    None,
+            wanted = instrument_files(it.version.files_changed)
+            applied = git.checkout_paths(control_wt, head, wanted) if wanted else []
+            if wanted:
+                self.emit(
+                    run,
+                    "control.prepared",
+                    f"base version {base[:12]} with {len(applied)} test file(s) of the change "
+                    "applied, so the commands have something to run",
+                    {"files": applied},
                 )
-                if previous is not None:
-                    control_output = self.store.read_text(run.id, previous.output_ref or "")
-                    control = CommandResult(
-                        command=v.command or "",
-                        exit_code=previous.exit_code,
-                        output=control_output,
-                        duration_s=previous.duration_s or 0.0,
-                    )
-                else:
-                    self.emit(
-                        run,
-                        "control.started",
-                        f"{v.id} failed: checking whether it fails without the change too",
-                        {"verification": v.id},
-                    )
-
-                    def sink(eid: str, text: str) -> str:
-                        return self.store.write_text(
-                            run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), text
-                        )
-
-                    control_ev, control = run_control(
-                        v,
-                        control_wt,
-                        base,
-                        self.sandbox,
-                        it.n,
-                        run.budget.command_timeout_s,
-                        sink,
-                        self._stop_check(run),
-                        network=run.config.sandbox.allow_network,
-                    )
-                    if control.interrupted:
-                        raise KeyboardInterrupt
-                    produced.append(control_ev)
+            for v, ev in subjects:
+                control_ev, control = run_control(
+                    v,
+                    control_wt,
+                    base,
+                    self.sandbox,
+                    it.n,
+                    run.budget.command_timeout_s,
+                    sink,
+                    self._stop_check(run),
+                    network=run.config.sandbox.allow_network,
+                    applied=applied,
+                )
+                if control.interrupted:
+                    raise KeyboardInterrupt
+                produced.append(control_ev)
                 subject_output = self.store.read_text(run.id, ev.output_ref or "")
-                if measures_the_change(
-                    ev.exit_code, subject_output, control, ev.summary == "timed out"
-                ):
+                discriminates, sufficiency, rationale = classify_instrument(
+                    v,
+                    ev.passed,
+                    ev.exit_code,
+                    subject_output,
+                    ev.summary == "timed out",
+                    control,
+                    base,
+                    applied,
+                )
+                v.discriminates = discriminates
+                v.sufficiency = sufficiency
+                if rationale:
+                    v.rationale = rationale
+                if discriminates:
                     self.emit(
                         run,
                         "control.ended",
-                        f"{v.id}: behaves differently without the change, so the failure is "
-                        "about the change",
+                        f"{v.id}: reports something else without the change, so what it reports "
+                        "with it is about the change",
                         {"verification": v.id, "faulty": False},
                     )
                     continue
-                v.sufficiency = Sufficiency.faulty
-                v.rationale = (
-                    f"fails identically on the base version {base[:12]} (exit {control.exit_code}), "
-                    "so its outcome does not depend on the change"
-                )
+                if sufficiency is Sufficiency.sufficient:
+                    self._warn(run, f"{v.id} could not be calibrated: {rationale}")
+                    continue
                 it.instrument_faults.append(f"{v.id}: {v.rationale}")
                 self.emit(
                     run,
                     "instrument.fault",
                     f"{v.id} does not observe the change: {v.rationale}",
-                    {"verification": v.id},
+                    {"verification": v.id, "cause": sufficiency.value},
                 )
+                proposal = self._measure_proposal(run, it, v, control_wt, applied, sink)
+                if proposal is not None:
+                    proposals[v.id] = proposal[0]
+                    produced.extend(proposal[1])
         finally:
             git.remove_worktree(root, control_wt)
             shutil.rmtree(control_wt, ignore_errors=True)
-        return produced
+        return produced, proposals
+
+    def _measure_proposal(
+        self,
+        run: Run,
+        it: Iteration,
+        v: Verification,
+        control_wt: Path,
+        applied: list[str],
+        sink: Callable[[str, str], str],
+    ) -> tuple[str, list[Evidence]] | None:
+        """Take the producer's word for a command, then check it the same way as the spec's.
+
+        The producer runs the commands by hand and is the first to see one of them refuse to work;
+        what it reports is a claim, and the only thing that turns a claim into a fact here is the
+        harness running it itself, on both trees, and finding that the two disagree.
+        """
+        assert it.version is not None and it.version.head_commit and run.profile is not None
+        assert run.profile.base_commit
+        head = (v.command or "").split()[:1]
+        candidate = next(
+            (
+                c.command
+                for c in it.commands_reported
+                if c.exit_code == 0 and c.command != v.command and c.command.split()[:1] == head
+            ),
+            None,
+        )
+        if candidate is None:
+            return None
+        probe = v.model_copy(update={"command": candidate})
+        wt = self._worktree(run)
+        on_change, change_res = run_control(
+            probe,
+            wt,
+            it.version.head_commit,
+            self.sandbox,
+            it.n,
+            run.budget.command_timeout_s,
+            sink,
+            self._stop_check(run),
+            network=run.config.sandbox.allow_network,
+            label=f"command reported by the producer, run on the change for {v.id}",
+        )
+        without, without_res = run_control(
+            probe,
+            control_wt,
+            run.profile.base_commit,
+            self.sandbox,
+            it.n,
+            run.budget.command_timeout_s,
+            sink,
+            self._stop_check(run),
+            network=run.config.sandbox.allow_network,
+            applied=applied,
+            label=f"the same command run without the change for {v.id}",
+        )
+        if change_res.interrupted or without_res.interrupted:
+            raise KeyboardInterrupt
+        passes = change_res.exit_code == v.expected_exit_code
+        differs = measures_the_change(
+            change_res.exit_code, change_res.output, without_res, change_res.timed_out
+        )
+        verdict = (
+            "reports success with the change and something else without it"
+            if passes and differs
+            else f"exits {change_res.exit_code} with the change and "
+            f"{without_res.exit_code} without it"
+        )
+        self.emit(
+            run,
+            "proposal.measured",
+            f"{v.id}: `{candidate}` {verdict}",
+            {"verification": v.id, "command": candidate, "usable": passes and differs},
+        )
+        if not (passes and differs):
+            return None
+        return candidate, [on_change, without]
 
     def _review(self, run: Run) -> Run:
         self._ensure_sandbox(run)
@@ -1586,15 +1900,7 @@ class Engine:
             )
         try:
             findings = [
-                Finding(
-                    severity=Severity(str(f.get("severity", "info"))),
-                    title=str(f.get("title", ""))[:200],
-                    detail=str(f.get("detail", "")),
-                    file=f.get("file") or None,
-                    line=int(f["line"]) if isinstance(f.get("line"), int) else None,
-                    requirement_id=f.get("requirement_id") or None,
-                    evidence=str(f.get("evidence", "")),
-                )
+                _finding_from_agent(f, run.spec)
                 for f in data.get("findings", [])
                 if isinstance(f, dict)
             ]
@@ -1650,52 +1956,16 @@ class Engine:
                 "; undetermined: " + "; ".join(assessment.undetermined_reasons)
                 if assessment.undetermined_reasons
                 else ""
+            )
+            + (
+                "; not credited: " + "; ".join(assessment.uncredited)
+                if assessment.uncredited
+                else ""
             ),
             [e.id for e in evidence],
         )
         it.decision_id = decision.id
         self.emit(run, "iteration.assessed", f"iteration {it.n}: {assessment.summary}")
-        already_answered = any(
-            d.kind is DecisionKind.instrument_fault and d.outcome == "ignore" for d in run.decisions
-        )
-        if (
-            assessment.instrument_faults
-            and assessment.outcome is not Verdict.accept
-            and not already_answered
-        ):
-            # No correction can move a verification that does not look at the change. The gap is
-            # in the specification, and only the requester can decide how to close it.
-            pending = PendingDecision(
-                kind=DecisionKind.instrument_fault,
-                question="These verifications fail the same way with and without the change, so "
-                "they cannot show whether the requirements they carry hold: "
-                + "; ".join(assessment.instrument_faults)
-                + ". Go back to the specification, keep them as no proof either way, or abort?",
-                options=[
-                    DecisionOption(
-                        key="respecify",
-                        label="Write a specification these commands can actually check",
-                        needs_note=True,
-                        consequence="The specifier runs again with your note and proposes new "
-                        "verifications. The work already produced stays on the branch but is "
-                        "judged afresh against the new specification.",
-                    ),
-                    DecisionOption(
-                        key="ignore",
-                        label="Leave them; accept that they prove nothing either way",
-                        consequence="The run continues and stops asking. The requirements these "
-                        "commands were meant to cover can only end undetermined, so the run will "
-                        "ask you once more before concluding.",
-                    ),
-                    DecisionOption(
-                        key="abort",
-                        label="Abort the run",
-                        consequence="The run stops for good. The branch and the patch stay on disk.",
-                    ),
-                ],
-                context={"faults": assessment.instrument_faults},
-            )
-            return self._raise_decision(run, pending, RunStatus.reviewed)
         if assessment.outcome is Verdict.accept:
             run.result.outcome = Verdict.accept
             run.result.summary = assessment.summary
@@ -2091,10 +2361,16 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
     for i, r in enumerate(data.get("requirements", []), start=1):
         if not isinstance(r, dict):
             continue
+        kind = str(r.get("kind", RequirementKind.behaviour.value))
         requirements.append(
             Requirement(
                 id=str(r.get("id") or f"R{i}"),
                 statement=str(r.get("statement", "")).strip() or "(empty)",
+                # Anything unrecognised is read as new behaviour: that is the reading under which
+                # a command which already passes is not accepted as proof.
+                kind=RequirementKind(kind)
+                if kind in RequirementKind.__members__
+                else RequirementKind.behaviour,
                 rationale=str(r.get("rationale", "")),
                 verification_ids=[str(x) for x in r.get("verification_ids", []) if str(x)],
             )
@@ -2111,6 +2387,35 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
     )
     _normalise_spec(spec)
     return spec
+
+
+def _finding_from_agent(f: dict[str, Any], spec: Spec) -> Finding:
+    """Read one finding, and file it against whatever it is actually about.
+
+    A reviewer with something to say about how a requirement is measured has a requirement field
+    and no other, and writes the verification's id in it. Read literally, that finding is about a
+    requirement that does not exist and is dropped; read for what it says, it is about the
+    verification it names.
+    """
+    requirement_id = str(f.get("requirement_id") or "") or None
+    verification_id = str(f.get("verification_id") or "") or None
+    names_a_verification = (
+        requirement_id is not None
+        and spec.verification(requirement_id) is not None
+        and not any(r.id == requirement_id for r in spec.requirements)
+    )
+    if names_a_verification:
+        requirement_id, verification_id = None, verification_id or requirement_id
+    return Finding(
+        severity=Severity(str(f.get("severity", "info"))),
+        title=str(f.get("title", ""))[:200],
+        detail=str(f.get("detail", "")),
+        file=f.get("file") or None,
+        line=int(f["line"]) if isinstance(f.get("line"), int) else None,
+        requirement_id=requirement_id,
+        verification_id=verification_id,
+        evidence=str(f.get("evidence", "")),
+    )
 
 
 def _normalise_spec(spec: Spec) -> None:

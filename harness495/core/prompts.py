@@ -42,13 +42,22 @@ Rules for requirements:
 - Cover the intent completely; add the non-regression requirement that existing verifications
   still pass when applicable.
 - Each requirement must reference at least one verification (ids V1, V2, ...).
+- Set `kind` to `behaviour` for something the change must make true, and to `non_regression` for
+  something that already holds and must go on holding. The difference decides what counts as
+  proof: a command that already reported success before the change can only show non-regression,
+  so a `behaviour` requirement carried by nothing else is reported as a gap.
 
 Rules for verifications:
 - Prefer commands that already exist in the project (listed in the facts). Use the exact
   command strings from the project profile when you reuse them.
 - When a behaviour has no existing verification, propose a new automated one: kind "test" with
   `to_create` true, a precise description of what the test must exercise, and the command that
-  will run it once created (usually the project's test command, possibly narrowed to a file).
+  will run it once created. Prefer the project's own test command exactly as the profile lists
+  it: it picks up the new test on its own, and the harness runs it against a tree carrying the
+  new test but not the change, where it fails. Narrow it to a single test only when the suite is
+  too slow to run, and only with a form the project itself uses: a filter that a runner rejects,
+  or that selects nothing in a module or package that does not hold the test, fails whatever the
+  change contains and proves nothing.
 - Prefer an automated check whenever one is possible: a docstring, a type annotation, a
   signature, an error message or a CLI flag can all be asserted by a small test or a one-line
   command (e.g. `python -c "import m; assert m.f.__doc__"`); propose such a `test` or `command`
@@ -61,8 +70,9 @@ Rules for verifications:
   command you propose reaches the code the requirement is about, and that someone who may only
   edit the paths you list in `allowed_paths` can make it report success. If making it succeed
   would require touching anything outside them, widen `allowed_paths` or propose a different
-  command: the harness re-runs every failing verification on the base version, and one that
-  fails identically there is discarded as proving nothing.
+  command: the harness runs every verification twice, once on the change and once on the base
+  version carrying the change's test files, and a command that reports the same thing both times
+  is discarded as proving nothing, whether it failed both times or passed both times.
 - Never invent tools that the project does not have.
 
 Also list: what is out of scope, the assumptions you made, and the path globs the change is
@@ -121,7 +131,9 @@ requirement it watches, defeats the purpose of the iteration.
 
 If you conclude that a requirement already holds and that the verification designated for it
 cannot show it, do not work around it: report it in `not_done`, with what you observed, and
-leave that verification alone.
+leave that verification alone. List in `commands_run` every command you ran and the exit code
+you saw, the diagnostic ones included: a command you found to work where the specified one does
+not is re-run by the harness, on the change and without it, and can replace it.
 
 Keep the rest of the change intact unless a correction requires otherwise.
 """
@@ -146,6 +158,10 @@ For each requirement listed in the facts, decide from what you can observe wheth
 `satisfied`, `violated` or `undetermined`. Report `undetermined` whenever you lack evidence:
 never guess. A `violated` assessment must be backed by a finding whose `evidence` field cites
 the file and line, the command output, or the diff hunk that shows the violation.
+
+A finding about the change names the requirement it concerns in `requirement_id`. A finding
+about how something is measured — a command that cannot report what it is meant to report —
+names that verification in `verification_id` instead, and leaves `requirement_id` null.
 
 Findings carry a severity: `blocker` (the change must not be integrated), `major` (must be
 fixed), `minor` (should be fixed), `info`. Your overall verdict is `reject` if any blocker or

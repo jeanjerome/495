@@ -6,7 +6,15 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from harness495.core.models import Evidence, ProjectProfile, ReviewVerdict, Spec, Version
+from harness495.core.models import (
+    NON_DISCRIMINATING,
+    Evidence,
+    ProjectProfile,
+    RequirementKind,
+    ReviewVerdict,
+    Spec,
+    Version,
+)
 
 MAX_DIFF_CHARS = 120_000
 MAX_EVIDENCE_OUTPUT = 3_000
@@ -85,7 +93,8 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
     lines = ["Requirements:"]
     for r in spec.requirements:
         status = f" [{r.status.value}]" if include_status else ""
-        lines.append(f"- {r.id}{status}: {r.statement}")
+        kind = " (non-regression)" if r.kind is RequirementKind.non_regression else ""
+        lines.append(f"- {r.id}{status}{kind}: {r.statement}")
         if r.rationale:
             lines.append(f"  rationale: {r.rationale}")
         lines.append(f"  verified by: {', '.join(r.verification_ids) or 'nothing'}")
@@ -95,6 +104,8 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
         flag = " (to create as part of the change)" if v.to_create else ""
         cmd = f" command: `{v.command}`" if v.command else ""
         lines.append(f"- {v.id} ({v.kind.value}{flag}): {v.description}{cmd}")
+        if v.sufficiency in NON_DISCRIMINATING:
+            lines.append(f"  reports the same with and without the change: {v.rationale}")
     if spec.out_of_scope:
         lines.append("")
         lines.append("Out of scope:")

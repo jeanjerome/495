@@ -87,12 +87,14 @@ SPEC_JSON: dict[str, Any] = {
         {
             "id": "R1",
             "statement": "calc.subtract(a, b) returns a - b",
+            "kind": "behaviour",
             "rationale": "requested",
             "verification_ids": ["V1"],
         },
         {
             "id": "R2",
             "statement": "existing tests still pass",
+            "kind": "non_regression",
             "rationale": "non-regression",
             "verification_ids": ["V2"],
         },
@@ -190,6 +192,7 @@ class Scenario:
         self.calls: list[AgentTask] = []
         self.producer_status = InterventionStatus.completed
         self.producer_not_done: list[str] = []
+        self.producer_commands: list[dict[str, Any]] = []
         self.reviewer_hook: Callable[[AgentTask], None] | None = None
         self.usage = Usage(
             input_tokens=1000,
@@ -236,7 +239,7 @@ class FakeAgent(Agent):
             structured = {
                 "summary": text,
                 "files_changed": ["calc.py", "tests/test_calc.py"],
-                "commands_run": [],
+                "commands_run": list(sc.producer_commands),
                 "not_done": list(sc.producer_not_done),
             }
             status = sc.producer_status

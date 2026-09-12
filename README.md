@@ -47,7 +47,7 @@ software change is cleared to merge.
 - [x] **Independent review**: one read-only agent per perspective, structured verdicts, no access to the producer's transcript
 - [x] **Decided on evidence**: each requirement becomes `satisfied`, `violated` or `undetermined`; evidence that cannot conclude stops the run and asks you
 - [x] **Feedback that names the gap, not the fix**: a correction request states which requirement is not demonstrated and what was observed
-- [x] **Instrument faults separated from defects**: a check that fails identically with and without the change is taken out of the evidence instead of becoming work
+- [x] **Every check measured before it counts**: each one runs twice, on the change and on the base version carrying the change's own test files; one that reports the same thing both times proves nothing — whether it failed both times or passed both times — and is taken out of the evidence instead of becoming work
 - [x] **A rich terminal UI**: eight stops in the order the engine walks them — where the run is, what each stage produced, and the controls that act on it
 - [x] **Merge on request only**, in four shapes, followed by the integration check that inspects it
 - [x] **Scoped permissions**: read-only roles and one write role, each under the isolation its client offers, with what was actually applied recorded per intervention
@@ -297,10 +297,10 @@ flowchart TD
 | phase | what happens | who |
 |---|---|---|
 | profile | detect languages, tooling, verification commands and conventions; run every command once on the base version to prove it is executable and record what it printed (**readiness**) | harness |
-| specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`; flag missing or insufficient verifications and propose new tests to create | specifier agent (read-only) |
-| gate | approve the specification (human, or `--auto-approve` when there is no gap) | you |
+| specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`; flag missing or insufficient verifications and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
+| gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
 | produce | implement the change in the worktree; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
-| verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence; every failing command is re-run on the base version, and one that fails identically there is marked as not observing the change | harness |
+| verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called | harness |
 | review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
@@ -323,18 +323,25 @@ A requirement is never decided by the agent that implemented it.
 | `command_result` | a verification command, run by the harness on the evaluated commit | whether the requirements that command carries hold |
 | `scope_check` | the harness, from the diff | whether the change stayed inside the allowed paths |
 | `review_verdict` | a read-only reviewer, one per perspective | a violation, with the observation that supports it |
-| `instrument_check` | the harness, re-running a failing command on the base version | whether the command observes the change at all |
+| `instrument_check` | the harness, running a command on the base version carrying the change's test files | whether the command observes the change at all |
 | `integrity` | the harness, fingerprinting the tree around an intervention | whether the evidence can be trusted |
-| `baseline` | the harness, before anything is produced | whether the command could run here in the first place |
+| `baseline` | the harness, before anything is produced: the project's own commands at readiness, then each proposed one at the gate | whether the command could run here in the first place, and what it printed where the change does not exist |
 
 A requirement is `satisfied` only when every verification attached to it ran on the evaluated
 commit and passed, and no reviewer reports a violation with evidence. A failed verification or
 an evidenced violation makes it `violated`. Anything else is `undetermined`, and an
 undetermined requirement blocks acceptance: the run stops and asks rather than concluding.
 
-> `satisfied` means the named command passed on the evaluated commit. It does not prove that
-> the command measures the requirement. That mapping is part of the specification, and
-> reviewing it is yours — which is why the specification is shown in full before you approve it.
+What a passing command is allowed to credit depends on what the requirement claims. A
+requirement of kind `behaviour` says the change makes something true, and a command that
+reported success on the base version as well cannot show it. A requirement of kind
+`non_regression` says something went on holding, and a command reporting success on both
+versions is exactly what that means.
+
+> `satisfied` means the named command passed on the evaluated commit, and reported something
+> else on the version without the change. It does not prove that the command measures *this*
+> requirement. That mapping is part of the specification, and reviewing it is yours — which is
+> why the specification is shown in full before you approve it.
 
 ### Iterations, and what a correction request may say
 
@@ -356,8 +363,11 @@ question. So does reaching `max_iterations`, or the budget.
   the base version, so nothing it reports later can be attributed to the change: proceed /
   allow_network (re-run with the network open to the verification commands, for builds that
   resolve dependencies on first use) / retry / abort.
-- `instrument_fault`: a verification fails the same way with and without the change, so it cannot
-  show whether the requirements it carries hold: respecify (note) / ignore / abort.
+- `instrument_fault`: a verification reports the same thing with and without the change, so it
+  cannot show whether the requirements it carries hold: recalibrate (note = the command to use
+  instead, or `V2: the command`) / respecify (note) / ignore / abort. When the producer reported
+  a command of its own that worked, the harness has already run it on both versions and the
+  question says what it found.
 - `no_progress`: an iteration delivered the same tree as the previous one: respecify (note) /
   review_anyway / stop / abort.
 - `undetermined`: evidence insufficient to conclude: accept_with_risk (note) / rerun / correct (note) / abort.

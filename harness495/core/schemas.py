@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 VERIFICATION_KINDS = ["command", "test", "lint", "build", "typecheck", "review", "manual"]
+REQUIREMENT_KINDS = ["behaviour", "non_regression"]
 
 
 def _obj(properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
@@ -32,6 +33,7 @@ SPEC_SCHEMA: dict[str, Any] = _obj(
                 {
                     "id": {"type": "string"},
                     "statement": {"type": "string"},
+                    "kind": {"type": "string", "enum": REQUIREMENT_KINDS},
                     "rationale": {"type": "string"},
                     "verification_ids": {"type": "array", "items": {"type": "string"}},
                 }
@@ -80,6 +82,7 @@ REVIEW_SCHEMA: dict[str, Any] = _obj(
                     "file": {"type": ["string", "null"]},
                     "line": {"type": ["integer", "null"]},
                     "requirement_id": {"type": ["string", "null"]},
+                    "verification_id": {"type": ["string", "null"]},
                     "evidence": {"type": "string"},
                 }
             ),
