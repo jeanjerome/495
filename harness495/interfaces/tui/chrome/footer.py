@@ -53,14 +53,14 @@ def footer_bar(
     count and a clock are facts about one run, and there is none to be had. The live mark
     stays, because it is the display that it speaks for.
     """
-    if width < WIDE:
-        room = 5 if width >= 104 else (4 if width >= 88 else 2)
+    room = 5 if width >= 104 else (4 if width >= 88 else 2)
+    if width < WIDE and len(keys) > room:
         # The key naming the view you are in survives the trim: it is the only thing on the
         # row that answers "where am I" when the pipeline strip cannot, because you are not on
-        # a stage at all. Quit is put back at the end rather than kept in place, and taken out
-        # first, because a row short enough to still hold it would otherwise print it twice.
-        kept = [*keys[:room], *(k for k in keys[room:] if k[2])]
-        keys = [*(k for k in kept if k[0] != "q"), ("q", "quit", False)]
+        # a stage at all. So does the last key, which is always the way out of the screen —
+        # quit, or the escape that closes a question. A row that already fits is left exactly
+        # as it was: a trim that added a key would offer one the surface did not.
+        keys = [*keys[:room], *(k for k in keys[room:-1] if k[2]), keys[-1]]
     left = Text(no_wrap=True, overflow="ellipsis")
     for key, label, active in keys:
         left.append(f" {key} ", style="key.active" if active else "h.rule")

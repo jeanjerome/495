@@ -10,11 +10,15 @@ from collections.abc import Callable
 from harness495.interfaces.tui.views.base import StageContent, ViewContext
 from harness495.interfaces.tui.views.change import build_change
 from harness495.interfaces.tui.views.checks import build_checks
-from harness495.interfaces.tui.views.decision import ask_decision, decision_panel
+from harness495.interfaces.tui.views.decision import (
+    ask_decision,
+    decision_panel,
+    decision_question,
+)
 from harness495.interfaces.tui.views.deliver import build_deliver
 from harness495.interfaces.tui.views.help import help_view
-from harness495.interfaces.tui.views.integration import build_integration
-from harness495.interfaces.tui.views.intent import ask_intent
+from harness495.interfaces.tui.views.integration import build_integration, integration_question
+from harness495.interfaces.tui.views.intent import ask_intent, intent_question, intent_taken
 from harness495.interfaces.tui.views.log import build_log
 from harness495.interfaces.tui.views.profile import build_profile
 from harness495.interfaces.tui.views.review import build_review
@@ -43,5 +47,9 @@ __all__ = [
     "build_log",
     "build_runs",
     "decision_panel",
+    "decision_question",
     "help_view",
+    "integration_question",
+    "intent_question",
+    "intent_taken",
 ]

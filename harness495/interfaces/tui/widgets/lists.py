@@ -32,31 +32,42 @@ class Choice:
     """Carries a star — it will ask for something more, such as the note behind a decision."""
 
 
-def choices(options: Sequence[Choice], width: int) -> Table:
+def choices(options: Sequence[Choice], width: int, cursor: int | None = None) -> Table:
     """Every answer, with what taking it does to the run.
 
     A question whose answers are listed without their consequences is not a question: it is a
     guess. This is the one shape 495 asks in, whether the run raised the question or the
     surface did.
+
+    ``cursor`` is what the keyboard is standing on while the question is being answered here.
+    Without it the grid is a statement of what could be typed — at a prompt, or in another
+    terminal — and nothing on it is singled out.
     """
     keyed = max((len(o.key) for o in options), default=6) + 2
     grid = Table.grid(padding=(0, 2), expand=True)
+    if cursor is not None:
+        grid.add_column(width=1, no_wrap=True)
     grid.add_column(width=keyed, no_wrap=True)
     if width >= CHOICES_WIDE:
         grid.add_column(width=24, overflow="fold")
         grid.add_column(ratio=1, overflow="fold")
     else:
         grid.add_column(ratio=1, overflow="fold")
-    for o in options:
-        label = Text(o.label, style="h.title")
+    for index, o in enumerate(options):
+        here = index == cursor
+        label = Text(o.label, style="h.title" if here or cursor is None else "h.value")
         if o.marked:
             label.append(" *", style="attn.you")
-        chip = Text(f" {o.key} ", style="cursor")
+        # The chip is the key you would type at a prompt or from a shell; under the cursor it
+        # is what enter takes, so only one of them can be lit at a time.
+        chip = Text(f" {o.key} ", style="cursor" if here or cursor is None else "h.meta")
         why = Text(o.consequence, style="h.meta")
+        cells: list[RenderableType] = [] if cursor is None else [cursor_cell(here)]
         if width >= CHOICES_WIDE:
-            grid.add_row(chip, label, why)
+            cells += [chip, label, why]
         else:
-            grid.add_row(chip, Group(label, why))
+            cells += [chip, Group(label, why)]
+        grid.add_row(*cells)
     return grid
 
 

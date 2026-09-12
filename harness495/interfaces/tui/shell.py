@@ -22,6 +22,7 @@ from rich.padding import Padding
 from rich.text import Text
 
 from harness495.core.models import Event, Run, RunStatus
+from harness495.interfaces.tui.asking import Ask
 from harness495.interfaces.tui.attention import Attention, attention
 from harness495.interfaces.tui.chrome import (
     attention_band,
@@ -118,6 +119,8 @@ class Shell:
         self.driver: Driver = driver or ReadOnly()
         self.selected = 0
         self.opened = False
+        self.asking: Ask | None = None
+        """The question being answered on the surface, which owns the keyboard while it is."""
         if selected is not None:
             self.select(selected)
         self.view = stage_of(self.run) if self.opened else "runs"
@@ -244,6 +247,10 @@ class Shell:
         run is not ours to act on — because another process is advancing it — is refused here
         rather than written over there.
         """
+        if self.asking is not None:
+            # The keyboard belongs to the question: every key is an answer, and a control
+            # offered here would be a control whose key types a character instead.
+            return False
         if not self.driver.drives():
             return False
         if action == "create":
@@ -418,8 +425,18 @@ class Shell:
             )
             # The question goes where it was raised, above what it rests on.
             pending = run.pending_decision
-            if pending is not None and DECISION_STAGE.get(pending.kind, "verdict") == self.view:
+            if (
+                pending is not None
+                and DECISION_STAGE.get(pending.kind, "verdict") == self.view
+                and self.asking is None
+            ):
                 blocks.append(decision_panel(run, pending))
+        if self.asking is not None:
+            # In the place the panel it replaces would have stood: answering a question is
+            # reading it, and a question that moved when you started answering it would make
+            # you find it twice.
+            asking = self.asking
+            blocks.append(Responsive(asking.panel))
 
         listing: RenderableType = (
             panel(
@@ -455,6 +472,8 @@ class Shell:
         that can say you are there. Before a run is opened the row holds what the listing
         answers to, and nothing that would act on a run.
         """
+        if self.asking is not None:
+            return [(key, label, False) for key, label in self.asking.controls()]
         rows = self.row_count()
         if not self.opened:
             picks: list[tuple[str, str, bool]] = [("↑↓", "move", False)] if rows else []

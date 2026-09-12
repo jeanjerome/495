@@ -13,9 +13,52 @@ from rich.panel import Panel
 from rich.text import Text
 
 from harness495.core.models import IntegrationCheck, RunStatus
+from harness495.interfaces.tui.asking import Answers, Question, Step
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.views.base import StageContent, ViewContext
-from harness495.interfaces.tui.widgets import commands, field_pairs, panel, plural, short
+from harness495.interfaces.tui.widgets import (
+    Choice,
+    commands,
+    field_pairs,
+    panel,
+    plural,
+    short,
+)
+
+RERUN = (
+    Choice(
+        "no",
+        "compare only",
+        "the commit and the content of the files it changed are looked for in the ref",
+    ),
+    Choice(
+        "yes",
+        "run the checks there too",
+        "the verification commands are run again on the ref, which takes as long as they do",
+    ),
+)
+
+
+def integration_question(head: str) -> Question:
+    """Which ref you merged into, and whether the checks are run again on it."""
+
+    def step(answers: Answers) -> Step | None:
+        if "ref" not in answers:
+            return Step("ref", "which ref did you integrate into?", default="HEAD")
+        if "rerun" not in answers:
+            return Step("rerun", "and on that ref", options=RERUN)
+        return None
+
+    return Question(
+        title="check what you merged",
+        glyph=ICON["integration"],
+        next=step,
+        lead=Text(
+            f"495 looks for {short(head, 12)} — and for the exact content of the files it "
+            "changed — in the ref you name.",
+            style="h.value",
+        ),
+    )
 
 
 def build_integration(ctx: ViewContext) -> StageContent:

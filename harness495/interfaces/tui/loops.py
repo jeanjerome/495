@@ -12,18 +12,25 @@ from collections.abc import Callable, Iterator
 
 from rich.console import Console
 from rich.live import Live
-from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.prompt import IntPrompt, Prompt
 from rich.syntax import Syntax
 from rich.text import Text
 
 from harness495.core.engine import EngineError
 from harness495.core.models import Event, RunStatus
 from harness495.core.store import RunBusy, RunNotFound
+from harness495.interfaces.tui.asking import Answers, Ask, ask_in_prompt
 from harness495.interfaces.tui.keys import KeyReader
 from harness495.interfaces.tui.shell import Shell
 from harness495.interfaces.tui.stages import STAGE_BY_KEY, STAGES, stage_of
 from harness495.interfaces.tui.theme import EVENT_STYLE
-from harness495.interfaces.tui.views import ask_decision, ask_intent
+from harness495.interfaces.tui.views import (
+    ask_decision,
+    decision_question,
+    integration_question,
+    intent_question,
+    intent_taken,
+)
 from harness495.interfaces.tui.widgets import clip, short
 
 REFRESH = 10.0
@@ -47,27 +54,44 @@ def run_interactive(shell: Shell, reader: KeyReader, refresh: float = REFRESH) -
         try:
             while shell.running:
                 key = reader.poll(timeout=1 / refresh)
-                if key is not None:
-                    action = shell.resolve(key)
-                    if action in INLINE:
-                        shell.driver.notice = None
-                        if shell.can(action):
-                            INLINE[action](shell, reader, live)
-                        else:
-                            shell.driver.notice = shell.refusal(action)
-                    elif action == "open" and shell.view == "checks":
-                        _page_log(shell, reader, live)
-                    elif action:
-                        shell.act(action)
+                pressed = key is not None
+                while key is not None:
+                    _press(shell, key, reader, live)
+                    # Everything else already waiting, before drawing: a pasted line is one
+                    # read of hundreds of keys, and a frame per key would take half a minute
+                    # to show a sentence that was pasted in one.
+                    key = reader.poll(0) if shell.running else None
                 if not shell.paused:
                     shell.source.refresh()
-                if not shell.paused or key is not None:
+                if not shell.paused or pressed:
                     size = shell.console.size
                     live.update(shell.screen(size.width, size.height))
         except KeyboardInterrupt:
             shell.running = False
         finally:
             _wind_down(shell, live)
+
+
+def _press(shell: Shell, key: str, reader: KeyReader, live: Live | None) -> None:
+    """One key, wherever it belongs.
+
+    A question owns the keyboard while it is open: ``q`` types a q, space is a space, and the
+    one way out of it is written on the panel.
+    """
+    if shell.asking is not None:
+        answer(shell, key)
+        return
+    action = shell.resolve(key)
+    if action in OPENS:
+        shell.driver.notice = None
+        if shell.can(action):
+            OPENS[action](shell)
+        else:
+            shell.driver.notice = shell.refusal(action)
+    elif action == "open" and shell.view == "checks":
+        _page_log(shell, reader, live)
+    elif action:
+        shell.act(action)
 
 
 def _wind_down(shell: Shell, live: Live | None, timeout: float = 30.0) -> None:
@@ -119,90 +143,100 @@ def _back(console: Console) -> None:
     Prompt.ask("press enter to go back", default="", console=console, show_default=False)
 
 
-def _decide_inline(shell: Shell, reader: KeyReader, live: Live | None) -> None:
-    """Answer the question the run is stopped on, and let it carry on.
+def open_decide(shell: Shell) -> None:
+    """Put the question the run stopped on into the panel that already states it.
 
     Answering and continuing are one act: the run stopped to ask, and the answer is what it was
     waiting for. Recording it and then leaving the run standing would turn one decision into
     two things to remember.
     """
-    run = shell.run
-    pending = run.pending_decision
+    pending = shell.run.pending_decision
     if pending is None:
         return
-    with _off_screen(shell, reader, live):
-        answer = ask_decision(shell.console, run, pending)
-        if answer is not None:
-            try:
-                shell.driver.decide(run.id, answer[0], answer[1])
-            except CONTROL_ERRORS as exc:
-                shell.console.print(f"[attn.dead]could not record it:[/] {exc}")
-            else:
-                shell.source.refresh(force=True)
-                shell.view = stage_of(shell.run)
-        _back(shell.console)
+    run_id = shell.run.id
+    shell.asking = Ask(
+        decision_question(shell.run, pending),
+        commit=lambda answers: _decided(shell, run_id, answers),
+    )
 
 
-def _create_inline(shell: Shell, reader: KeyReader, live: Live | None) -> None:
+def _decided(shell: Shell, run_id: str, answers: Answers) -> None:
+    try:
+        shell.driver.decide(run_id, answers["choice"], answers.get("note", ""))
+    except CONTROL_ERRORS as exc:
+        shell.driver.notice = f"could not record it: {exc}"
+        return
+    shell.source.refresh(force=True)
+    shell.view = stage_of(shell.run)
+
+
+def open_create(shell: Shell) -> None:
     """Take an intent — or an existing change — and open the run it starts."""
     if not shell.driver.creates():
         shell.driver.notice = "this surface has no project to create a run in"
         return
-    with _off_screen(shell, reader, live):
-        console = shell.console
-        answer = ask_intent(console)
-        if answer is None:
-            return
-        intent, ref = answer
-        try:
-            run_id = shell.driver.create(intent, ref)
-        except CONTROL_ERRORS as exc:
-            console.print(f"[attn.dead]could not create it:[/] {exc}")
-            _back(console)
-            return
-        shell.source.refresh(force=True)
-        with contextlib.suppress(LookupError):
-            shell.select(run_id)
-        shell.view = stage_of(shell.run)
-        console.print(Text(f"run {run_id} created and started", style="attn.done"))
+    shell.asking = Ask(intent_question(), commit=lambda answers: _created(shell, answers))
 
 
-def _integrate_inline(shell: Shell, reader: KeyReader, live: Live | None) -> None:
+def _created(shell: Shell, answers: Answers) -> None:
+    intent, ref = intent_taken(answers)
+    try:
+        run_id = shell.driver.create(intent, ref)
+    except CONTROL_ERRORS as exc:
+        shell.driver.notice = f"could not create it: {exc}"
+        return
+    shell.source.refresh(force=True)
+    with contextlib.suppress(LookupError):
+        shell.select(run_id)
+    shell.view = stage_of(shell.run)
+
+
+def open_integrate(shell: Shell) -> None:
     """Ask which ref you merged into, then have the harness recognise it — or not."""
     run = shell.run
     if not run.result.report_ref:
         shell.driver.notice = "nothing has been delivered, so there is nothing to recognise"
         return
     it = run.current_iteration
-    head = it.version.head_commit if it and it.version else ""
-    with _off_screen(shell, reader, live):
-        console = shell.console
-        console.print(
-            Text(
-                f"495 looks for {short(head, 12)} — and for the exact content of the files it "
-                "changed — in the ref you name.",
-                style="h.value",
-            )
-        )
-        ref = Prompt.ask("ref you integrated into", default="HEAD", console=console)
-        rerun = Confirm.ask(
-            "re-run the verification commands there?", default=False, console=console
-        )
-        try:
-            shell.driver.integrate(run.id, ref, rerun)
-        except CONTROL_ERRORS as exc:
-            console.print(f"[attn.dead]could not check it:[/] {exc}")
-            _back(console)
+    head = (it.version.head_commit if it and it.version else "") or ""
+    run_id = run.id
+    shell.asking = Ask(
+        integration_question(head),
+        commit=lambda answers: _integrated(shell, run_id, answers),
+    )
 
 
-#: Actions that need the screen: they ask a question, and a question asked under a live region
-#: is invisible.
-INLINE: dict[str, Callable[[Shell, KeyReader, Live | None], None]] = {
-    "decide": _decide_inline,
-    "create": _create_inline,
-    "integrate": _integrate_inline,
+def _integrated(shell: Shell, run_id: str, answers: Answers) -> None:
+    try:
+        shell.driver.integrate(run_id, answers["ref"], answers.get("rerun") == "yes")
+    except CONTROL_ERRORS as exc:
+        shell.driver.notice = f"could not check it: {exc}"
+
+
+#: The controls that ask something before they act. On a terminal the question is drawn on the
+#: surface; a prompted session asks the same steps in words. Both end in the same commit.
+OPENS: dict[str, Callable[[Shell], None]] = {
+    "decide": open_decide,
+    "create": open_create,
+    "integrate": open_integrate,
 }
-INLINE_BY_KEY = {"d": "decide", "c": "create", "i": "integrate"}
+
+
+def answer(shell: Shell, key: str) -> None:
+    """One keystroke into the open question, and what to do when it closes.
+
+    The commit runs here rather than inside the question so that what it refuses lands on the
+    notice line, where every other refused control lands.
+    """
+    ask = shell.asking
+    if ask is None:
+        return
+    ask.key(key)
+    if ask.state == "done":
+        shell.asking = None
+        ask.commit(ask.answers)
+    elif ask.state == "cancelled":
+        shell.asking = None
 
 
 def _page_log(shell: Shell, reader: KeyReader, live: Live | None) -> None:
@@ -314,9 +348,18 @@ def run_prompted(shell: Shell) -> None:
             _settle(shell)
         elif key == "p":
             shell.act("control:pause")
-        elif key in ("c", "i") and shell.can(INLINE_BY_KEY[key]):
-            INLINE[INLINE_BY_KEY[key]](shell, KeyReader(), None)
-            _settle(shell)
+        elif key == "c" and shell.can("create"):
+            answers = ask_in_prompt(console, intent_question())
+            if answers is not None:
+                _created(shell, answers)
+                _settle(shell)
+        elif key == "i" and shell.can("integrate"):
+            it = shell.run.current_iteration
+            head = (it.version.head_commit if it and it.version else "") or ""
+            answers = ask_in_prompt(console, integration_question(head))
+            if answers is not None:
+                _integrated(shell, shell.run.id, answers)
+                _settle(shell)
         elif key in STAGE_BY_KEY:
             shell.act(f"stage:{STAGE_BY_KEY[key]}")
         elif key in ("g", "l"):

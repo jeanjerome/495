@@ -14,10 +14,11 @@ one — never sees a ref at all.
 from __future__ import annotations
 
 from rich.console import Console
-from rich.prompt import Prompt
 from rich.text import Text
 
-from harness495.interfaces.tui.widgets import Choice, choices
+from harness495.interfaces.tui.asking import Answers, Question, Step, ask_in_prompt
+from harness495.interfaces.tui.icons import ICON
+from harness495.interfaces.tui.widgets import Choice
 
 WHO = (
     Choice(
@@ -39,52 +40,52 @@ WHICH = (
 )
 
 
-def ask_intent(console: Console) -> tuple[str, str] | None:
-    """The intent, and the change to evaluate — empty when 495 is to produce it.
+LEAD = Text(
+    "A run opens on what the change must accomplish — not on how to do it. 495 turns that into "
+    "requirements, each tied to something that checks it, and nothing is produced until you "
+    "have approved them.",
+    style="h.value",
+)
+"""What the question is for. The example belongs in the field itself, where the answer goes."""
 
-    ``None`` when the question is declined, which an empty intent says: there is nothing to
-    open a run on, and a run with no intent has nothing to specify.
-    """
-    console.print(
-        Text(
-            "A run opens on what the change must accomplish — not on how to do it. 495 turns "
-            "that into requirements, each tied to something that checks it, and nothing is "
-            "produced until you have approved them.",
-            style="h.value",
-        )
-    )
-    console.print(
-        Text(
-            "   e.g.  the deploy command refuses to run on a dirty working tree",
-            style="attn.hint",
-        )
-    )
-    intent = Prompt.ask(
-        "intent [dim](empty goes back)[/]", console=console, default="", show_default=False
-    ).strip()
-    if not intent:
+
+def intent_question() -> Question:
+    """What must be true afterwards, who writes it, and a ref only where one is needed."""
+
+    def step(answers: Answers) -> Step | None:
+        if "intent" not in answers:
+            return Step(
+                "intent",
+                "what must be true once this run is done?",
+                hint="the deploy command refuses to run on a dirty working tree",
+                required=True,
+            )
+        if "who" not in answers:
+            return Step("who", "who writes the change", options=WHO)
+        if answers["who"] == "produce":
+            return None
+        if "which" not in answers:
+            return Step("which", "which change", options=WHICH)
+        if answers["which"] == "worktree":
+            return None
+        if "ref" not in answers:
+            return Step("ref", "commit or range", default="HEAD")
         return None
 
-    console.print()
-    console.print(choices(WHO, console.width))
-    if _pick(console, "who writes the change", WHO) == "produce":
-        return intent, ""
-
-    console.print()
-    console.print(choices(WHICH, console.width))
-    if _pick(console, "which change", WHICH) == "worktree":
-        return intent, "WORKTREE"
-    return intent, Prompt.ask(
-        "commit or range", console=console, default="HEAD"
-    ).strip() or "WORKTREE"
+    return Question(title="a new run", glyph=ICON["question"], next=step, lead=LEAD)
 
 
-def _pick(console: Console, question: str, options: tuple[Choice, ...]) -> str:
-    """The first option is the default: pressing enter takes the ordinary path."""
-    return Prompt.ask(
-        question,
-        choices=[o.key for o in options],
-        default=options[0].key,
-        console=console,
-        show_choices=False,
-    )
+def intent_taken(answers: Answers) -> tuple[str, str]:
+    """The intent, and the change to evaluate — empty when 495 is to produce it."""
+    if answers.get("who") == "produce":
+        return answers["intent"], ""
+    if answers.get("which") == "worktree":
+        return answers["intent"], "WORKTREE"
+    return answers["intent"], answers.get("ref") or "WORKTREE"
+
+
+def ask_intent(console: Console) -> tuple[str, str] | None:
+    """The same question where there is no surface to draw it on."""
+    console.print(LEAD)
+    answers = ask_in_prompt(console, intent_question())
+    return None if answers is None else intent_taken(answers)

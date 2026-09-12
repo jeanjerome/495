@@ -14,7 +14,6 @@ from rich.cells import cell_len
 from rich.console import Console, Group, RenderableType
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
@@ -24,6 +23,7 @@ from harness495.core.models import (
     RequirementStatus,
     Run,
 )
+from harness495.interfaces.tui.asking import Answers, Question, Step, ask_in_prompt
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.reading import requirement_counts
 from harness495.interfaces.tui.theme import PAD, REQ_STYLE
@@ -145,21 +145,50 @@ def decision_facts(run: Run, pending: PendingDecision) -> list[tuple[str, Render
     return out
 
 
+def decision_question(run: Run, pending: PendingDecision) -> Question:
+    """The question the run stopped on: one answer, and why when the answer needs a why."""
+    options = tuple(Choice(o.key, o.label, o.consequence, o.needs_note) for o in pending.options)
+    facts = decision_facts(run, pending)
+    lead: RenderableType | None = None
+    if facts:
+        lead = Group(
+            Text("what this rests on", style="h.key"),
+            Padding(field_pairs(facts, width=14), (0, 0, 0, 2)),
+        )
+
+    def step(answers: Answers) -> Step | None:
+        if "choice" not in answers:
+            return Step("choice", pending.question, options=options)
+        taken = next((o for o in pending.options if o.key == answers["choice"]), None)
+        if taken is not None and taken.needs_note and "note" not in answers:
+            return Step(
+                "note",
+                "why — this is what the decision will read as, later",
+                hint="a sentence; it is kept with the run",
+                required=True,
+            )
+        return None
+
+    return Question(
+        title="495 is waiting on you",
+        glyph=ICON["question"],
+        next=step,
+        lead=lead,
+    )
+
+
 def ask_decision(console: Console, run: Run, pending: PendingDecision) -> tuple[str, str] | None:
-    """The question, its options, then the prompt. Deliberately blocking.
+    """The same question where there is no surface to draw it on. Deliberately blocking.
 
     The run is stopped until it is answered, and a dialog you could tab away from would be
     lying about that.
     """
     console.print(decision_panel(run, pending))
-    keys = [o.key for o in pending.options]
-    choice = Prompt.ask("choice", choices=keys, console=console)
+    answers = ask_in_prompt(console, decision_question(run, pending))
+    if answers is None:
+        return None
+    choice = answers["choice"]
     option = next(o for o in pending.options if o.key == choice)
-    note = ""
-    if option.needs_note:
-        # The note is the record of why; an empty one would make the decision unreadable later.
-        while not note.strip():
-            note = Prompt.ask("note", console=console)
     console.print(
         Text.assemble(
             ("recorded ", "h.meta"),
@@ -167,4 +196,4 @@ def ask_decision(console: Console, run: Run, pending: PendingDecision) -> tuple[
             (f" — {option.consequence}" if option.consequence else "", "h.meta"),
         )
     )
-    return choice, note
+    return choice, answers.get("note", "")
