@@ -206,7 +206,7 @@ def test_a_tree_that_does_not_carry_the_verified_version_is_named_as_such(
     check = shell.run.result.integration
     assert check is not None and not check.contains_commit and not check.files_identical
     assert stage_state(shell.run, "integration") == "failed"
-    assert attention(shell.run, can_drive=True).tone == "attn.dead"
+    assert attention(shell.run, can_drive=True).tone == "bad"
 
 
 # --------------------------------------------------------------------- two terminals

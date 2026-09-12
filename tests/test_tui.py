@@ -20,7 +20,9 @@ from harness495.core.models import (
 )
 from harness495.core.store import RunStore
 from harness495.interfaces.tui import Shell, StoreSource
+from harness495.interfaces.tui.attention import attention
 from harness495.interfaces.tui.chrome import logo, nav_bar
+from harness495.interfaces.tui.chrome.band import TONE_STYLE
 from harness495.interfaces.tui.logs import StoredLogs
 from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
@@ -156,6 +158,50 @@ def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration(
     assert all(stage_state(run, name) == "done" for name in walked)
     assert stage_of(run) == "integration"
     assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
+
+
+# --------------------------------------------------------------------- the band
+
+
+def _asking(kind: DecisionKind = DecisionKind.approve_spec) -> Run:
+    run = _bare(RunStatus.awaiting_decision)
+    run.pending_decision = PendingDecision(
+        kind=kind, question="approve?", options=[DecisionOption(key="approve", label="approve")]
+    )
+    return run
+
+
+def test_every_state_of_the_band_takes_a_frame_the_rest_of_the_surface_draws() -> None:
+    """Four tones, and each one is a border style panels already take — no hue of its own."""
+    for status in RunStatus:
+        state = attention(_bare(status), can_drive=True)
+        assert state.tone in TONE_STYLE
+        assert f"frame.{state.tone}" in THEME.styles
+
+
+def test_a_frozen_display_never_hides_what_the_run_is_stopped_on() -> None:
+    """Freezing is the surface stopping, not the run: it goes on the frame, not in its place."""
+    shell = Shell.over([_asking()], [], Console(file=io.StringIO()), animated=False)
+    shell.act("freeze")
+    text = render(shell, "spec")
+    assert "waiting on you" in text and "frozen" in text
+
+
+def test_the_band_offers_no_key_the_surface_would_refuse() -> None:
+    """A snapshot cannot answer a question, so it names the stage that holds it instead of d."""
+    shell = Shell.over([_asking()], [], Console(file=io.StringIO()), animated=False)
+    state = shell.attention()
+    assert not shell.can("decide")
+    assert state.key == STAGES[1].key and state.key != "d"
+
+
+def test_a_run_nothing_holds_is_idle_on_a_surface_that_cannot_drive_it_either() -> None:
+    """The claim and the running intervention are both in the store; idle is read, not assumed."""
+    for can_drive in (True, False):
+        state = attention(_bare(RunStatus.producing), can_drive=can_drive)
+        assert not state.working
+        assert state.headline == "idle"
+    assert attention(_bare(RunStatus.created)).headline == "not started"
 
 
 # --------------------------------------------------------------------- the strip

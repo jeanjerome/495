@@ -50,7 +50,6 @@ from harness495.interfaces.tui.widgets import (
     FILTERS,
     Responsive,
     panel,
-    pulse,
     two_columns,
     visible_events,
 )
@@ -170,17 +169,18 @@ class Shell:
         return self.driver.held_elsewhere(self.run.id) if self.driver.drives() else None
 
     def attention(self) -> Attention:
-        return attention(self.run, self.paused, self.activity, self.held, self.driver.drives())
+        return attention(self.run, self.activity, self.held, self.driver.drives())
 
     def moving(self, attn: Attention) -> bool:
-        """Whether the stop the run is at should be drawn turning rather than still.
+        """Whether the marks that stand for work should turn rather than stand still.
 
-        Something has to be advancing the run — the same fact the band pulses on — and the
-        surface has to be one where movement is drawn rather than recorded: a single
-        ``--print`` and an SVG export each capture one frame, and a frame of a spinner caught
-        on its own reads as an arbitrary glyph where a still ◉ reads as the state it is.
+        Something has to be advancing the run, and the surface has to be one where movement is
+        drawn rather than recorded: a single ``--print`` and an SVG export each capture one
+        frame, and a frame of a spinner caught on its own reads as an arbitrary glyph where a
+        still ◉ reads as the state it is. A frozen display draws nothing that moves either —
+        the point of ``space`` is that the screen stops.
         """
-        return self.animated and attn.working
+        return self.animated and not self.paused and attn.working
 
     def startable(self) -> str | None:
         """What pressing ``s`` would do here, or ``None`` when nothing would.
@@ -469,7 +469,7 @@ class Shell:
         root = Layout()
         root.split_column(*rows)
         root["header"].update(header(self.run, self.animated))
-        root["band"].update(attention_band(attn, pulse("band")))
+        root["band"].update(attention_band(attn, self.moving(attn), self.paused))
         if note is not None:
             root["notice"].update(note)
         root["nav"].update(Responsive(lambda w: nav_bar(self.run, self.view, w, self.moving(attn))))
@@ -491,7 +491,7 @@ class Shell:
         attn = self.attention()
         return Group(
             header(self.run, self.animated),
-            attention_band(attn, None),
+            attention_band(attn, self.moving(attn), self.paused),
             *([note] if note is not None else []),
             Responsive(lambda w: nav_bar(self.run, self.view, w, self.moving(attn))),
             self.body(width, 200),

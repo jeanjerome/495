@@ -36,7 +36,6 @@ THEME = Theme(
         "chrome.bar": "on grey15",
         "cursor": f"bold black on {LIVE}",
         "key.active": f"bold {LIVE}",
-        "key.onfill": "bold white on black",  # a key chip standing on a filled band
         # ---- frames. A panel's border is quiet unless the panel is itself the thing that
         # wants something: the pane under your cursor, a warning, a failure, a delivery, a
         # question. Everywhere else the content carries the colour and the frame stays out.

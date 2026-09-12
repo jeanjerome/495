@@ -45,9 +45,9 @@ def panel(
     interface ends up with a blue budget panel next to a yellow agent panel next to a cyan
     detail panel, none of which agree on what a blue border is supposed to mean.
 
-    Every panel is ``ROUNDED``. Weight is reserved: ``HEAVY`` appears on exactly three things,
-    and all three are demanding something — the attention band, the decision, and the tab you
-    are standing on.
+    Every panel is ``ROUNDED``, the band included. Weight is reserved: ``HEAVY`` appears on
+    exactly two things, and both are where you are — the tab you are standing on, and the
+    question you cannot walk past.
     """
     return Panel(
         body,
