@@ -20,10 +20,11 @@ from harness495.core.models import (
 )
 from harness495.core.store import RunStore
 from harness495.interfaces.tui import Shell, StoreSource
-from harness495.interfaces.tui.chrome import logo
+from harness495.interfaces.tui.chrome import logo, nav_bar
 from harness495.interfaces.tui.logs import StoredLogs
-from harness495.interfaces.tui.stages import STAGES, stage_of, stage_state
+from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
+from harness495.interfaces.tui.widgets import WorkingMark
 
 VIEWS = [s.name for s in STAGES] + ["log", "runs"]
 
@@ -155,6 +156,39 @@ def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration(
     assert all(stage_state(run, name) == "done" for name in walked)
     assert stage_of(run) == "integration"
     assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
+
+
+# --------------------------------------------------------------------- the strip
+
+
+def _strip(run: Run, working: bool, width: int = 110) -> str:
+    out = io.StringIO()
+    console = Console(theme=THEME, file=out, width=width, highlight=False, legacy_windows=False)
+    console.print(nav_bar(run, "change", width, working=working))
+    return out.getvalue()
+
+
+def test_the_stop_a_run_is_moving_through_turns() -> None:
+    """A producer three minutes in and a run nobody started are both cyan at the same stop."""
+    mark = WorkingMark()
+    turning = _strip(_bare(RunStatus.producing), working=True)
+    assert mark.glyph(at=0.0) in turning
+    assert STATE_GLYPH["here"] not in turning
+    assert STATE_GLYPH["todo"] in turning, "the stops ahead are untouched"
+
+
+def test_a_still_strip_keeps_the_glyph_the_legend_names() -> None:
+    """A --print and an export capture one frame; a spinner caught alone reads as a typo."""
+    still = _strip(_bare(RunStatus.producing), working=False)
+    assert STATE_GLYPH["here"] in still
+    assert WorkingMark().glyph(at=0.0) not in still
+
+
+def test_the_turning_mark_advances_with_the_clock_and_never_changes_width() -> None:
+    mark = WorkingMark()
+    frames = [mark.glyph(at=t * mark.spinner.interval / 1000) for t in range(8)]
+    assert len(set(frames)) == 8, "eight redraws, eight different frames"
+    assert all(len(f) == 1 for f in frames), "the tab was measured with one cell for the glyph"
 
 
 # --------------------------------------------------------------------- the mark

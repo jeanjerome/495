@@ -16,6 +16,7 @@ from harness495.interfaces.tui.stages import (
     stage_badge,
     stage_state,
 )
+from harness495.interfaces.tui.widgets.progress import spin
 
 # Shrink in one direction only, and stop at the first arrangement that fits: counts first,
 # then long names, then the padding. Measuring beats a table of width thresholds, because the
@@ -23,7 +24,7 @@ from harness495.interfaces.tui.stages import (
 ARRANGEMENTS = ((True, "full", 1), (False, "full", 1), (False, "short", 1), (False, "short", 0))
 
 
-def nav_bar(run: Run, viewed: str, width: int) -> RenderableType:
+def nav_bar(run: Run, viewed: str, width: int, working: bool = False) -> RenderableType:
     """Eight stops, each in a box of its own.
 
     A single dense line of coloured words does not read as navigation — it reads as one more
@@ -42,13 +43,20 @@ def nav_bar(run: Run, viewed: str, width: int) -> RenderableType:
       heavy, so "where am I" survives whatever colour the stop happens to be, and no reversed
       block is needed to say it.
 
+    Colour says where the run stands, and one thing more has to be said at the stop it stands
+    at: whether anything is actually advancing it. Both states are cyan — a producer three
+    minutes into a change and a run nobody has started are both "at stop 3" — so the glyph
+    turns while something is moving the run and stands still when nothing is, which is the
+    same distinction the band draws in words. ``working`` says which, and it is false wherever
+    movement would be recorded rather than drawn: a ``--print``, an export, a test.
+
     ``log`` and ``runs`` are not on the strip. They are not stages, and putting them here
     would make the pipeline look like it has ten steps; the footer carries them instead.
     """
     cells: list[Text] = []
     widths: list[int] = []
     for badges, names, pad in ARRANGEMENTS:
-        cells = [_tab_body(run, stage, viewed, badges, names) for stage in STAGES]
+        cells = [_tab_body(run, stage, viewed, badges, names, working) for stage in STAGES]
         widths = [len(c.plain) + 2 + 2 * pad for c in cells]
         if sum(widths) + len(STAGES) - 1 <= width:
             break
@@ -67,11 +75,13 @@ def nav_bar(run: Run, viewed: str, width: int) -> RenderableType:
     return grid
 
 
-def _tab_body(run: Run, stage: Stage, viewed: str, badges: bool, names: str) -> Text:
+def _tab_body(run: Run, stage: Stage, viewed: str, badges: bool, names: str, working: bool) -> Text:
     state = stage_state(run, stage.name)
     seen = stage.name == viewed
     body = Text(no_wrap=True, overflow="ellipsis", justify="center")
-    body.append(STATE_GLYPH[state], style=f"tab.{state}")
+    # One cell either way, so the arrangement that was measured still fits when it turns.
+    glyph = spin("tab").glyph() if working and state == "here" else STATE_GLYPH[state]
+    body.append(glyph, style=f"tab.{state}")
     body.append(" ")
     body.append(
         stage.name if names == "full" else stage.short,

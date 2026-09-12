@@ -61,7 +61,8 @@ def help_view() -> RenderableType:
             Text("on the pipeline strip", style="h.key"),
             Text.assemble(("● ", "tab.done"), ("a green tab is walked", "h.value")),
             Text.assemble(
-                ("◉ ", "tab.here"), ("a cyan tab is where the run is working", "h.value")
+                ("◉ ", "tab.here"),
+                ("a cyan tab is where the run is; it turns while something advances it", "h.value"),
             ),
             Text.assemble(
                 ("◆ ", "tab.blocked"), ("a magenta tab has stopped to ask you", "h.value")

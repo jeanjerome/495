@@ -20,7 +20,7 @@ from harness495.interfaces.tui.widgets.lists import (
     severity_counts,
 )
 from harness495.interfaces.tui.widgets.panels import TITLE_LEAD, panel, title_text
-from harness495.interfaces.tui.widgets.progress import WorkingBar, pulse
+from harness495.interfaces.tui.widgets.progress import WorkingBar, WorkingMark, pulse, spin
 from harness495.interfaces.tui.widgets.text import clip, hms, plural, short
 
 __all__ = [
@@ -29,6 +29,7 @@ __all__ = [
     "Choice",
     "Responsive",
     "WorkingBar",
+    "WorkingMark",
     "activity_bars",
     "agent_card",
     "badge",
@@ -51,6 +52,7 @@ __all__ = [
     "severity_counts",
     "shell_block",
     "short",
+    "spin",
     "title_text",
     "two_columns",
     "visible_events",

@@ -172,6 +172,16 @@ class Shell:
     def attention(self) -> Attention:
         return attention(self.run, self.paused, self.activity, self.held, self.driver.drives())
 
+    def moving(self, attn: Attention) -> bool:
+        """Whether the stop the run is at should be drawn turning rather than still.
+
+        Something has to be advancing the run — the same fact the band pulses on — and the
+        surface has to be one where movement is drawn rather than recorded: a single
+        ``--print`` and an SVG export each capture one frame, and a frame of a spinner caught
+        on its own reads as an arbitrary glyph where a still ◉ reads as the state it is.
+        """
+        return self.animated and attn.working
+
     def startable(self) -> str | None:
         """What pressing ``s`` would do here, or ``None`` when nothing would.
 
@@ -443,6 +453,11 @@ class Shell:
 
     def screen(self, width: int, height: int) -> Layout:
         note = self.notice_line()
+        # One reading of what the run needs, for the two places that say it: the band says it
+        # in words, the strip by turning the stop it is at. Asked twice they could disagree
+        # within a frame — the run settles between the two calls — and the screen would then
+        # show a stop turning under a band that says nothing is advancing it.
+        attn = self.attention()
         rows = [
             Layout(name="header", size=2),
             Layout(name="band", size=3),
@@ -454,10 +469,10 @@ class Shell:
         root = Layout()
         root.split_column(*rows)
         root["header"].update(header(self.run, self.animated))
-        root["band"].update(attention_band(self.attention(), pulse("band")))
+        root["band"].update(attention_band(attn, pulse("band")))
         if note is not None:
             root["notice"].update(note)
-        root["nav"].update(Responsive(lambda w: nav_bar(self.run, self.view, w)))
+        root["nav"].update(Responsive(lambda w: nav_bar(self.run, self.view, w, self.moving(attn))))
         root["body"].update(self.body(width, height))
         root["footer"].update(
             Responsive(
@@ -473,11 +488,12 @@ class Shell:
         be read after the fact, or captured, has to flow instead.
         """
         note = self.notice_line()
+        attn = self.attention()
         return Group(
             header(self.run, self.animated),
-            attention_band(self.attention(), None),
+            attention_band(attn, None),
             *([note] if note is not None else []),
-            Responsive(lambda w: nav_bar(self.run, self.view, w)),
+            Responsive(lambda w: nav_bar(self.run, self.view, w, self.moving(attn))),
             self.body(width, 200),
             Responsive(
                 lambda w: footer_bar(self.footer_keys(), self.run, self.elapsed, not self.paused, w)
