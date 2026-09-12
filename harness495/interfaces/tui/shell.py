@@ -500,6 +500,8 @@ class Shell:
 
     def screen(self, width: int, height: int) -> Layout:
         note = self.notice_line()
+        if not self.opened:
+            return self._home(width, height, note)
         # One reading of what the run needs, for the two places that say it: the band says it
         # in words, the strip by turning the stop it is at. Asked twice they could disagree
         # within a frame — the run settles between the two calls — and the screen would then
@@ -525,6 +527,32 @@ class Shell:
             Responsive(
                 lambda w: footer_bar(self.footer_keys(), self.run, self.elapsed, not self.paused, w)
             )
+        )
+        return root
+
+    def _home(self, width: int, height: int, note: RenderableType | None) -> Layout:
+        """The listing, before a run is opened.
+
+        Three surfaces are missing, all three for one reason: the header's identity, the band
+        and the pipeline strip each speak for *a* run, and none has been picked. They spoke
+        for the first one in the store — which is how the header could name one run while the
+        cursor sat on another, and how ``d`` could answer a question you were not looking at.
+        The rows they took go to the listing, which is what this screen is for.
+        """
+        rows = [
+            Layout(name="header", size=2),
+            *([Layout(name="notice", size=1)] if note is not None else []),
+            Layout(name="body"),
+            Layout(name="footer", size=1),
+        ]
+        root = Layout()
+        root.split_column(*rows)
+        root["header"].update(store_header(self.runs, self.animated))
+        if note is not None:
+            root["notice"].update(note)
+        root["body"].update(self.body(width, height))
+        root["footer"].update(
+            Responsive(lambda w: footer_bar(self.footer_keys(), None, 0.0, not self.paused, w))
         )
         return root
 

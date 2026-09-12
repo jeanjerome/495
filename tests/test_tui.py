@@ -120,9 +120,9 @@ def test_the_surface_never_advances_the_run(delivered: RunStore) -> None:
 # --------------------------------------------------------------------- the stage model
 
 
-def _bare(status: RunStatus) -> Run:
+def _bare(status: RunStatus, rid: str = "run-0") -> Run:
     return Run(
-        id="run-0", harness_version="0", intent=Intent(text="x"), project_root="/", status=status
+        id=rid, harness_version="0", intent=Intent(text="x"), project_root="/", status=status
     )
 
 
@@ -175,37 +175,64 @@ def _store_of(*runs: Run) -> Shell:
     return Shell(StaticSource(runs, []), console, animated=False)
 
 
-def test_nothing_speaks_for_a_run_until_one_is_opened() -> None:
+def _printed(shell: Shell, width: int = 150) -> list[str]:
+    """What ``--print`` and an export write: the content, flowed."""
+    out = io.StringIO()
+    console = Console(theme=THEME, file=out, width=width, highlight=False, legacy_windows=False)
+    console.print(shell.flow(width))
+    return out.getvalue().splitlines()
+
+
+def _drawn(shell: Shell, width: int = 150, height: int = 40) -> list[str]:
+    """What the terminal draws: the same content in a ``Layout``."""
+    out = io.StringIO()
+    console = Console(
+        theme=THEME, file=out, width=width, height=height, highlight=False, legacy_windows=False
+    )
+    console.print(shell.screen(width, height))
+    return out.getvalue().splitlines()
+
+
+#: Both ways the surface is rendered. A rule about what is on screen holds for both or it is
+#: not a rule: one was once fixed while the other went on showing a run nobody had opened.
+BOTH = pytest.mark.parametrize("draw", [_printed, _drawn], ids=["printed", "drawn"])
+
+
+@BOTH
+def test_nothing_speaks_for_a_run_until_one_is_opened(draw: Any) -> None:
     """The header, the band and the strip each name a run; on the listing none is picked."""
-    shell = _store_of(_asking(), _bare(RunStatus.delivered))
+    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
     assert not shell.opened and shell.view == "runs"
-    head, _, third = render(shell, "runs").splitlines()[:3]
+    lines = draw(shell)
     # Two rows of store identity, then the listing: nothing in between speaks for a run.
-    assert "no run is open" in head
-    assert "runs in the store" in third
-    assert "approve?" not in render(shell, "runs"), "the band asked a question nobody opened"
+    assert "no run is open" in lines[0]
+    assert "runs in the store" in lines[2]
+    assert not any("approve?" in ln for ln in lines), "it asked a question nobody opened"
     assert [k for k, _, _ in shell.footer_keys()] == ["↑↓", "enter", "?", "q"]
 
 
+@BOTH
+def test_opening_a_row_gives_the_chrome_back_for_that_row(draw: Any) -> None:
+    """The listing used to point at one run while the header named another."""
+    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
+    shell.act("cursor:+1")
+    shell.act("open")
+    assert shell.opened and shell.run.id == "run-1"
+    assert shell.view == stage_of(shell.run)
+    lines = draw(shell)
+    # The header names the run you opened, and the band under it speaks for the same one.
+    assert "run-1" in lines[0] and "delivered" in lines[2]
+    # Back to the listing: the cursor is still on the run that is open, not reset to the top.
+    shell.act("view:runs")
+    assert shell.cursor == 1
+
+
 def test_a_key_that_acts_on_a_run_does_nothing_while_none_is_open() -> None:
-    shell = _store_of(_asking(), _bare(RunStatus.delivered))
+    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
     for action in ("stage:spec", "view:log", "catchup", "decide", "control:start"):
         shell.act(action)
         assert shell.view == "runs" and not shell.opened
     assert not shell.can("decide") and not shell.can("control:start")
-
-
-def test_the_cursor_is_what_opens_and_the_chrome_follows_it() -> None:
-    """The listing used to point at one run while the header named another."""
-    first, second = _asking(), _bare(RunStatus.delivered)
-    shell = _store_of(first, second)
-    shell.act("cursor:+1")
-    shell.act("open")
-    assert shell.opened and shell.run.id is second.id or shell.run is second
-    assert shell.view == stage_of(second)
-    # Back to the listing: the cursor is still on the run that is open, not reset to the top.
-    shell.act("view:runs")
-    assert shell.cursor == 1
 
 
 # --------------------------------------------------------------------- the icons
