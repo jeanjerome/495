@@ -39,48 +39,81 @@ RERUN = (
 )
 
 
-MERGE = (
-    # Not the ``no``/``yes`` the other question uses: both answers here make the merge, and a
-    # grid whose first key reads "no" under "merge it into main?" says the opposite of what
-    # taking it does.
-    Choice(
+WAYS = {
+    "fast-forward": Choice(
+        "fast-forward",
+        "move your branch onto it",
+        "nothing is added at all: your branch becomes the verified commit itself",
+    ),
+    "rebase": Choice(
+        "rebase",
+        "replay its commits on top",
+        "linear, and the commits arrive under new hashes, so the verified one is not in it",
+    ),
+    "squash": Choice(
+        "squash",
+        "one commit on top",
+        "linear, and everything the run changed arrives as a single commit of its own",
+    ),
+    "merge": Choice(
         "merge",
-        "merge it, then compare",
-        "the merge commit is made, and the commit and the file contents are looked for in it",
+        "a merge commit",
+        "not linear, and the only one that keeps the verified commit itself as an ancestor",
+    ),
+}
+"""What one act can look like in a history, in the order the history stays flattest.
+
+Four rather than one because the shape of the history is a matter of taste that the harness
+has no business settling, and it is settled for good once the commit is written. The three
+linear ones copy the change rather than move it, which the check that follows reads as
+delivered-commit-absent, every-file-identical — the same thing it reads off a hand-made
+cherry-pick, and why that was never treated as a failure."""
+
+AFTER = (
+    Choice(
+        "no",
+        "compare only",
+        "the commit and the content of the files it changed are looked for in the result",
     ),
     Choice(
-        "verify",
-        "merge it, then run the checks too",
-        "the same, and the verification commands are run again on the merged tree",
+        "yes",
+        "run the checks there too",
+        "the verification commands are run again on the result, which takes as long as they do",
     ),
 )
 
 
-def merge_question(branch: str, into: str, head: str) -> Question:
-    """Whether to merge the delivered branch into the tree you have checked out.
+def merge_question(branch: str, into: str, head: str, ways: tuple[str, ...]) -> Question:
+    """How to bring the delivered branch into the tree you have checked out, and what then.
 
     The one question on this surface whose answer writes to the repository you work in, so the
-    lead states the three facts you would otherwise have to go and check — what is merged,
-    where it lands, and that the tree is clean enough for it — and both answers are the same
-    merge. Leaving is ``escape``, on the panel with the rest.
+    lead states the facts you would otherwise have to go and check — what is integrated, where
+    it lands, and that the tree is clean enough for it. ``ways`` is what this repository can
+    actually do right now: a branch that has moved cannot be fast-forwarded onto, and an
+    answer that would refuse itself is not offered. Leaving is ``escape``, on the panel.
     """
 
     def step(answers: Answers) -> Step | None:
         if "how" not in answers:
-            return Step("how", f"merge {branch} into {into}?", options=MERGE)
+            return Step(
+                "how",
+                f"how should {branch} go into {into}?",
+                options=tuple(WAYS[w] for w in ways),
+            )
+        if "checks" not in answers:
+            return Step("checks", "and on the result", options=AFTER)
         return None
 
     return Question(
-        title="merge what was delivered",
+        title="integrate what was delivered",
         glyph=ICON["integration"],
         next=step,
         lead=Text.assemble(
-            ("495 runs ", "h.value"),
-            (f"git merge --no-ff {branch}", "h.ref"),
-            (f" on {into}, which is clean and does not carry ", "h.value"),
+            (f"{into} is clean and does not carry ", "h.value"),
             (short(head, 12), "h.ref"),
             (
-                " yet. A merge that does not go through cleanly is aborted, and nothing changes.",
+                " yet. Whichever way you pick, an attempt that does not go through cleanly puts "
+                "the branch back where it was and nothing is written.",
                 "h.value",
             ),
         ),
@@ -160,7 +193,7 @@ def build_integration(ctx: ViewContext) -> StageContent:
 
     state = run.integration_state()
     if res.integration is not None:
-        blocks.append(_integration_panel(res.integration, state))
+        blocks.append(_integration_panel(res.integration, state, res.integrated_as))
 
     blocks.append(
         panel(
@@ -169,8 +202,8 @@ def build_integration(ctx: ViewContext) -> StageContent:
                     "The check asks three things of the ref you name: does it contain the "
                     "delivered commit, are the changed files identical to the verified ones, "
                     "and — if you ask for it — do the verification commands still pass there. "
-                    "495 can make the merge it then inspects, into the branch you have checked "
-                    "out; everything else it does happens in a worktree of its own.",
+                    "495 can make the integration it then inspects, into the branch you have "
+                    "checked out; everything else it does happens in a worktree of its own.",
                     style="h.value",
                 ),
                 Text(),
@@ -179,8 +212,8 @@ def build_integration(ctx: ViewContext) -> StageContent:
                         Text.assemble(
                             (" m ", "cursor"),
                             (
-                                f"  merge {res.branch} into the branch you have checked out, "
-                                "then check the result",
+                                f"  bring {res.branch} into the branch you have checked out — "
+                                "fast-forward, rebase, squash or merge — then check the result",
                                 "attn.hint",
                             ),
                         ),
@@ -205,7 +238,10 @@ def build_integration(ctx: ViewContext) -> StageContent:
                     else []
                 ),
                 commands(
-                    (f"495 merge {run.id}", "the same merge, from any shell"),
+                    (
+                        f"495 merge {run.id} --how squash",
+                        "the same, from any shell; also fast-forward, rebase, merge",
+                    ),
                     (
                         f"495 check-integration {run.id} --ref main --rerun",
                         "the same check, from any shell",
@@ -222,7 +258,7 @@ def build_integration(ctx: ViewContext) -> StageContent:
     return StageContent(Group(*blocks))
 
 
-def _integration_panel(g: IntegrationCheck, state: str) -> Panel:
+def _integration_panel(g: IntegrationCheck, state: str, how: str | None) -> Panel:
     """What the ref turned out to hold.
 
     A ref nobody merged into gets two lines rather than the breakdown: "contains: not the
@@ -233,6 +269,8 @@ def _integration_panel(g: IntegrationCheck, state: str) -> Panel:
     rows: list[tuple[str, Text]] = [
         ("target", Text(f"{g.target_ref} at {short(g.target_commit, 12)}", style="h.ref"))
     ]
+    if how:
+        rows.append(("integrated", Text(f"by 495, as a {how}", style="h.value")))
     if state == "unmerged":
         rows.append(
             (
@@ -247,9 +285,20 @@ def _integration_panel(g: IntegrationCheck, state: str) -> Panel:
         rows += [
             (
                 "contains",
+                # A copy is the point of a rebase and a squash, not a shortfall of one: the
+                # row says what was asked for rather than reporting its own instruction back
+                # as a failure.
                 Text(
-                    "the delivered commit" if g.contains_commit else "not the delivered commit",
-                    style="req.satisfied" if g.contains_commit else "req.violated",
+                    "the delivered commit"
+                    if g.contains_commit
+                    else (
+                        f"a copy of it, from the {how}"
+                        if how in ("rebase", "squash")
+                        else "not the delivered commit"
+                    ),
+                    style="req.satisfied"
+                    if g.contains_commit or how in ("rebase", "squash")
+                    else "req.violated",
                 ),
             ),
             (

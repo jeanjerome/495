@@ -679,20 +679,28 @@ def spec(ctx: typer.Context, run_id: str) -> None:
 def merge(
     ctx: typer.Context,
     run_id: str,
+    how: str = typer.Option(
+        "fast-forward",
+        "--how",
+        help="fast-forward (adds nothing), rebase, squash, or merge (adds a merge commit).",
+    ),
     rerun: bool = typer.Option(
-        False, "--rerun", help="Re-run the verification commands on the merged tree."
+        False, "--rerun", help="Re-run the verification commands on the result."
     ),
 ) -> None:
-    """Merge the delivered branch into the branch you have checked out, then check the result.
+    """Bring the delivered branch into the branch you have checked out, then check the result.
 
     The only command that writes to your working tree; everything else 495 does happens in a
-    worktree of its own. An unclean tree, a branch that already carries the change and a merge
-    that conflicts are each refused, and each leaves the repository exactly as it was.
+    worktree of its own. Three of the four ways leave a linear history, and the default adds
+    nothing at all — it moves your branch onto the verified commit, which is only possible
+    while your branch has gone nowhere since the run branched off it. An unclean tree, a
+    branch that already carries the change and an attempt that conflicts are each refused, and
+    each leaves the repository exactly as it was.
     """
     c = _ctx(ctx)
     engine = c.engine(interactive=False)
     try:
-        run = engine.merge_delivery(run_id, rerun)
+        run = engine.merge_delivery(run_id, how, rerun)
     except (EngineError, RunBusy, RunNotFound, git.GitError) as exc:
         _error(c, str(exc))
         return
@@ -703,10 +711,10 @@ def merge(
         _emit_json({**ic.model_dump(mode="json"), "state": state})
     else:
         console.print(
-            f"[green]merged[/]: {run.result.branch} is in {ic.target_commit[:12]}, and it "
-            f"carries what was verified"
+            f"[green]integrated[/] as {how}: {run.result.branch} is in {ic.target_commit[:12]}, "
+            "and it carries what was verified"
             if state == "landed"
-            else f"[red]merged, but the tree does not match[/]: {ic.detail}"
+            else f"[red]integrated, but the tree does not match[/]: {ic.detail}"
         )
     if state != "landed" or ic.verifications_passed is False:
         raise typer.Exit(EXIT_REJECTED)

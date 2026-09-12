@@ -281,6 +281,12 @@ def _integration(run: Run) -> Text:
             "same files.",
             style="req.satisfied",
         )
+    elif run.result.integrated_as in ("rebase", "squash"):
+        out.append(
+            f"{g.target_ref} carries the change as a {run.result.integrated_as}: every changed "
+            "file is identical to the verified one, under a commit of its own.",
+            style="req.satisfied",
+        )
     elif g.files_identical:
         out.append(
             f"{g.target_ref} does not contain the delivered commit, but every changed file is "

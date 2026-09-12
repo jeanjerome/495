@@ -275,7 +275,7 @@ def test_the_surface_makes_the_merge_it_then_checks(
     shell.select(run_id)
     assert shell.run.integration_state() == "unchecked"
 
-    pilot.merge(run_id, False)
+    pilot.merge(run_id, "fast-forward", False)
     settle(pilot)
     shell.source.refresh(force=True)
 
@@ -300,7 +300,8 @@ def test_pressing_the_key_merges_and_the_run_says_so_afterwards(
     assert shell.asking is not None, shell.driver.notice
     assert _git_out(sample_project, "rev-parse", "HEAD") == before, "the question has not acted"
 
-    answer(shell, "enter")  # merge it, then compare
+    answer(shell, "enter")  # fast-forward: move the branch onto it
+    answer(shell, "enter")  # and on the result: compare only
     settle(pilot)
     shell.source.refresh(force=True)
 

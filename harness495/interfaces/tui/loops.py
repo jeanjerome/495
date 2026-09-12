@@ -235,6 +235,11 @@ def open_merge(shell: Shell) -> None:
     try:
         into = git.current_branch(root) or "HEAD"
         dirty = git.has_uncommitted_changes(root)
+        # A branch that has gone somewhere of its own cannot be fast-forwarded onto, so that
+        # answer is not in the grid: the question offers what this repository can do now.
+        ways = tuple(
+            w for w in git.INTEGRATIONS if w != "fast-forward" or git.can_fast_forward(root, branch)
+        )
     except (git.GitError, OSError) as exc:
         shell.driver.notice = f"could not read {root}: {exc}"
         return
@@ -243,14 +248,14 @@ def open_merge(shell: Shell) -> None:
         return
     run_id = run.id
     shell.asking = Ask(
-        merge_question(branch, into, head),
+        merge_question(branch, into, head, ways),
         commit=lambda answers: _merged(shell, run_id, answers),
     )
 
 
 def _merged(shell: Shell, run_id: str, answers: Answers) -> None:
     try:
-        shell.driver.merge(run_id, answers.get("how") == "verify")
+        shell.driver.merge(run_id, answers["how"], answers.get("checks") == "yes")
     except CONTROL_ERRORS as exc:
         shell.driver.notice = f"could not merge it: {exc}"
 

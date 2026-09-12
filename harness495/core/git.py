@@ -201,40 +201,65 @@ def reset_hard_clean(path: Path, ref: str = "HEAD") -> None:
     git(["clean", "-fdq"], path)
 
 
-def merge_no_ff(path: Path, branch: str, message: str) -> str:
-    """Merge ``branch`` into the checked-out branch, keeping the merge commit.
+INTEGRATIONS = ("fast-forward", "rebase", "squash", "merge")
+"""The four shapes one act can take, from the one that adds nothing to the one that adds a
+commit of its own. Three of them leave a linear history; only ``merge`` does not."""
 
-    A merge that does not go through cleanly is undone rather than left half-made: a
-    conflicted index is a state only the person at the keyboard can resolve, and it would be
-    left behind by a thread they cannot see. Aborting puts the branch back where it was and
-    hands the conflict back as a refusal, which is something a surface can say in one line.
 
-    ``--no-ff`` because the merge commit is the record: it is what makes the delivered commit
-    an ancestor of the branch under a name, so the check that follows can find it there and
-    the history says where the change came from.
+def can_fast_forward(path: Path, branch: str) -> bool:
+    """Whether the checked-out branch is behind ``branch`` and has gone nowhere else."""
+    return is_ancestor(path, head_commit(path), branch)
+
+
+def _as_harness(args: list[str]) -> list[str]:
+    return ["-c", "user.name=495 harness", "-c", "user.email=495@localhost", *args]
+
+
+def integrate_branch(path: Path, branch: str, how: str, message: str, base: str) -> str:
+    """Bring ``branch`` into the checked-out branch the way ``how`` says, or change nothing.
+
+    What separates the four is what the history keeps. ``fast-forward`` moves the branch onto
+    the delivered commit and adds nothing at all. ``rebase`` copies the commits the run made
+    on top of yours, so they arrive under new hashes. ``squash`` puts everything the run
+    changed into a single commit. ``merge`` keeps the delivered commit itself as an ancestor,
+    under a commit that says where it came from — the only one of the four that is not linear,
+    and the reason the other three exist.
+
+    A copy is what makes the last three differ from the first for the check that follows: the
+    delivered commit is not in the branch afterwards, and it is the content of the changed
+    files, byte for byte, that says the right thing landed.
+
+    Whatever fails, the branch goes back where it was. An uncommitted change to a tracked file
+    was refused before this ran, so resetting to the commit it started from restores exactly
+    what was there — untracked files included, which a reset does not touch.
     """
-    proc = subprocess.run(
-        [
-            "git",
-            "-c",
-            "user.name=495 harness",
-            "-c",
-            "user.email=495@localhost",
-            "merge",
-            "--no-ff",
-            "-m",
-            message,
-            branch,
-        ],
-        cwd=str(path),
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        git(["merge", "--abort"], path, check=False)
-        detail = (proc.stdout + proc.stderr).strip().replace("\n", "; ")
-        raise GitError(f"merging {branch} did not go through, nothing was changed: {detail}")
+    if how not in INTEGRATIONS:
+        raise GitError(f"unknown way to integrate: {how!r}")
+    before = head_commit(path)
+    try:
+        if how == "fast-forward":
+            git(["merge", "--ff-only", branch], path)
+        elif how == "merge":
+            git(_as_harness(["merge", "--no-ff", "-m", message, branch]), path)
+        elif how == "rebase":
+            git(_as_harness(["cherry-pick", f"{base}..{branch}"]), path)
+        else:
+            git(["merge", "--squash", branch], path)
+            git(_as_harness(["commit", "-m", message]), path)
+    except GitError as exc:
+        _undo(path, before)
+        detail = str(exc).split(": ", 1)[-1].replace("\n", "; ")
+        raise GitError(
+            f"{how} of {branch} did not go through, nothing was changed: {detail}"
+        ) from exc
     return head_commit(path)
+
+
+def _undo(path: Path, before: str) -> None:
+    """Put the branch back, whichever half-made state the attempt left behind."""
+    git(["merge", "--abort"], path, check=False)
+    git(["cherry-pick", "--abort"], path, check=False)
+    git(["reset", "-q", "--hard", before], path, check=False)
 
 
 def is_ancestor(path: Path, commit: str, ref: str) -> bool:

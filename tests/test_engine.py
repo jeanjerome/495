@@ -309,19 +309,101 @@ def _commit(root: Path, message: str) -> None:
     )
 
 
-def test_merge_delivery_makes_the_merge_and_then_recognises_it(
+def _git_out(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _move_the_branch_on(root: Path) -> None:
+    (root / "NOTES.md").write_text("the branch went somewhere of its own\n", encoding="utf-8")
+    subprocess.run(["git", "add", "NOTES.md"], cwd=root, check=True, capture_output=True)
+    _commit(root, "notes")
+
+
+def test_fast_forward_adds_nothing_at_all(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """The default, where it applies: your branch becomes the verified commit, full stop."""
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    assert run.status is RunStatus.delivered
+    it = run.current_iteration
+    assert it is not None and it.version is not None
+    head = it.version.head_commit
+
+    run = engine_factory().merge_delivery(run.id)
+
+    assert _git_out(sample_project, "rev-parse", "HEAD") == head
+    assert not _git_out(sample_project, "rev-list", "--merges", "HEAD")
+    assert run.result.integrated_as == "fast-forward"
+    assert run.integration_state() == "landed", "integrating and checking are one command"
+    with pytest.raises(EngineError, match="already contains"):
+        engine_factory().merge_delivery(run.id)
+
+
+def test_fast_forward_is_refused_once_your_branch_has_gone_somewhere(
     sample_project: Path, config: Any, engine_factory: Any
 ) -> None:
     engine = engine_factory()
     run = engine.run(_create(engine, sample_project, config).id)
-    assert run.status is RunStatus.delivered
-    run = engine_factory().merge_delivery(run.id)
+    _move_the_branch_on(sample_project)
+    with pytest.raises(EngineError, match="fast-forwarded"):
+        engine_factory().merge_delivery(run.id, "fast-forward")
+    assert run.result.integrated_as is None
+
+
+@pytest.mark.parametrize(
+    ("how", "linear", "keeps_the_commit", "subject"),
+    [
+        ("rebase", True, False, "495 iteration 1: add subtract to calc"),
+        ("squash", True, False, "add subtract to calc"),
+        ("merge", False, True, "Merge branch '495/"),
+    ],
+)
+def test_each_way_of_integrating_leaves_the_history_it_promises(
+    sample_project: Path,
+    config: Any,
+    engine_factory: Any,
+    how: str,
+    linear: bool,
+    keeps_the_commit: bool,
+    subject: str,
+) -> None:
+    """Three shapes of one act, told apart by what the history keeps and what the check finds.
+
+    The two that copy the change rather than move it leave the verified commit out of the
+    branch, which is exactly the reading a hand-made cherry-pick produces — and why identical
+    file contents, not the commit, are what say the right thing landed.
+    """
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    _move_the_branch_on(sample_project)
+
+    run = engine_factory().merge_delivery(run.id, how)
+
     ic = run.result.integration
-    assert ic and ic.contains_commit and ic.files_identical
-    assert run.integration_state() == "landed", "merging and checking are one command"
-    assert git.is_ancestor(sample_project, ic.target_commit, "HEAD")
-    with pytest.raises(EngineError, match="already contains"):
-        engine_factory().merge_delivery(run.id)
+    assert ic is not None and ic.files_identical
+    assert ic.contains_commit is keeps_the_commit
+    assert run.result.integrated_as == how
+    assert run.integration_state() == "landed"
+    assert bool(_git_out(sample_project, "rev-list", "--merges", "HEAD")) is not linear
+    assert _git_out(sample_project, "log", "-1", "--format=%s").startswith(subject)
+    assert (sample_project / "NOTES.md").exists(), "what the branch had of its own is still there"
+
+
+def test_a_squash_says_where_the_evidence_for_it_is(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """One commit with no branch behind it would leave nothing pointing at the run."""
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    _move_the_branch_on(sample_project)
+    run = engine_factory().merge_delivery(run.id, "squash")
+    it = run.current_iteration
+    assert it is not None and it.version is not None
+    body = _git_out(sample_project, "log", "-1", "--format=%B")
+    assert f"Verified as {it.version.head_commit[:12]} by 495 {run.id}." in body
 
 
 def test_a_merge_that_conflicts_leaves_the_repository_where_it_was(
@@ -340,7 +422,7 @@ def test_a_merge_that_conflicts_leaves_the_repository_where_it_was(
     before = git.head_commit(sample_project)
 
     with pytest.raises(git.GitError, match="nothing was changed"):
-        engine_factory().merge_delivery(run.id)
+        engine_factory().merge_delivery(run.id, "merge")
 
     assert git.head_commit(sample_project) == before
     assert not (sample_project / ".git" / "MERGE_HEAD").exists(), "the merge was aborted, not left"

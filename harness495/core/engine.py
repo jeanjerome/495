@@ -1837,8 +1837,10 @@ class Engine:
 
     # ------------------------------------------------------------------ post-integration
 
-    def merge_delivery(self, run_id: str, rerun_verifications: bool = False) -> Run:
-        """Merge the delivered branch into the branch checked out in the project, then look.
+    def merge_delivery(
+        self, run_id: str, how: str = "fast-forward", rerun_verifications: bool = False
+    ) -> Run:
+        """Bring the delivered branch into the branch checked out in the project, then look.
 
         The one command that writes to the tree people work in. Everything else 495 does
         happens in a worktree of its own, which is why the run can be walked without asking
@@ -1853,12 +1855,12 @@ class Engine:
         """
         self.store.claim(run_id, self.label)
         try:
-            self._merge_delivery(run_id)
+            self._merge_delivery(run_id, how)
             return self._check_integration(run_id, "HEAD", rerun_verifications)
         finally:
             self.store.release(run_id)
 
-    def _merge_delivery(self, run_id: str) -> Run:
+    def _merge_delivery(self, run_id: str, how: str) -> Run:
         run = self.store.load(run_id)
         it = run.current_iteration
         if it is None or it.version is None or not it.version.head_commit:
@@ -1866,26 +1868,56 @@ class Engine:
         branch = run.result.branch or it.version.branch
         if not branch:
             raise EngineError("the run delivered no branch to merge")
+        if how not in git.INTEGRATIONS:
+            raise EngineError(
+                f"unknown way to integrate: {how!r}; one of {', '.join(git.INTEGRATIONS)}"
+            )
         root = Path(run.project_root)
         into = git.current_branch(root) or "HEAD"
         if git.has_uncommitted_changes(root):
             raise EngineError(
-                f"{root} has uncommitted changes; commit or stash them before merging into {into}"
+                f"{root} has uncommitted changes; commit or stash them before integrating "
+                f"into {into}"
             )
         if git.is_ancestor(root, it.version.head_commit, "HEAD"):
             raise EngineError(f"{into} already contains {it.version.head_commit[:12]}")
+        if how == "fast-forward" and not git.can_fast_forward(root, branch):
+            raise EngineError(
+                f"{into} carries commits of its own since the run branched, so nothing can be "
+                "fast-forwarded onto it; integrate it as rebase, squash or merge"
+            )
         before = git.head_commit(root)
-        merged = git.merge_no_ff(
-            root, branch, f"Merge branch '{branch}'\n\n{run.intent.text.strip()}"
+        merged = git.integrate_branch(
+            root,
+            branch,
+            how,
+            self._integration_message(run, branch, how),
+            it.version.base_commit,
         )
+        run.result.integrated_as = how
         self.emit(
             run,
             "integration.merged",
-            f"{branch} merged into {into}: {before[:12]} -> {merged[:12]}",
-            {"branch": branch, "into": into, "before": before, "after": merged},
+            f"{branch} integrated into {into} as {how}: {before[:12]} -> {merged[:12]}",
+            {"branch": branch, "into": into, "how": how, "before": before, "after": merged},
         )
         self.store.save(run)
         return run
+
+    @staticmethod
+    def _integration_message(run: Run, branch: str, how: str) -> str:
+        """The commit an integration writes, for the two shapes that write one.
+
+        What the change does, and then where the evidence for it is. That second line is the
+        only thing tying a squashed commit back to the run that produced and verified it: the
+        branch survives locally, but nothing in the history would point at it.
+        """
+        it = run.current_iteration
+        head = (it.version.head_commit if it and it.version else "") or ""
+        text = run.intent.text.strip()
+        subject = text.splitlines()[0] if text else branch
+        lead = f"Merge branch '{branch}'\n\n{subject}" if how == "merge" else subject
+        return f"{lead}\n\nVerified as {head[:12]} by 495 {run.id}."
 
     def check_integration(
         self, run_id: str, target_ref: str = "HEAD", rerun_verifications: bool = False
