@@ -1857,15 +1857,28 @@ class Engine:
         target = git.rev_parse(root, target_ref)
         contains = git.is_ancestor(root, head, target)
         identical = True
-        details: list[str] = []
+        diffs: list[str] = []
         for f in it.version.files_changed:
             expected = git.blob_hash(root, head, f)
             actual = git.blob_hash(root, target, f)
             if expected != actual:
                 identical = False
-                details.append(
+                diffs.append(
                     f"{f}: evaluated {expected or 'deleted'} vs integrated {actual or 'missing'}"
                 )
+        # A ref still sitting on the commit the run branched from has not been merged into, so
+        # nothing was integrated and nothing can differ. A blob pair per changed file would
+        # answer a question nobody asked, and reads as a broken integration where the truth is
+        # that there is not one yet.
+        untouched = not contains and not identical and target == it.version.base_commit
+        details: list[str] = (
+            [
+                f"{target_ref} is still {target[:12]}, the commit the run started from; "
+                "nothing of this run has been merged into it"
+            ]
+            if untouched
+            else list(diffs)
+        )
         passed: bool | None = None
         if rerun_verifications:
             tmp = self.worktree_path(run).parent / f"{run.id}-integration"

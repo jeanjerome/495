@@ -110,8 +110,9 @@ def build_integration(ctx: ViewContext) -> StageContent:
             )
         )
 
+    state = run.integration_state()
     if res.integration is not None:
-        blocks.append(_integration_panel(res.integration))
+        blocks.append(_integration_panel(res.integration, state))
 
     blocks.append(
         panel(
@@ -147,51 +148,75 @@ def build_integration(ctx: ViewContext) -> StageContent:
             ),
             ICON["integration"],
             "check what you merged",
-            tone="live" if res.integration is None else "quiet",
+            # Still the live frame after a ref that turned out to be unmerged: the thing
+            # this panel offers has not been done yet, and asking about it did not do it.
+            tone="live" if state in ("unchecked", "unmerged") else "quiet",
         )
     )
     return StageContent(Group(*blocks))
 
 
-def _integration_panel(g: IntegrationCheck) -> Panel:
-    ok = g.contains_commit and g.files_identical
+def _integration_panel(g: IntegrationCheck, state: str) -> Panel:
+    """What the ref turned out to hold.
+
+    A ref nobody merged into gets two lines rather than the breakdown: "contains: not the
+    delivered commit, files: differ from the candidate" is true of it and says the wrong
+    thing — the files do not differ, they were never brought over, and a blob pair per file is
+    five lines of evidence for an event that did not happen.
+    """
+    rows: list[tuple[str, Text]] = [
+        ("target", Text(f"{g.target_ref} at {short(g.target_commit, 12)}", style="h.ref"))
+    ]
+    if state == "unmerged":
+        rows.append(
+            (
+                "merged",
+                Text(
+                    "nothing of this run — the ref is still the commit it started from",
+                    style="attn.you",
+                ),
+            )
+        )
+    else:
+        rows += [
+            (
+                "contains",
+                Text(
+                    "the delivered commit" if g.contains_commit else "not the delivered commit",
+                    style="req.satisfied" if g.contains_commit else "req.violated",
+                ),
+            ),
+            (
+                "files",
+                Text(
+                    "identical to the candidate"
+                    if g.files_identical
+                    else "differ from the candidate",
+                    style="req.satisfied" if g.files_identical else "req.violated",
+                ),
+            ),
+        ]
+    if state != "unmerged" or g.verifications_rerun:
+        rows.append(
+            (
+                "checks there",
+                Text(
+                    "not re-run"
+                    if not g.verifications_rerun
+                    else ("all pass" if g.verifications_passed else "some fail"),
+                    style="h.meta"
+                    if not g.verifications_rerun
+                    else ("req.satisfied" if g.verifications_passed else "req.violated"),
+                ),
+            )
+        )
+        rows.append(("detail", Text(g.detail or "—", style="h.meta")))
     return panel(
-        field_pairs(
-            [
-                ("target", Text(f"{g.target_ref} at {short(g.target_commit, 12)}", style="h.ref")),
-                (
-                    "contains",
-                    Text(
-                        "the delivered commit" if g.contains_commit else "not the delivered commit",
-                        style="req.satisfied" if g.contains_commit else "req.violated",
-                    ),
-                ),
-                (
-                    "files",
-                    Text(
-                        "identical to the candidate"
-                        if g.files_identical
-                        else "differ from the candidate",
-                        style="req.satisfied" if g.files_identical else "req.violated",
-                    ),
-                ),
-                (
-                    "checks there",
-                    Text(
-                        "not re-run"
-                        if not g.verifications_rerun
-                        else ("all pass" if g.verifications_passed else "some fail"),
-                        style="h.meta"
-                        if not g.verifications_rerun
-                        else ("req.satisfied" if g.verifications_passed else "req.violated"),
-                    ),
-                ),
-                ("detail", Text(g.detail or "—", style="h.meta")),
-            ],
-            width=13,
-        ),
+        field_pairs(rows, width=13),
         ICON["integration"],
         "integration check",
         g.checked_at.astimezone().strftime("%Y-%m-%d %H:%M"),
-        tone="good" if ok else "bad",
+        tone="ask"
+        if state == "unmerged"
+        else ("good" if state == "landed" and g.verifications_passed is not False else "bad"),
     )

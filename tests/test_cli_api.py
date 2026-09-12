@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import threading
 import time
 import urllib.request
@@ -81,8 +82,19 @@ def test_cli_run_lifecycle(sample_project: Path, monkeypatch: pytest.MonkeyPatch
     assert res.exit_code == 0 and "valid" in res.output
     res = _cli(sample_project, "--json", "export", run_id, "-o", str(sample_project / "out.tgz"))
     assert res.exit_code == 0 and (sample_project / "out.tgz").exists()
+    # A ref nobody merged into is the run standing where it delivered, not a rejection: the
+    # command says so and exits clean, and it is a moved ref carrying something else that does
+    # not.
     res = _cli(sample_project, "--json", "check-integration", run_id)
-    assert res.exit_code == 4  # not integrated yet
+    assert res.exit_code == 0 and json.loads(res.output)["state"] == "unmerged"
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--allow-empty", "-m", "on"],
+        cwd=sample_project,
+        check=True,
+        capture_output=True,
+    )
+    res = _cli(sample_project, "--json", "check-integration", run_id)
+    assert res.exit_code == 4 and json.loads(res.output)["state"] == "differs"
     res = _cli(sample_project, "--json", "cleanup", run_id)
     assert res.exit_code == 0
     res = _cli(sample_project, "--json", "status", "run-nope")

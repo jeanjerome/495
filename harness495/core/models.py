@@ -647,6 +647,30 @@ class Run(StrictModel):
                 return e
         return None
 
+    def integration_state(self) -> str:
+        """What the last look at a ref found there.
+
+        Four answers, where :class:`IntegrationCheck` records two booleans. Those two cannot
+        tell "you have not merged yet" from "what you merged is not what was verified": both
+        are the same pair of ``False`` values and they are opposite facts — one is the stop
+        standing exactly where it always stands, the other is the single thing this stop
+        exists to catch. The commit the run branched from separates them, which is why this is
+        read off the run rather than stored: a ref still sitting on that commit was never
+        merged into.
+
+        ``unchecked`` nothing has been asked · ``unmerged`` the ref is still where the run
+        started · ``landed`` it carries the verified change · ``differs`` it carries something
+        else.
+        """
+        g = self.result.integration
+        if g is None:
+            return "unchecked"
+        if g.contains_commit or g.files_identical:
+            return "landed"
+        it = self.current_iteration
+        base = it.version.base_commit if it is not None and it.version is not None else None
+        return "unmerged" if base and g.target_commit == base else "differs"
+
     def is_blocked(self) -> bool:
         return self.status in BLOCKING_STATUSES
 

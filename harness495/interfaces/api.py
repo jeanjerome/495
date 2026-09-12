@@ -256,7 +256,13 @@ class Handler(BaseHTTPRequestHandler):
                         run_id, str(body.get("ref", "HEAD")), bool(body.get("rerun", False))
                     )
                     assert run.result.integration is not None
-                    self._send(200, run.result.integration.model_dump(mode="json"))
+                    self._send(
+                        200,
+                        {
+                            **run.result.integration.model_dump(mode="json"),
+                            "state": run.integration_state(),
+                        },
+                    )
                 else:
                     self._send(404, {"error": "not found"})
             else:

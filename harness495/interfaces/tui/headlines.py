@@ -287,6 +287,12 @@ def _integration(run: Run) -> Text:
             "identical to the verified one — the change landed by another route.",
             style="h.value",
         )
+    elif run.integration_state() == "unmerged":
+        out.append(
+            f"{g.target_ref} has not been merged into: it is still {short(g.target_commit)}, the "
+            "commit the run started from. Merge the branch or apply the patch, then ask again.",
+            style="attn.you",
+        )
     else:
         out.append(
             f"What is in {g.target_ref} is not what was verified: {clip(g.detail, 120)}",

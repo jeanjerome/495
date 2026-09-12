@@ -187,12 +187,16 @@ def stage_state(run: Run, name: str) -> str:
         # The only stop whose state is not the run's: the harness cannot walk it, it can only
         # report what it found when you asked it to look at the ref you merged into.
         g = run.result.integration
-        if g is not None:
-            landed = g.contains_commit or g.files_identical
-            return "done" if landed and g.verifications_passed is not False else "failed"
+        state = run.integration_state()
+        if state == "landed":
+            return "done" if g is None or g.verifications_passed is not False else "failed"
+        if state == "differs":
+            return "failed"
         if run.status is RunStatus.delivered:
-            # Delivered and unchecked is the run standing still, not the run working: it has
-            # done everything it can, and the merge it is waiting for is a human act.
+            # Delivered and not merged into is the run standing still, not the run broken: it
+            # has done everything it can, and the merge it is waiting for is a human act. A
+            # ref nobody merged into says that same thing back, so asking about one leaves the
+            # stop where it was — a question must not turn a stop red by being asked.
             return "blocked"
     if index < here:
         return "done"
@@ -273,12 +277,14 @@ def stage_count(run: Run, name: str) -> tuple[str | None, bool]:
     if name == "deliver":
         return ("✓", False) if run.status is RunStatus.delivered else (None, False)
     if name == "integration":
-        g = run.result.integration
-        if g is None:
-            return None, False
-        if g.contains_commit or g.files_identical:
-            return ("✓", False) if g.verifications_passed is not False else ("✕", True)
-        return "✕", True
+        state = run.integration_state()
+        if state == "landed":
+            g = run.result.integration
+            passed = g is None or g.verifications_passed is not False
+            return ("✓", False) if passed else ("✕", True)
+        # ``unmerged`` wears no badge, for the reason it takes no red: the stop stands where it
+        # stood before the question, and a mark there would say the question found something.
+        return ("✕", True) if state == "differs" else (None, False)
     return None, False
 
 

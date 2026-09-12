@@ -202,19 +202,66 @@ def test_the_integration_check_runs_from_the_surface(
     assert "integration check" in render(shell, "integration")
 
 
-def test_a_tree_that_does_not_carry_the_verified_version_is_named_as_such(
+def test_a_ref_nobody_merged_into_is_not_a_failed_integration(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """Asking about a tree you have not merged into is answered "not yet", not "it broke".
+
+    The check records two booleans and both are false here — which is also what they are when
+    a merge went wrong. Told apart by the commit the run branched from, they are opposite
+    facts, and only one of them is worth a red stop.
+    """
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+    before = attention(shell.run, can_drive=True)
+
+    pilot.integrate(run_id, "HEAD", False)  # nothing was merged
+    settle(pilot)
+    shell.source.refresh(force=True)
+
+    check = shell.run.result.integration
+    assert check is not None and not check.contains_commit and not check.files_identical
+    assert shell.run.integration_state() == "unmerged"
+    assert stage_state(shell.run, "integration") == "blocked", "the merge is still yours to make"
+    after = attention(shell.run, can_drive=True)
+    assert after.tone == before.tone == "good", "asking must not turn a delivered run red"
+    assert "has not been merged into" in after.detail
+    assert "nothing of this run has been merged into it" in check.detail
+    assert "evaluated" not in check.detail, "nothing was integrated, so nothing can differ"
+
+
+def test_a_tree_that_carries_something_else_is_named_as_such(
     store: RunStore, pilot: StoreDriver, sample_project: Path
 ) -> None:
     run_id = pilot.create("add subtract to calc")
     settle(pilot)
-    pilot.integrate(run_id, "HEAD", False)  # nothing was merged
+    _git(sample_project, "commit", "--allow-empty", "-m", "the branch moved on without it")
+    pilot.integrate(run_id, "HEAD", False)
     settle(pilot)
     shell = surface(store, pilot)
     shell.select(run_id)
     check = shell.run.result.integration
     assert check is not None and not check.contains_commit and not check.files_identical
+    assert shell.run.integration_state() == "differs"
     assert stage_state(shell.run, "integration") == "failed"
     assert attention(shell.run, can_drive=True).tone == "bad"
+
+
+def test_the_check_is_offered_from_wherever_you_are_standing(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """The last thing left to do on a delivered run is not hidden behind the stop that owns it."""
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+    shell.view = "change"
+    assert shell.resolve("i") == "integrate"
+    assert ("i", "check a ref") in shell.controls()
+    assert attention(shell.run, can_drive=True).key == "i", "the band names the key, not the stop"
+    assert attention(shell.run, can_drive=False).key == "8", "and the stop where it cannot act"
 
 
 # --------------------------------------------------------------------- two terminals

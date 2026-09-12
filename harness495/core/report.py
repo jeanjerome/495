@@ -175,6 +175,7 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
             "## Integration check",
             "",
             f"- target: `{ic.target_ref}` (`{ic.target_commit}`)",
+            f"- outcome: {run.integration_state()}",
             f"- contains evaluated commit: {ic.contains_commit}",
             f"- touched files identical: {ic.files_identical}",
             f"- verifications re-run: {ic.verifications_rerun}"

@@ -79,7 +79,7 @@ BINDINGS: tuple[Binding, ...] = (
     Binding("s", "control:start", "start"),
     Binding("p", "control:pause", "pause the run"),
     Binding("c", "create", "new run"),
-    Binding("i", "integrate", "check a ref", scope="integration"),
+    Binding("i", "integrate", "check a ref"),
     Binding("space", "freeze", "freeze"),
     Binding("r", "refresh", "refresh", hidden=True),
     Binding("?", "help", "help"),
@@ -294,7 +294,10 @@ class Shell:
         verb = self.startable()
         if verb is not None and self.can("control:start"):
             out.append(("s", verb))
-        if self.view == "integration" and self.can("integrate"):
+        if self.can("integrate"):
+            # Not only on the eighth stop. It is the one thing left to do on a delivered run,
+            # and a control that appears only once you have found the stop it belongs to is a
+            # control you find by accident.
             out.append(("i", "check a ref"))
         if self.can("create"):
             out.append(("c", "new run"))

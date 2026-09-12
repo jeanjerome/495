@@ -34,7 +34,7 @@ from harness495.interfaces.tui.driving import Activity
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.reading import running_intervention
 from harness495.interfaces.tui.stages import STAGE_INDEX, STAGES, stage_of
-from harness495.interfaces.tui.widgets.text import clip, hms
+from harness495.interfaces.tui.widgets.text import clip, hms, short
 
 
 @dataclass(frozen=True)
@@ -131,24 +131,42 @@ def attention(
             action=f"try again at {stage_of(run)}" if retry else "see where it stopped",
         )
     if run.status is RunStatus.delivered and activity is None:
+        # ``i`` acts from wherever you are standing on a delivered run, so the band carries it
+        # like it carries ``d``, ``s`` and ``p`` — a stop number sends you to look for the key
+        # once you are there, which is one discovery too many for the last thing left to do.
+        acts = ours and bool(run.result.report_ref)
+        key = "i" if acts else "8"
         g = run.result.integration
-        if g is None:
+        state = run.integration_state()
+        if state in ("unchecked", "unmerged"):
+            # The same fact either way — nothing has been merged — so the same tone. A run
+            # that reads green until you ask about it and red afterwards is a run whose colour
+            # is about the question rather than about the run.
             return Attention(
                 tone="good",
                 glyph=ICON["delivered"],
                 headline="delivered",
-                detail="the patch and the branch are ready; nothing has been merged",
-                key="8",
-                action="check what you merged",
+                detail=(
+                    "the patch and the branch are ready; nothing has been merged"
+                    if g is None
+                    else f"{g.target_ref} has not been merged into: it is still "
+                    f"{short(g.target_commit, 12)}, the commit the run started from"
+                ),
+                key=key,
+                action=(
+                    "check what you merged"
+                    if g is None
+                    else ("ask again once you have merged" if acts else "the integration check")
+                ),
             )
-        landed = g.contains_commit or g.files_identical
+        landed = state == "landed"
         return Attention(
             tone="good" if landed else "bad",
             glyph=ICON["delivered"] if landed else ICON["stopped"],
             headline="delivered and integrated" if landed else "delivered, but not integrated",
-            detail=clip(f"{g.target_ref}: {g.detail}", 150),
-            key="8",
-            action="the integration check",
+            detail=clip(f"{g.target_ref}: {g.detail}" if g else "", 150),
+            key=key,
+            action="check it again" if acts else "the integration check",
         )
     live = running_intervention(run)
     if live is not None:

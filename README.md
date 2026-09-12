@@ -48,7 +48,7 @@ a producer escape stops the run.
 | review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
-| check-integration | after you merged or applied the patch: does the target ref contain the commit / identical files, optionally re-run the verifications | harness |
+| check-integration | after you merged or applied the patch: does the target ref contain the commit / identical files, optionally re-run the verifications. A ref still sitting on the commit the run branched from is reported as not merged into yet, which is not a mismatch and not a failure | harness |
 
 A correction request says which requirement is not demonstrated and what was observed, never what
 to change: the target is the behaviour a requirement describes, and a verification is only how the
@@ -84,8 +84,8 @@ Four things carry the surface:
 - **The run is driven from where it is read.** `c` takes an intent — or an existing change to
   evaluate — and starts the run on it; `s` advances it until it finishes or needs you, and
   resumes a paused or failed one at the phase it stopped at; `p` pauses it after the step it is
-  on; `d` answers the question it stopped on and lets it carry on; `i`, at the last stop, checks
-  the ref you merged into against the verified version. A control is offered only where pressing
+  on; `d` answers the question it stopped on and lets it carry on; `i` checks the ref you merged
+  into against the verified version, from wherever you are standing in a delivered run. A control is offered only where pressing
   it would do something, so the keys on screen are the moves that exist right now.
 
 Keys: `1`-`8` or `←` `→` walk the pipeline, `n` catches up to where the run is, `↑` `↓` move the

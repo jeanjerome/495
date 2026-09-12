@@ -694,14 +694,19 @@ def check_integration(
         return
     ic = run.result.integration
     assert ic is not None
+    # What the two booleans on the record cannot say on their own, next to them, so a caller
+    # reading the JSON reaches the same word the line below prints.
+    state = run.integration_state()
     if c.json:
-        _emit_json(ic.model_dump(mode="json"))
+        _emit_json({**ic.model_dump(mode="json"), "state": state})
     else:
-        ok = ic.contains_commit or ic.files_identical
-        console.print(
-            f"[{'green' if ok else 'red'}]integration {'verified' if ok else 'MISMATCH'}[/]: {ic.detail}"
-        )
-    if not (ic.contains_commit or ic.files_identical) or ic.verifications_passed is False:
+        # A ref nobody merged into is not a mismatch. It is the same "nothing has been merged"
+        # the run has said since it delivered, so it is neither red nor an exit code: reading
+        # it that way would fail a pipeline for the step it has not reached yet.
+        word = {"landed": "verified", "unmerged": "not merged yet", "differs": "MISMATCH"}[state]
+        colour = {"landed": "green", "unmerged": "yellow", "differs": "red"}[state]
+        console.print(f"[{colour}]integration {word}[/]: {ic.detail}")
+    if state == "differs" or ic.verifications_passed is False:
         raise typer.Exit(EXIT_REJECTED)
 
 
