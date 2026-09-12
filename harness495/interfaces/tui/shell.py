@@ -33,7 +33,6 @@ from harness495.interfaces.tui.stages import (
     DECISION_STAGE,
     STAGE_INDEX,
     STAGES,
-    STATE_GLYPH,
     stage_of,
     stage_state,
 )
@@ -370,7 +369,9 @@ class Shell:
             blocks.append(
                 panel(
                     headline(run, self.view),
-                    STATE_GLYPH[state],
+                    # The stop, not its state: the strip three lines up draws the state, in
+                    # the same colour, and the border below carries it too.
+                    ICON[stage.name],
                     stage.name,
                     stage.question,
                     tone={"here": "live", "blocked": "ask", "failed": "bad"}.get(state, "quiet"),

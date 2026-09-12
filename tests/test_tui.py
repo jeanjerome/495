@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rich.cells import cell_len
 from rich.console import Console
 
 from harness495.core.models import (
@@ -24,6 +25,7 @@ from harness495.interfaces.tui.attention import attention
 from harness495.interfaces.tui.chrome import footer_bar, logo, nav_bar
 from harness495.interfaces.tui.chrome.band import TONE_STYLE
 from harness495.interfaces.tui.headlines import headline
+from harness495.interfaces.tui.icons import ICON, ICON_SET, use_icons
 from harness495.interfaces.tui.logs import StoredLogs
 from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
@@ -159,6 +161,24 @@ def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration(
     assert all(stage_state(run, name) == "done" for name in walked)
     assert stage_of(run) == "integration"
     assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
+
+
+# --------------------------------------------------------------------- the icons
+
+
+def test_every_stop_is_named_by_an_emoji_of_its_own() -> None:
+    """An emoji standing for two stops stands for neither; the width rule is enforced on import."""
+    marks = [ICON[s.name] for s in STAGES]
+    assert len(set(marks)) == len(STAGES)
+    assert all(cell_len(m) == 2 for m in marks)
+
+
+def test_a_terminal_without_emoji_gets_one_cell_marks_instead() -> None:
+    try:
+        use_icons("ascii")
+        assert all(cell_len(ICON[name]) == 1 for name in ICON_SET)
+    finally:
+        use_icons()
 
 
 # --------------------------------------------------------------------- the footer

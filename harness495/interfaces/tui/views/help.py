@@ -48,10 +48,12 @@ def _keys_table(rows: tuple[tuple[str, str, str], ...], width: int) -> Table:
 def help_view() -> RenderableType:
     stages = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 2), show_edge=False)
     stages.add_column("key", width=5, style="cursor", no_wrap=True)
-    stages.add_column("stage", width=12, style="bold", no_wrap=True)
+    stages.add_column("stage", width=15, style="bold", no_wrap=True)
     stages.add_column("answers", ratio=1)
     for s in STAGES:
-        stages.add_row(f" {s.key} ", s.name, s.question)
+        # The same emoji the stage's own panel carries, so the list of stops and the stop you
+        # land on are recognised as one thing before either is read.
+        stages.add_row(f" {s.key} ", f"{ICON[s.name]}  {s.name}", s.question)
 
     legend = Table.grid(padding=(0, 3))
     legend.add_column()
@@ -86,7 +88,7 @@ def help_view() -> RenderableType:
     return Group(
         panel(stages, ICON["pipeline"], "the pipeline is the navigation", "press a digit, or ← →"),
         two_columns(
-            panel(_keys_table(CONTROLS, 4), ICON["deliver"], "what drives the run"),
+            panel(_keys_table(CONTROLS, 4), ICON["controls"], "what drives the run"),
             panel(_keys_table(OTHER_KEYS, 11), ICON["keys"], "what moves you around"),
         ),
         panel(legend, ICON["legend"], "what the marks mean"),

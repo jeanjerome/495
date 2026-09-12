@@ -31,6 +31,7 @@ from dataclasses import dataclass
 
 from harness495.core.models import Capability, Run, RunStatus
 from harness495.interfaces.tui.driving import Activity
+from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.reading import running_intervention
 from harness495.interfaces.tui.stages import STAGE_INDEX, STAGES, stage_of
 from harness495.interfaces.tui.widgets.text import clip, hms
@@ -101,7 +102,7 @@ def attention(
     if pending is not None:
         return Attention(
             tone="ask",
-            glyph="◆",
+            glyph=ICON["question"],
             headline="waiting on you",
             about=pending.kind.value.replace("_", " "),
             detail=clip(pending.question, 150),
@@ -111,7 +112,7 @@ def attention(
     if run.status is RunStatus.paused:
         return Attention(
             tone="ask",
-            glyph="‖",
+            glyph=ICON["paused"],
             headline="paused",
             about=stage_of(run),
             detail=clip(run.stop_reason or "stopped between two steps", 150),
@@ -122,7 +123,7 @@ def attention(
         retry = ours and run.status is RunStatus.failed
         return Attention(
             tone="bad",
-            glyph="✕",
+            glyph=ICON["stopped"],
             headline="stopped",
             about=run.status.value,
             detail=clip(run.stop_reason or run.result.summary or "nothing was delivered", 150),
@@ -134,7 +135,7 @@ def attention(
         if g is None:
             return Attention(
                 tone="good",
-                glyph="●",
+                glyph=ICON["delivered"],
                 headline="delivered",
                 detail="the patch and the branch are ready; nothing has been merged",
                 key="8",
@@ -143,7 +144,7 @@ def attention(
         landed = g.contains_commit or g.files_identical
         return Attention(
             tone="good" if landed else "bad",
-            glyph="●" if landed else "✕",
+            glyph=ICON["delivered"] if landed else ICON["stopped"],
             headline="delivered and integrated" if landed else "delivered, but not integrated",
             detail=clip(f"{g.target_ref}: {g.detail}", 150),
             key="8",
@@ -195,7 +196,7 @@ def attention(
     started = run.status is not RunStatus.created
     return Attention(
         tone="ask",
-        glyph="○",
+        glyph=ICON["idle"],
         headline="idle" if started else "not started",
         about=stage_of(run) if started else "",
         detail=f"nothing is advancing it — next: {HARNESS_WORK.get(run.status, 'the next phase')}",
