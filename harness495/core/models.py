@@ -583,9 +583,9 @@ class RunResult(StrictModel):
     integrated_as: str | None = None
     """How 495 brought the change into the working tree, when 495 is what brought it in —
     ``fast-forward``, ``rebase``, ``squash`` or ``merge``. ``None`` means it was integrated by
-    hand, by something else, or not yet. Three of the four copy the change rather than move
-    it, so the delivered commit is then not in the branch and only the file contents say the
-    right thing landed; without this the check could not tell that from a stranger's merge."""
+    hand, by something else, or not yet. ``rebase`` and ``squash`` copy the change rather than
+    move it, so the delivered commit is then not in the branch and only the file contents say
+    the right thing landed; without this the check could not tell that from a stranger's merge."""
     outcome: Verdict | None = None
     summary: str = ""
     patch_ref: str | None = None

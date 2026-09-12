@@ -58,14 +58,14 @@ WAYS = {
     "merge": Choice(
         "merge",
         "a merge commit",
-        "not linear, and the only one that keeps the verified commit itself as an ancestor",
+        "not linear, and it keeps the verified commit itself rather than a copy",
     ),
 }
 """What one act can look like in a history, in the order the history stays flattest.
 
 Four rather than one because the shape of the history is a matter of taste that the harness
-has no business settling, and it is settled for good once the commit is written. The three
-linear ones copy the change rather than move it, which the check that follows reads as
+has no business settling, and it is settled for good once the commit is written. ``rebase``
+and ``squash`` copy the change rather than move it, which the check that follows reads as
 delivered-commit-absent, every-file-identical — the same thing it reads off a hand-made
 cherry-pick, and why that was never treated as a failure."""
 

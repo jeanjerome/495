@@ -225,9 +225,9 @@ def integrate_branch(path: Path, branch: str, how: str, message: str, base: str)
     under a commit that says where it came from — the only one of the four that is not linear,
     and the reason the other three exist.
 
-    A copy is what makes the last three differ from the first for the check that follows: the
-    delivered commit is not in the branch afterwards, and it is the content of the changed
-    files, byte for byte, that says the right thing landed.
+    A copy is what makes ``rebase`` and ``squash`` differ from the other two for the check that
+    follows: the delivered commit is not in the branch afterwards, and it is the content of the
+    changed files, byte for byte, that says the right thing landed.
 
     Whatever fails, the branch goes back where it was. An uncommitted change to a tracked file
     was refused before this ran, so resetting to the commit it started from restores exactly

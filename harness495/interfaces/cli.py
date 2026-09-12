@@ -49,7 +49,7 @@ from harness495.interfaces.render import (
 
 app = typer.Typer(
     name="495",
-    help="495: an agentic engineering harness. Turns an intent into a verified, reviewed, traceable change.",
+    help="495: an agent harness. Turns an intent into a verified, reviewed, traceable change.",
     no_args_is_help=False,
     add_completion=False,
     rich_markup_mode="markdown",

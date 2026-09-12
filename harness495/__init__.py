@@ -1,3 +1,3 @@
-"""495: an agentic engineering harness."""
+"""495: an agent harness."""
 
 __version__ = "0.1.0"
