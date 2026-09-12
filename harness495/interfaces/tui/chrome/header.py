@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from rich.console import Group, RenderableType
 from rich.padding import Padding
 from rich.table import Table
@@ -20,6 +22,36 @@ MARK_FLOOR = 92
 
 def header(run: Run, animated: bool = True) -> RenderableType:
     return Responsive(lambda w: _header(run, w, animated))
+
+
+def store_header(runs: Sequence[Run], animated: bool = True) -> RenderableType:
+    """Identity before a run is opened: which store you are in, and that nothing is open.
+
+    The run header names a run. On the listing there is none — one has not been picked yet —
+    and the store is what the screen is about, so that is what it names. A store is one
+    project's ``.495`` directory, which is why the project can be read off any run in it.
+    """
+    return Responsive(lambda w: _store_header(runs, w, animated))
+
+
+def _store_header(runs: Sequence[Run], width: int, animated: bool) -> RenderableType:
+    root = runs[0].project_root if runs else ""
+    ident = Text(no_wrap=True, overflow="ellipsis")
+    ident.append(root.rsplit("/", 1)[-1] or "no project", style="h.ref.strong")
+    where = Text(root, style="h.meta", no_wrap=True, overflow="ellipsis")
+    state = Text("no run is open", style="h.meta", justify="right", no_wrap=True)
+
+    grid = Table.grid(expand=True, padding=(0, 2))
+    if width >= MARK_FLOOR:
+        grid.add_column(width=LOGO_WIDTH, vertical="middle")
+    grid.add_column(ratio=3, overflow="ellipsis", vertical="middle")
+    grid.add_column(ratio=2, justify="right", overflow="ellipsis", vertical="middle")
+    cells: list[RenderableType] = [Group(ident, where), Group(state, Text())]
+    if width >= MARK_FLOOR:
+        grid.add_row(LogoMark(animated), *cells)
+    else:
+        grid.add_row(*cells)
+    return Padding(grid, (0, 1), expand=True)
 
 
 def _header(run: Run, width: int, animated: bool) -> RenderableType:

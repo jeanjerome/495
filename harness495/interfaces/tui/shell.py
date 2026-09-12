@@ -23,7 +23,13 @@ from rich.text import Text
 
 from harness495.core.models import Event, Run, RunStatus
 from harness495.interfaces.tui.attention import Attention, attention
-from harness495.interfaces.tui.chrome import attention_band, footer_bar, header, nav_bar
+from harness495.interfaces.tui.chrome import (
+    attention_band,
+    footer_bar,
+    header,
+    nav_bar,
+    store_header,
+)
 from harness495.interfaces.tui.driving import Activity, Driver, ReadOnly
 from harness495.interfaces.tui.headlines import headline
 from harness495.interfaces.tui.icons import ICON
@@ -82,6 +88,17 @@ BINDINGS: tuple[Binding, ...] = (
 #: Views whose list takes a cursor.
 LIST_VIEWS = frozenset({"profile", "spec", "change", "checks", "review", "verdict", "runs"})
 
+HOME_ACTIONS = frozenset(
+    {"cursor:+1", "cursor:-1", "open", "create", "freeze", "refresh", "help", "quit"}
+)
+"""What works on the listing before a run is opened.
+
+Everything else — the stages, the log, the controls — acts on one run, and until a row has
+been opened there is none. The alternative is the one the surface used to take: the first run
+in the store stands in for the one you did not pick, so the header names it, the band asks its
+question and ``d`` answers it, while the cursor is three rows further down. Two runs on one
+screen, one of them invisible."""
+
 SIDE_BY_SIDE = 136
 """Above this the detail sits beside the list; below it, under it. It is always on screen."""
 
@@ -100,9 +117,10 @@ class Shell:
         self.animated = animated
         self.driver: Driver = driver or ReadOnly()
         self.selected = 0
+        self.opened = False
         if selected is not None:
             self.select(selected)
-        self.view = stage_of(self.run)
+        self.view = stage_of(self.run) if self.opened else "runs"
         self.cursors: dict[str, int] = {}
         self.filter = "useful"
         self.paused = False
@@ -115,8 +133,12 @@ class Shell:
     def over(
         cls, runs: Sequence[Run], events: Sequence[Event], console: Console, animated: bool = True
     ) -> Shell:
-        """A shell over a snapshot, for a preview, an export or a test."""
-        return cls(StaticSource(runs, events), console, animated=animated)
+        """A shell over a snapshot of one run, for a preview, an export or a test.
+
+        The run is open: a snapshot is taken *of* something, and a preview that opened on the
+        listing would show the store rather than the run it was asked for.
+        """
+        return cls(StaticSource(runs, events), console, animated=animated, selected=runs[0].id)
 
     # ---- state
 
@@ -134,9 +156,11 @@ class Shell:
         return self.source.events(self.run.id)
 
     def select(self, run_id: str) -> None:
+        """Open a run. Everything the chrome says, and every key that acts, is about this one."""
         for index, run in enumerate(self.runs):
             if run.id == run_id:
                 self.selected = index
+                self.opened = True
                 return
         raise LookupError(run_id)
 
@@ -146,12 +170,21 @@ class Shell:
         return (dt.datetime.now(dt.UTC) - self.run.created_at).total_seconds()
 
     @property
+    def cursor_key(self) -> str:
+        """Where the cursor of the current view is remembered.
+
+        Per run everywhere but on the listing: a row there *is* a run, so keying it by the run
+        you happen to have open would reset it the moment you opened another one.
+        """
+        return "runs" if self.view == "runs" else f"{self.run.id}:{self.view}"
+
+    @property
     def cursor(self) -> int:
-        return self.cursors.get(f"{self.run.id}:{self.view}", 0)
+        return self.cursors.get(self.cursor_key, 0)
 
     @cursor.setter
     def cursor(self, value: int) -> None:
-        self.cursors[f"{self.run.id}:{self.view}"] = value
+        self.cursors[self.cursor_key] = value
 
     @property
     def unseen(self) -> int:
@@ -215,6 +248,9 @@ class Shell:
             return False
         if action == "create":
             return self.driver.creates()
+        if not self.opened:
+            # Every control below names "the run". On the listing there is not one yet.
+            return False
         if action == "control:pause":
             # A stop is a file in the run directory, which is how ``495 stop`` reaches a run in
             # another terminal. So this one control works on a run this surface does not hold.
@@ -276,6 +312,8 @@ class Shell:
         # Any key clears the last thing that went wrong: it has been read, or it has been
         # overtaken by whatever is being done now.
         self.driver.notice = None
+        if not self.opened and action not in HOME_ACTIONS:
+            return
         if action.startswith("control:"):
             if not self.can(action):
                 self.driver.notice = self.refusal(action)
@@ -307,6 +345,7 @@ class Shell:
         elif action == "open":
             if self.view == "runs":
                 self.selected = min(self.cursor, len(self.runs) - 1)
+                self.opened = True
                 self.view = stage_of(self.run)
         elif action == "filter":
             self.filter = FILTERS[(FILTERS.index(self.filter) + 1) % len(FILTERS)]
@@ -330,7 +369,7 @@ class Shell:
         )
 
     def content(self, height: int = 40) -> StageContent:
-        if self.view == "runs":
+        if self.view == "runs" or not self.opened:
             return build_runs(self.runs, self.cursor)
         if self.view == "log":
             return build_log(self.events, self.filter, max(6, height - 14), self.unseen)
@@ -363,7 +402,7 @@ class Shell:
         content = self.content(height)
         blocks: list[RenderableType] = []
 
-        if self.view in STAGE_INDEX:
+        if self.opened and self.view in STAGE_INDEX:
             stage = STAGES[STAGE_INDEX[self.view]]
             state = stage_state(run, self.view)
             blocks.append(
@@ -413,9 +452,16 @@ class Shell:
 
         ``log`` and ``runs`` stay on the row when you are in them, marked: they are the only
         two destinations the pipeline strip does not show, so the footer is the only place
-        that can say you are there.
+        that can say you are there. Before a run is opened the row holds what the listing
+        answers to, and nothing that would act on a run.
         """
         rows = self.row_count()
+        if not self.opened:
+            picks: list[tuple[str, str, bool]] = [("↑↓", "move", False)] if rows else []
+            picks.append(("enter", "open run", False))
+            if self.can("create"):
+                picks.append(("c", "new run", False))
+            return [*picks, ("?", "help", self.helping), ("q", "quit", False)]
         keys: list[tuple[str, str, bool]] = [(k, label, False) for k, label in self.controls()]
         if self.scope == "list" and rows:
             keys.append(("↑↓", "move", False))
@@ -489,6 +535,13 @@ class Shell:
         be read after the fact, or captured, has to flow instead.
         """
         note = self.notice_line()
+        if not self.opened:
+            return Group(
+                store_header(self.runs, self.animated),
+                *([note] if note is not None else []),
+                self.body(width, 200),
+                Responsive(lambda w: footer_bar(self.footer_keys(), None, 0.0, not self.paused, w)),
+            )
         attn = self.attention()
         return Group(
             header(self.run, self.animated),

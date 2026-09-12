@@ -27,6 +27,7 @@ from harness495.interfaces.tui.chrome.band import TONE_STYLE
 from harness495.interfaces.tui.headlines import headline
 from harness495.interfaces.tui.icons import ICON, ICON_SET, use_icons
 from harness495.interfaces.tui.logs import StoredLogs
+from harness495.interfaces.tui.source import StaticSource
 from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of, stage_state
 from harness495.interfaces.tui.theme import THEME
 from harness495.interfaces.tui.widgets import WorkingMark
@@ -43,8 +44,10 @@ def render(shell: Shell, view: str, width: int = 150) -> str:
 
 
 def surface(store: RunStore, width: int = 150) -> Shell:
+    """A surface with the first run open, which is what a test about a stage needs."""
     console = Console(theme=THEME, file=io.StringIO(), width=width, highlight=False)
-    return Shell(StoreSource(store), console, animated=False)
+    runs = store.list_runs()
+    return Shell(StoreSource(store), console, animated=False, selected=runs[0].id if runs else None)
 
 
 @pytest.fixture
@@ -161,6 +164,48 @@ def test_a_delivered_run_leaves_every_stop_walked_and_stands_at_the_integration(
     assert all(stage_state(run, name) == "done" for name in walked)
     assert stage_of(run) == "integration"
     assert stage_state(run, "integration") == "blocked", "it is waiting on a merge, not working"
+
+
+# --------------------------------------------------------------------- the listing
+
+
+def _store_of(*runs: Run) -> Shell:
+    """What ``495 watch`` builds when no run id was given: a listing, and nothing open."""
+    console = Console(theme=THEME, file=io.StringIO(), width=150, highlight=False)
+    return Shell(StaticSource(runs, []), console, animated=False)
+
+
+def test_nothing_speaks_for_a_run_until_one_is_opened() -> None:
+    """The header, the band and the strip each name a run; on the listing none is picked."""
+    shell = _store_of(_asking(), _bare(RunStatus.delivered))
+    assert not shell.opened and shell.view == "runs"
+    head, _, third = render(shell, "runs").splitlines()[:3]
+    # Two rows of store identity, then the listing: nothing in between speaks for a run.
+    assert "no run is open" in head
+    assert "runs in the store" in third
+    assert "approve?" not in render(shell, "runs"), "the band asked a question nobody opened"
+    assert [k for k, _, _ in shell.footer_keys()] == ["↑↓", "enter", "?", "q"]
+
+
+def test_a_key_that_acts_on_a_run_does_nothing_while_none_is_open() -> None:
+    shell = _store_of(_asking(), _bare(RunStatus.delivered))
+    for action in ("stage:spec", "view:log", "catchup", "decide", "control:start"):
+        shell.act(action)
+        assert shell.view == "runs" and not shell.opened
+    assert not shell.can("decide") and not shell.can("control:start")
+
+
+def test_the_cursor_is_what_opens_and_the_chrome_follows_it() -> None:
+    """The listing used to point at one run while the header named another."""
+    first, second = _asking(), _bare(RunStatus.delivered)
+    shell = _store_of(first, second)
+    shell.act("cursor:+1")
+    shell.act("open")
+    assert shell.opened and shell.run.id is second.id or shell.run is second
+    assert shell.view == stage_of(second)
+    # Back to the listing: the cursor is still on the run that is open, not reset to the top.
+    shell.act("view:runs")
+    assert shell.cursor == 1
 
 
 # --------------------------------------------------------------------- the icons

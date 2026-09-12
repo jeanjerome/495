@@ -61,11 +61,8 @@ def watch(
             console.print(Text(f"run {run_id} not found", style="attn.dead"))
             return 1
         shell.view = stage or shell.view
-    else:
-        # No id given: the listing is the only screen that can answer "which run".
-        shell.view = stage or "runs"
-    if stage is not None:
-        shell.view = stage
+    # No id given: the listing is the only screen that can answer "which run", and a stage is
+    # a stage *of* a run — naming one before a run is picked would open a view of nothing.
 
     if still:
         console.print(shell.flow(console.width))

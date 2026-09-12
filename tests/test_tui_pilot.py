@@ -49,8 +49,16 @@ def pilot(store: RunStore, sample_project: Path, engine_factory: Any) -> StoreDr
 
 
 def surface(store: RunStore, pilot: StoreDriver, width: int = 150) -> Shell:
+    """A surface with the first run open, if the store holds one; the listing otherwise."""
     console = Console(theme=THEME, file=io.StringIO(), width=width, highlight=False)
-    return Shell(StoreSource(store), console, animated=False, driver=pilot)
+    runs = store.list_runs()
+    return Shell(
+        StoreSource(store),
+        console,
+        animated=False,
+        driver=pilot,
+        selected=runs[0].id if runs else None,
+    )
 
 
 def render(shell: Shell, view: str, width: int = 150) -> str:

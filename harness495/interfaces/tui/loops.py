@@ -287,19 +287,27 @@ def run_prompted(shell: Shell) -> None:
             continue
         controls = shell.controls()
         offered = "".join(f"{key} {label}, " for key, label in controls)
-        choices = [s.key for s in STAGES] + [key for key, _ in controls] + ["g", "l", "o", "?", "q"]
+        if shell.opened:
+            choices = [s.key for s in STAGES] + [k for k, _ in controls] + ["g", "l", "o", "?", "q"]
+            question = (
+                f"{offered}stage (1-{len(STAGES)}), g log, l runs, o open a run, ? help, q quit"
+            )
+        else:
+            # The listing, with nothing open: a stage, a log and a control all name a run, and
+            # asking for one before a run is picked is the terminal's way of offering a key
+            # that does nothing.
+            choices = [k for k, _ in controls] + ["o", "?", "q"]
+            question = f"{offered}o open a run, ? help, q quit"
         key = Prompt.ask(
-            f"{offered}stage (1-{len(STAGES)}), g log, l runs, o open a run, ? help, q quit",
-            choices=choices,
-            default="q",
-            console=console,
-            show_choices=False,
+            question, choices=choices, default="q", console=console, show_choices=False
         )
         if key == "o":
             index = IntPrompt.ask(
                 f"run number (1-{len(shell.runs)})", default=shell.selected + 1, console=console
             )
-            shell.selected = max(1, min(len(shell.runs), index)) - 1
+            # Through ``select``, which is the one place a run is opened: setting the index
+            # alone would leave the surface showing a run it does not consider open.
+            shell.select(shell.runs[max(1, min(len(shell.runs), index)) - 1].id)
             shell.view = stage_of(shell.run)
         elif key == "s":
             shell.act("control:start")

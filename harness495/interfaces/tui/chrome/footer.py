@@ -39,7 +39,7 @@ def vitals(run: Run, elapsed: float, width: int = 200) -> Text:
 
 def footer_bar(
     keys: Sequence[tuple[str, str, bool]],
-    run: Run,
+    run: Run | None,
     elapsed: float,
     live: bool,
     width: int = 200,
@@ -48,6 +48,10 @@ def footer_bar(
 
     Narrow terminals lose the general keys, never the ones that act on the view you are in: an
     ellipsis at the end of the row would drop exactly the wrong ones.
+
+    ``run`` is ``None`` on the listing, where no run has been opened: a spend, an iteration
+    count and a clock are facts about one run, and there is none to be had. The live mark
+    stays, because it is the display that it speaks for.
     """
     if width < WIDE:
         room = 5 if width >= 104 else (4 if width >= 88 else 2)
@@ -61,7 +65,7 @@ def footer_bar(
     for key, label, active in keys:
         left.append(f" {key} ", style="key.active" if active else "h.rule")
         left.append(f"{label}  ", style="tab.name.viewed" if active else "h.meta")
-    right = vitals(run, elapsed, width)
+    right = vitals(run, elapsed, width) if run is not None else Text(justify="right")
     right.append("  ●" if live else "  ‖", style="req.satisfied" if live else "gauge.warn")
 
     grid = Table.grid(expand=True, padding=(0, 1))
