@@ -519,10 +519,18 @@ types, security, contract) ; runner, doubles et performance ne portent pas d'ora
 dont la condition tient dans le projet (pytest-bdd avec une suite pytest, behave sinon), et
 l'écart énonce la condition ; une technologie dont la section du catalogue est vide n'a pas
 d'écart ;
-(c) chaque écart devient une **proposition de mise en conformité** persistée dans `.495/`, que
-le demandeur accepte, refuse ou diffère ; une proposition acceptée devient un run `change` dont
-l'intent est la mise en place de l'outil et d'un premier test du rôle, avec la spécification qui
-en découle ; une proposition refusée est enregistrée avec sa raison et n'est plus reproposée ;
+(c) **fait** : chaque écart devient une **proposition de mise en conformité** persistée dans
+`.495/proposals.json` (`core/proposals.py`, `Proposal` identifiée par technologie et rôle,
+document `Proposals`, schéma `495 schema proposals`), écrite par `495 init` et `495 profile`
+et listée par `495 proposals` ; le demandeur l'accepte, la refuse ou la diffère
+(`495 proposals accept|decline|defer <id>`) ; une proposition acceptée devient un run `change`
+dont l'intent énonce l'écart, demande l'outil recommandé en dépendance de développement et en
+configuration, une commande que le harnais peut exécuter, et un premier test du rôle
+(`FIRST_TEST`, une formulation par rôle), le spécificateur en dérivant la spécification comme
+pour tout run ; une proposition refusée est enregistrée avec sa raison, affichée comme refusée
+au `profile` suivant et n'est plus reproposée, même si l'écart change ou disparaît ; une
+proposition différée reste listée ; une proposition dont l'écart n'est plus énoncé est résolue
+et se rouvre si l'écart revient (`tests/features/proposals.feature`) ;
 (d) le spécificateur reçoit le catalogue et la couverture de rôles comme faits, afin de proposer
 des V du bon kind avec le bon outil quand il existe, et de signaler un gap quand il n'existe pas ;
 (e) les rétrospectives (E44) alimentent le catalogue : un outil qui a fait ses preuves sur un
@@ -550,8 +558,8 @@ scénario dit ce que l'exigence dit ;
 `from pytest_bdd import`) dans la couverture de rôles (E50), et son absence est énoncée comme
 écart à `init`/`profile` ; le catalogue admet plusieurs entrées recommandées par cellule,
 chacune avec sa condition (pytest-bdd quand le projet a des tests pytest, behave sinon), et
-l'écart n'est énoncé que si la condition désigne un autre outil que celui en place ; reste la
-proposition de mise en conformité persistée (E50 (c)) ;
+l'écart n'est énoncé que si la condition désigne un autre outil que celui en place ; l'écart
+est une proposition persistée que le demandeur accepte, refuse ou diffère (E50 (c)) ;
 (e) le rapport montre, sous chaque exigence, le scénario qui la vérifie.
 Prérequis pour (b) à (e) : E50 (a) à (c).
 

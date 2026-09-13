@@ -1,14 +1,16 @@
-"""Scenarios of ``tests/features/profile.feature`` and ``catalogue.feature``: the role coverage
-of a host project, and its gaps against the catalogue.
+"""Scenarios of ``tests/features/profile.feature``, ``catalogue.feature`` and
+``proposals.feature``: the role coverage of a host project, its gaps against the catalogue,
+and the conformance proposals those gaps become.
 
-The steps lay a project out in a temporary directory from the scenario text, profile it once
-(through the API or through the CLI), and read the coverage and the gaps; nothing is asserted
-outside a ``Then``.
+The steps lay a project out in a temporary directory from the scenario text, profile it
+(through the API or through the CLI), answer the proposals through the CLI, and read the
+coverage, the gaps and the proposals back; nothing is asserted outside a ``Then``.
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,11 +19,19 @@ from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
 from harness495.core.context import render_profile
-from harness495.core.models import CatalogueGap, CatalogueRole, ProjectProfile, RoleCoverage
+from harness495.core.models import (
+    CatalogueGap,
+    CatalogueRole,
+    ProjectProfile,
+    Proposal,
+    RoleCoverage,
+    Run,
+)
 from harness495.core.profile import ROLES_BY_TECHNOLOGY, detect_profile
+from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 
-scenarios("features/profile.feature", "features/catalogue.feature")
+scenarios("features/profile.feature", "features/catalogue.feature", "features/proposals.feature")
 
 
 @dataclass
@@ -33,7 +43,9 @@ class Project:
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
+    last_proposal: Proposal | None = None
     output: str = ""
+    exit_code: int = 0
 
     def write_pyproject(self) -> None:
         deps = ", ".join(f'"{d}"' for d in self.dependencies)
@@ -65,6 +77,33 @@ class Project:
         assert self.last_gap is not None, "no gap was looked up before"
         return self.last_gap
 
+    def store(self) -> RunStore:
+        return RunStore(self.root / ".495")
+
+    def proposals(self, technology: str, role: str) -> list[Proposal]:
+        return [
+            p
+            for p in self.store().load_proposals().proposals
+            if p.technology == technology and p.role is CatalogueRole(role)
+        ]
+
+    def proposal(self, technology: str, role: str) -> Proposal:
+        found = self.proposals(technology, role)
+        assert len(found) == 1, f"expected one proposal on {technology} {role}, found {found}"
+        self.last_proposal = found[0]
+        return found[0]
+
+    def the_proposal(self) -> Proposal:
+        assert self.last_proposal is not None, "no proposal was looked up before"
+        return self.last_proposal
+
+    def run_cli(self, *arguments: str, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A wide terminal: the tables are read whole, a cell is never folded on two lines.
+        monkeypatch.setenv("COLUMNS", "200")
+        result = CliRunner().invoke(app, ["--project", str(self.root), *arguments])
+        self.output = result.output
+        self.exit_code = result.exit_code
+
 
 @pytest.fixture
 def project(tmp_path: Path) -> Project:
@@ -88,6 +127,7 @@ def a_rust_project(project: Project) -> None:
 
 
 @given(parsers.parse('its pyproject.toml lists the dependency "{name}"'))
+@when(parsers.parse('its pyproject.toml lists the dependency "{name}"'))
 def pyproject_lists_a_dependency(project: Project, name: str) -> None:
     project.dependencies.append(name)
     project.write_pyproject()
@@ -117,13 +157,106 @@ def the_harness_profiles_the_project(project: Project) -> None:
     project.profile = detect_profile(project.root)
 
 
+@given("the project is a git repository")
+def the_project_is_a_git_repository(project: Project) -> None:
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=project.root, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("-c", "user.name=t", "-c", "user.email=t@t", "add", ".")
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
+
+
+@given(parsers.parse('the requester has run "495 {arguments}"'))
 @when(parsers.parse('the requester runs "495 {arguments}"'))
 def the_requester_runs(project: Project, arguments: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    # A wide terminal: the tables are read whole, a cell is never folded on two lines.
-    monkeypatch.setenv("COLUMNS", "200")
-    result = CliRunner().invoke(app, ["--project", str(project.root), *arguments.split()])
-    assert result.exit_code == 0, result.output
-    project.output = result.output
+    project.run_cli(*arguments.split(), monkeypatch=monkeypatch)
+    assert project.exit_code == 0, project.output
+
+
+@given(
+    parsers.parse(
+        'the requester has accepted the proposal on "{role}" of "{technology}" without starting it'
+    )
+)
+@when(
+    parsers.parse(
+        'the requester accepts the proposal on "{role}" of "{technology}" without starting it'
+    )
+)
+def the_requester_accepts(
+    project: Project, role: str, technology: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli("proposals", "accept", proposal.id, "--no-start", monkeypatch=monkeypatch)
+    assert project.exit_code == 0, project.output
+
+
+@when(
+    parsers.parse(
+        'the requester tries to accept the proposal on "{role}" of "{technology}" without starting it'
+    )
+)
+def the_requester_tries_to_accept(
+    project: Project, role: str, technology: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli("proposals", "accept", proposal.id, "--no-start", monkeypatch=monkeypatch)
+
+
+@given(
+    parsers.parse(
+        'the requester has declined the proposal on "{role}" of "{technology}" with the reason "{reason}"'
+    )
+)
+@when(
+    parsers.parse(
+        'the requester declines the proposal on "{role}" of "{technology}" with the reason "{reason}"'
+    )
+)
+def the_requester_declines(
+    project: Project, role: str, technology: str, reason: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli(
+        "proposals", "decline", proposal.id, "--reason", reason, monkeypatch=monkeypatch
+    )
+    assert project.exit_code == 0, project.output
+
+
+@when(
+    parsers.parse(
+        'the requester tries to decline the proposal on "{role}" of "{technology}" with the reason "{reason}"'
+    )
+)
+def the_requester_tries_to_decline(
+    project: Project, role: str, technology: str, reason: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli(
+        "proposals", "decline", proposal.id, "--reason", reason, monkeypatch=monkeypatch
+    )
+
+
+@when(
+    parsers.parse(
+        'the requester tries to decline the proposal on "{role}" of "{technology}" without a reason'
+    )
+)
+def the_requester_tries_to_decline_without_a_reason(
+    project: Project, role: str, technology: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli("proposals", "decline", proposal.id, "--reason", "  ", monkeypatch=monkeypatch)
+
+
+@given(parsers.parse('the requester has deferred the proposal on "{role}" of "{technology}"'))
+def the_requester_has_deferred(
+    project: Project, role: str, technology: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    proposal = project.proposal(technology, role)
+    project.run_cli("proposals", "defer", proposal.id, monkeypatch=monkeypatch)
+    assert project.exit_code == 0, project.output
 
 
 @then(parsers.parse('the role "{role}" of "{technology}" is measured with "{tools}"'))
@@ -205,3 +338,64 @@ def the_output_shows(project: Project, text: str) -> None:
 def the_json_output_lists_a_gap(project: Project, role: str, technology: str) -> None:
     gaps = json.loads(project.output)["catalogue_gaps"]
     assert any(g["technology"] == technology and g["role"] == role for g in gaps), gaps
+
+
+@then(parsers.parse('the proposal on "{role}" of "{technology}" is "{status}"'))
+def the_proposal_is(project: Project, role: str, technology: str, status: str) -> None:
+    assert project.proposal(technology, role).status.value == status
+
+
+@then(parsers.parse('there is one proposal on "{role}" of "{technology}"'))
+def there_is_one_proposal(project: Project, role: str, technology: str) -> None:
+    assert len(project.proposals(technology, role)) == 1
+
+
+@then(parsers.parse('that proposal states "{text}"'))
+def that_proposal_states(project: Project, text: str) -> None:
+    assert project.the_proposal().gap.statement == text
+
+
+@then(parsers.parse('that proposal carries the reason "{reason}"'))
+def that_proposal_carries_the_reason(project: Project, reason: str) -> None:
+    assert project.the_proposal().reason == reason
+
+
+@then(parsers.parse('the intent of the proposal on "{role}" of "{technology}" says "{text}"'))
+def the_intent_says(project: Project, role: str, technology: str, text: str) -> None:
+    intent = project.proposal(technology, role).intent
+    assert text in intent, intent
+
+
+@then(parsers.parse('a run of mode "{mode}" exists with the intent of that proposal'))
+def a_run_exists_with_the_intent(project: Project, mode: str) -> None:
+    proposal = project.the_proposal()
+    assert proposal.run_id is not None
+    run: Run = project.store().load(proposal.run_id)
+    assert run.mode.value == mode and run.intent.text == proposal.intent
+
+
+@then(parsers.parse('the run\'s intent source is "{source}"'))
+def the_runs_intent_source_is(project: Project, source: str) -> None:
+    proposal = project.the_proposal()
+    assert proposal.run_id is not None
+    assert project.store().load(proposal.run_id).intent.source == source
+
+
+@then(parsers.parse('the command is refused with "{text}"'))
+def the_command_is_refused_with(project: Project, text: str) -> None:
+    assert project.exit_code != 0 and text in project.output, project.output
+
+
+@then(
+    parsers.parse(
+        'the JSON output lists a proposal on "{role}" of "{technology}" with the answer starting "{prefix}"'
+    )
+)
+def the_json_output_lists_a_proposal(
+    project: Project, role: str, technology: str, prefix: str
+) -> None:
+    proposals = json.loads(project.output)
+    matching = [
+        p for p in proposals if p["gap"]["technology"] == technology and p["gap"]["role"] == role
+    ]
+    assert len(matching) == 1 and matching[0]["answer"].startswith(prefix), proposals

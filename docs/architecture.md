@@ -18,7 +18,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 
 | Phase | Who | What it establishes |
 |---|---|---|
-| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role) and the gaps against the catalogue, conventions, documents; every command run once on the base version (readiness and baseline) |
+| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role) and the gaps against the catalogue, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm`, out of scope, assumptions, allowed paths; the harness then audits sufficiency |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
@@ -50,7 +50,7 @@ Dependencies point downwards only (`docs/decisions/0011-package-boundaries.md`):
 - `interfaces` may import anything. Nothing outside `interfaces` imports it.
 - Inside `core`, only `engine` imports `agents`, and only `engine` and `verification` import
   `sandbox`. The rest of `core` (`models`, `decide`, `scope`, `context`, `prompts`, `schemas`,
-  `profile`, `catalogue`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on
+  `profile`, `catalogue`, `proposals`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on
   `core` alone.
 - `agents` imports `core.models`, `core.pricing` and `sandbox`; never `core.engine`, `core.store`
   or `core.decide`.
@@ -69,12 +69,13 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `verification` | running one command on the exact commit, the control run on the base version, the failure signature, sufficiency, test-file recognition |
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; role coverage against the catalogue's roles, from markers per technology (`ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`) |
 | `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), and `compare()`: the profile's gaps against them |
+| `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the three roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
-| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it |
+| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json` |
 | `report` | the Markdown restitution of a run from its persisted state |
 | `config` | precedence: defaults, `~/.config/495/config.toml`, `.495/config.toml`, `.495/project.toml`, command line |
 | `budget`, `pricing` | limits checked before each intervention; cost `reported`, `estimated` or `unknown` |
@@ -115,13 +116,18 @@ collects the evidence and reviews measured on it. `Evidence` is what the harness
 `command_result`, `scope_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A
 `PendingDecision` is a question with `DecisionOption`s, each stating its consequence; a
 `Decision` records who answered and what. `RunResult` holds the delivered branch, patch, report
-and the `IntegrationCheck`. The JSON schema of each document comes from these models.
+and the `IntegrationCheck`. Outside any run, a `Proposals` document holds one `Proposal` per
+gap against the catalogue, identified by technology and role: the gap as last stated, a
+`ProposalStatus` (`open`, `accepted` with the run it created, `declined` with the reason,
+`deferred`, `resolved`), and the intent an acceptance turns into a run. The JSON schema of
+each document comes from these models.
 
 ## State on disk
 
 ```
 <project>/.495/                        excluded from git by .git/info/exclude
   config.toml  project.toml            configuration and project criteria
+  proposals.json                       the conformance proposals and the requester's answers
   runs/<run-id>/
     run.json                           the Run document, atomic writes
     events.jsonl                       append-only event log

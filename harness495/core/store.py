@@ -1,6 +1,10 @@
 """Durable, portable state for runs.
 
-Layout under ``<state_dir>/runs/<run_id>/``::
+Layout under ``<state_dir>``::
+
+    proposals.json      the project's conformance proposals (:class:`Proposals`)
+
+and under ``<state_dir>/runs/<run_id>/``::
 
     run.json            the full :class:`Run` document (atomic writes)
     events.jsonl        append-only event log
@@ -25,9 +29,10 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from harness495.core.models import Event, Run, utcnow
+from harness495.core.models import Event, Proposals, Run, utcnow
 
 STATE_DIR_NAME = ".495"
+PROPOSALS_FILE = "proposals.json"
 STOP_FLAG = "STOP"
 DRIVER_FLAG = "DRIVER"
 
@@ -159,6 +164,20 @@ class RunStore:
 
     def delete(self, run_id: str) -> None:
         shutil.rmtree(self.run_dir(run_id), ignore_errors=True)
+
+    # ---- conformance proposals, one document per state directory
+
+    def proposals_path(self) -> Path:
+        return self.state_dir / PROPOSALS_FILE
+
+    def load_proposals(self) -> Proposals:
+        path = self.proposals_path()
+        if not path.exists():
+            return Proposals()
+        return Proposals.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def save_proposals(self, proposals: Proposals) -> None:
+        _atomic_write_text(self.proposals_path(), proposals.model_dump_json(indent=2))
 
     # ---- events
 

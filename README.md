@@ -179,16 +179,19 @@ base commit: de61b9f447a58b9bfbec47d001ce565b776954c7; docs: README.md
 │ python     │ doubles      │ —          │ nothing measures it                   │
 └────────────┴──────────────┴────────────┴───────────────────────────────────────┘
     Gaps against the catalogue: roles that can contradict the agent's implementation
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
-┃ technology ┃ role         ┃ in place ┃ recommended             ┃ gap                 ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
-│ python     │ fuzzing      │ —        │ atheris                 │ nothing measures it │
-│ python     │ mutation     │ —        │ mutmut                  │ nothing measures it │
-│ python     │ coverage     │ —        │ coverage.py, diff-cover │ nothing measures it │
-│ python     │ architecture │ —        │ import-linter           │ nothing measures it │
-│ python     │ security     │ —        │ ruff, pip-audit         │ nothing measures it │
-│ python     │ contract     │ —        │ schemathesis            │ nothing measures it │
-└────────────┴──────────────┴──────────┴─────────────────────────┴─────────────────────┘
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ technology ┃ role         ┃ in place ┃ recommended             ┃ gap                 ┃ proposal                 ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ python     │ fuzzing      │ —        │ atheris                 │ nothing measures it │ prop-c784e8ccde open     │
+│ python     │ mutation     │ —        │ mutmut                  │ nothing measures it │ prop-2dbb47b17b declined │
+│ python     │ coverage     │ —        │ coverage.py, diff-cover │ nothing measures it │ prop-99b03ba0fa open     │
+│ python     │ architecture │ —        │ import-linter           │ nothing measures it │ prop-df98561140 accepted │
+│ python     │ security     │ —        │ ruff, pip-audit         │ nothing measures it │ prop-8e1e4ad9a9 open     │
+│ python     │ contract     │ —        │ schemathesis            │ nothing measures it │ prop-bf96eb0f10 open     │
+└────────────┴──────────────┴──────────┴─────────────────────────┴─────────────────────┴──────────────────────────┘
+prop-2dbb47b17b python mutation: declined: the suite is too slow to mutate
+prop-df98561140 python architecture: accepted: run run-dccc79dd7a (delivered)
+4 open proposal(s): answer with 495 proposals accept|decline|defer <id>
 ```
 
 Commands are detected from `pyproject.toml`, `package.json`, `Makefile`, `Cargo.toml`,
@@ -216,6 +219,23 @@ and the performance bound hold no such oracle and are never a gap. A cell with s
 entries is compared with the one whose condition holds in the project: `pytest-bdd` where
 there is a pytest suite, `behave` otherwise, and the gap says which condition applied. The
 same gaps are in the `--json` output under `catalogue_gaps`, and in the TUI's profile view.
+
+Each gap is also a **conformance proposal**, recorded in `.495/proposals.json` by `init` and
+`profile` and listed by `495 proposals`. A proposal is yours to answer, once:
+
+```sh
+./run.sh proposals accept prop-df98561140          # a change run, started right away (--no-start to only create it)
+./run.sh proposals decline prop-2dbb47b17b --reason "the suite is too slow to mutate"
+./run.sh proposals defer prop-c784e8ccde --note "after the parser rewrite"
+```
+
+An accepted proposal becomes a `change` run whose intent asks for the recommended tool to be
+put in place, a command the harness can run, and a first test of the role; the specifier
+derives the specification from it and the run goes through the same gate, production,
+verification and review as any other. A declined proposal keeps your reason and is shown as
+declined at the next `profile`, never asked again; a deferred one stays listed until you
+accept or decline it. A proposal whose gap the profile no longer states is resolved.
+`495 schema proposals` prints the document's schema.
 
 Detection is not a contract. Every command is run once on the base version at the start of a
 run — that is the **readiness** check — and a command that cannot run there, or that already
@@ -508,8 +528,10 @@ source of history.
 495 watch [<id>] [--stage checks] [--read-only] [--print] [--export view.svg]
 495 merge <id> [--how fast-forward|rebase|squash|merge] [--rerun]
 495 check-integration <id> [--ref main] [--rerun]
-495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config | validate run.json
+495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config|proposals | validate run.json
 495 profile | init | doctor | serve [--port 4950]
+495 proposals [list] | proposals accept <id> [--no-start] | proposals decline <id> --reason "..."
+    | proposals defer <id> [--note "..."]
 ```
 
 | Command | Purpose | Uses an agent? | Writes to the target project? |
@@ -521,7 +543,8 @@ source of history.
 | `495 merge` | Bring the delivered branch into the branch you are on, then check it | No | **Yes — this one command, when asked** |
 | `495 check-integration` | Compare a ref you integrated against the verified version | No | No |
 | `495 watch` | Open the terminal UI | Through the runs its controls drive | In the run's worktree, and to your checkout with `m` |
-| `495 profile`, `doctor`, `init` | Detection, availability, configuration | No | `init` writes `.495/` |
+| `495 profile`, `doctor`, `init` | Detection, availability, configuration | No | `init` writes `.495/`; `profile` records the proposals under it |
+| `495 proposals` | List the conformance proposals, accept, decline or defer one | `accept` starts a run unless `--no-start` | `.495/proposals.json` |
 | `495 status`, `list`, `events`, `spec`, `report`, `export`, `schema`, `validate` | Read what a run recorded | No | No (`export` writes its archive to the working directory) |
 | `495 serve` | Expose the same workflow over HTTP | Through the runs it starts | No |
 
@@ -674,8 +697,9 @@ form, and says so.
 
 ### JSON documents and the HTTP API
 
-`495 schema run|event|spec|config` prints the JSON schema of each persisted document, generated
-from the models 495 itself validates against. `495 validate <run.json>` checks a document.
+`495 schema run|event|spec|config|proposals` prints the JSON schema of each persisted document,
+generated from the models 495 itself validates against. `495 validate <run.json>` checks a
+run document.
 
 `495 serve` publishes the same workflow over HTTP on `127.0.0.1:4950`:
 

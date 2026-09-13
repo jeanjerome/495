@@ -20,6 +20,7 @@ from rich.text import Text
 
 from harness495 import __version__
 from harness495.core import git
+from harness495.core import proposals as conformance
 from harness495.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
 from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
@@ -31,6 +32,9 @@ from harness495.core.models import (
     HarnessConfig,
     PendingDecision,
     ProjectProfile,
+    Proposal,
+    Proposals,
+    ProposalStatus,
     ReviewerSpec,
     Run,
     RunMode,
@@ -299,6 +303,7 @@ def profile_cmd(ctx: typer.Context) -> None:
     """Detect the project's stack, verification commands and conventions (no agent involved)."""
     c = _ctx(ctx)
     prof = detect_profile(c.project, c.config().project)
+    proposals = _record_proposals(c, prof)
     if c.json:
         _emit_json(prof.model_dump(mode="json"))
         return
@@ -331,14 +336,49 @@ def profile_cmd(ctx: typer.Context) -> None:
                 Text("; ".join(r.markers) or "nothing measures it"),
             )
         console.print(roles)
-    _print_catalogue_gaps(prof)
+    _print_catalogue_gaps(c, prof, proposals)
 
 
-def _print_catalogue_gaps(prof: ProjectProfile) -> None:
+def _record_proposals(c: Ctx, prof: ProjectProfile) -> Proposals:
+    """Bring `.495/proposals.json` in step with the gaps the profile states, and keep it.
+
+    The file is the requester's record: a gap answered once is not asked again, whichever
+    command profiles the project next. The state directory is created if need be, and kept
+    out of git like `init` does.
+    """
+    proposals = c.store.load_proposals()
+    conformance.reconcile(proposals, prof)
+    c.store.save_proposals(proposals)
+    if git.is_repo(c.project):
+        git.ensure_excluded(git.repo_root(c.project), ".495/")
+    return proposals
+
+
+def _proposal_answer(p: Proposal, c: Ctx) -> str:
+    """The requester's answer on a proposal, in words: what to do next, or what was decided."""
+    if p.status is ProposalStatus.open:
+        return f"open: 495 proposals accept|decline|defer {p.id}"
+    if p.status is ProposalStatus.accepted:
+        run_status = (
+            c.store.load(p.run_id).status.value
+            if p.run_id and c.store.exists(p.run_id)
+            else "missing"
+        )
+        return f"accepted: run {p.run_id} ({run_status})"
+    if p.status is ProposalStatus.declined:
+        return f"declined: {p.reason}"
+    if p.status is ProposalStatus.deferred:
+        return f"deferred: {p.reason}" if p.reason else "deferred"
+    return "resolved: the gap is no longer stated"
+
+
+def _print_catalogue_gaps(c: Ctx, prof: ProjectProfile, proposals: Proposals) -> None:
     """The roles the project measures otherwise than the catalogue recommends.
 
     Only the roles whose measure can contradict the agent's implementation are compared, and
-    only where the catalogue has an entry; a project with nothing to state is told so.
+    only where the catalogue has an entry; a project with nothing to state is told so. Each
+    gap is shown with its proposal: open with the commands that answer it, or the answer
+    already recorded, so that a declined gap reads as declined rather than as asked again.
     """
     if not prof.catalogue_gaps:
         console.print(
@@ -353,6 +393,7 @@ def _print_catalogue_gaps(prof: ProjectProfile) -> None:
     gaps.add_column("in place")
     gaps.add_column("recommended")
     gaps.add_column("gap")
+    gaps.add_column("proposal")
     for g in prof.catalogue_gaps:
         recommended = ", ".join(g.recommended)
         if g.condition:
@@ -363,8 +404,168 @@ def _print_catalogue_gaps(prof: ProjectProfile) -> None:
             what = "another tool than the catalogue's"
         else:
             what = f"{', '.join(g.missing)} missing"
-        gaps.add_row(g.technology, g.role.value, ", ".join(g.in_place) or "—", recommended, what)
+        proposal = proposals.find(g.technology, g.role)
+        gaps.add_row(
+            g.technology,
+            g.role.value,
+            ", ".join(g.in_place) or "—",
+            recommended,
+            what,
+            Text(f"{proposal.id} {proposal.status.value}" if proposal else "—"),
+        )
     console.print(gaps)
+    answered = (ProposalStatus.accepted, ProposalStatus.declined, ProposalStatus.deferred)
+    for p in proposals.proposals:
+        if p.status in answered:
+            console.print(Text(f"{p.id} {p.technology} {p.role.value}: {_proposal_answer(p, c)}"))
+    open_count = sum(1 for p in proposals.proposals if p.status is ProposalStatus.open)
+    if open_count:
+        console.print(
+            f"{open_count} open proposal(s): answer with 495 proposals accept|decline|defer <id>"
+        )
+
+
+proposals_app = typer.Typer(
+    name="proposals",
+    help="Conformance proposals: the gaps against the catalogue, to accept, decline or defer.",
+    invoke_without_command=True,
+    no_args_is_help=False,
+    rich_markup_mode="markdown",
+)
+app.add_typer(proposals_app, name="proposals")
+
+
+def _proposal_payload(p: Proposal, c: Ctx) -> dict[str, Any]:
+    payload = p.model_dump(mode="json")
+    payload["answer"] = _proposal_answer(p, c)
+    return payload
+
+
+def _load_proposal(c: Ctx, proposal_id: str) -> tuple[Proposals, Proposal]:
+    proposals = c.store.load_proposals()
+    proposal = proposals.get(proposal_id)
+    if proposal is None:
+        _error(c, f"proposal {proposal_id} not found; 495 proposals lists them")
+        raise AssertionError("unreachable")
+    return proposals, proposal
+
+
+def _print_proposals(c: Ctx, proposals: Proposals) -> None:
+    if c.json:
+        _emit_json([_proposal_payload(p, c) for p in proposals.proposals])
+        return
+    if not proposals.proposals:
+        console.print(
+            "no conformance proposal recorded; 495 profile states the gaps and records them"
+        )
+        return
+    table = Table(title=f"conformance proposals in {c.store.proposals_path()}")
+    for col in ("id", "technology", "role", "status", "gap", "answer"):
+        table.add_column(col)
+    for p in proposals.proposals:
+        table.add_row(
+            p.id,
+            p.technology,
+            p.role.value,
+            p.status.value,
+            Text(p.gap.statement),
+            Text(_proposal_answer(p, c)),
+        )
+    console.print(table)
+
+
+@proposals_app.callback()
+def proposals_main(ctx: typer.Context) -> None:
+    """List the conformance proposals recorded for the project (`495 profile` records them)."""
+    if ctx.invoked_subcommand is None:
+        _print_proposals(_ctx(ctx), _ctx(ctx).store.load_proposals())
+
+
+@proposals_app.command("list")
+def proposals_list(ctx: typer.Context) -> None:
+    """List the conformance proposals and where each one stands."""
+    c = _ctx(ctx)
+    _print_proposals(c, c.store.load_proposals())
+
+
+@proposals_app.command("accept")
+def proposals_accept(
+    ctx: typer.Context,
+    proposal_id: str,
+    start: bool = typer.Option(True, "--start/--no-start", help="Start the run immediately."),
+) -> None:
+    """Accept a proposal: create the change run that puts the recommended tool in place."""
+    c = _ctx(ctx)
+    proposals, proposal = _load_proposal(c, proposal_id)
+    engine = c.engine(interactive=True)
+    try:
+        conformance.accept(proposal, run_id="pending")
+        run = engine.create_run(
+            proposal.intent, c.project, c.config(), RunMode.change, source="proposal"
+        )
+    except (conformance.ProposalError, EngineError) as exc:
+        _error(c, str(exc))
+        return
+    proposal.run_id = run.id
+    c.store.save_proposals(proposals)
+    if not start:
+        if c.json:
+            _emit_json(_proposal_payload(proposal, c))
+        else:
+            console.print(
+                f"accepted {proposal.id}: created run [bold]{run.id}[/bold]; "
+                f"start it with: 495 run {run.id}"
+            )
+        return
+    _install_sigint(engine, run.id)
+    run = _advance(c, engine, run.id)
+    _finish(c, run)
+
+
+@proposals_app.command("decline")
+def proposals_decline(
+    ctx: typer.Context,
+    proposal_id: str,
+    reason: str = typer.Option(
+        ..., help="Why the project keeps things as they are; kept with the proposal."
+    ),
+) -> None:
+    """Decline a proposal with a reason; the gap is recorded and not proposed again."""
+    c = _ctx(ctx)
+    proposals, proposal = _load_proposal(c, proposal_id)
+    try:
+        conformance.decline(proposal, reason)
+    except conformance.ProposalError as exc:
+        _error(c, str(exc))
+        return
+    c.store.save_proposals(proposals)
+    if c.json:
+        _emit_json(_proposal_payload(proposal, c))
+    else:
+        console.print(Text(f"declined {proposal.id}: {proposal.reason}"))
+
+
+@proposals_app.command("defer")
+def proposals_defer(
+    ctx: typer.Context,
+    proposal_id: str,
+    note: str = typer.Option("", help="Free-text note, kept with the proposal."),
+) -> None:
+    """Defer a proposal: it stays listed, to accept or decline later."""
+    c = _ctx(ctx)
+    proposals, proposal = _load_proposal(c, proposal_id)
+    try:
+        conformance.defer(proposal, note)
+    except conformance.ProposalError as exc:
+        _error(c, str(exc))
+        return
+    c.store.save_proposals(proposals)
+    if c.json:
+        _emit_json(_proposal_payload(proposal, c))
+    else:
+        console.print(
+            Text(f"deferred {proposal.id}" + (f": {proposal.reason}" if proposal.reason else ""))
+        )
 
 
 @app.command()
@@ -902,7 +1103,8 @@ def watch(
 
 @app.command()
 def schema(
-    ctx: typer.Context, name: str = typer.Argument("run", help="run | event | spec | config")
+    ctx: typer.Context,
+    name: str = typer.Argument("run", help="run | event | spec | config | proposals"),
 ) -> None:
     """Print the JSON schema of the persisted documents."""
     from harness495.core.models import Event as EventModel
@@ -912,6 +1114,7 @@ def schema(
         "event": EventModel,
         "spec": Spec,
         "config": HarnessConfig,
+        "proposals": Proposals,
     }
     if name not in models:
         raise typer.BadParameter(f"unknown schema '{name}'; choose from {list(models)}")

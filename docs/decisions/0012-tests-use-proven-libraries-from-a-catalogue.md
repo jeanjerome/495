@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-09-13; refined 2026-09-13 (a cell may hold several recommended entries, each with
-  its condition; a gap is stated only on a role whose measure can contradict the agent)
+  its condition; a gap is stated only on a role whose measure can contradict the agent; a gap
+  is a proposal the requester answers once, kept under `.495/`)
 
 ## Context
 
@@ -40,9 +41,17 @@ ecosystem already provides.
    scenario the requester approved, inputs the agent did not choose, a verdict on the agent's
    own tests, rules the project set. The runner, the test doubles and the performance bound
    hold no such oracle; they stay in the catalogue for 495's own tests and are never a gap.
-   The Roles table of the catalogue marks each role. The proposal is persisted so that it can
-   be acted on later, as runs to process or an equivalent record; that part is to be built:
-   `docs/etude-harnais-495.md`, E50 (c).
+   The Roles table of the catalogue marks each role.
+5. Each gap is a conformance proposal, kept in `.495/proposals.json` and identified by its
+   technology and role, so that the requester answers it once, whichever command profiles the
+   project next. The answer is one of three. Accepted: a `change` run is created whose intent
+   states the gap, asks for the recommended tool in the project's development dependencies
+   and configuration, a command the harness can run, and a first test of the role; the
+   specifier derives the specification from that intent and the run walks the ordinary
+   workflow. Declined: the reason is kept with the proposal and the gap is shown as declined,
+   never proposed again, even after the gap changes shape or disappears. Deferred: the
+   proposal stays listed until it is accepted or declined. A proposal whose gap the profile
+   no longer states is resolved, and opens again if the gap comes back.
 
 ## Consequences
 
@@ -67,6 +76,14 @@ ecosystem already provides.
   recommendation that does not exist.
 - A host project may keep a library the catalogue does not recommend; 495 proposes, the
   requester decides, and the decision is recorded like any other.
+- The proposals (point 5) are `harness495/core/proposals.py`: `reconcile` brings the
+  document in step with a profile's gaps and is run by `495 init` and `495 profile`, which
+  therefore write `.495/proposals.json`; `intent_for` writes the intent of the run, with a
+  first test named per role (`FIRST_TEST`); `accept`, `decline`, `defer` are the only
+  transitions, and each refuses a resolved proposal. `495 proposals` lists, accepts, declines
+  and defers; `accept` creates the run through `Engine.create_run` with the intent source
+  `proposal` and records the run id on the proposal. The engine does not read the proposals:
+  a run created from one is an ordinary run.
 - First application: `tests/test_architecture.py` runs `import-linter` contracts declared in
   `pyproject.toml` instead of parsing imports itself (0011).
 
@@ -85,4 +102,9 @@ ecosystem already provides.
   `495 profile` and `495 init` print the gaps, the TUI profile view lists them.
 - `tests/features/profile.feature` and `tests/features/catalogue.feature` with
   `tests/test_profile_scenarios.py`; `tests/test_catalogue.py`.
-- To build: the persisted conformance proposal and the requester's answer (E50 (c)).
+- `harness495/core/proposals.py`: `FIRST_TEST`, `intent_for`, `reconcile`, `accept`,
+  `decline`, `defer`; `harness495/core/models.py`: `Proposal`, `Proposals`,
+  `ProposalStatus`; `harness495/core/store.py`: `RunStore.load_proposals`,
+  `save_proposals`; `harness495/interfaces/cli.py`: the `proposals` commands, the proposal
+  column of the gaps table, `495 schema proposals`.
+- `tests/features/proposals.feature` with `tests/test_profile_scenarios.py`.

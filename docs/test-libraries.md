@@ -21,8 +21,11 @@ One recommended library per technology and per role. Binds 495's own tests and t
   the `recommended` entries; `tests/test_catalogue.py` keeps it equal to this document). Only
   the roles marked *proposed to a host project* in the Roles table are compared: those whose
   measure can contradict what the agent produced. A cell with several entries is compared
-  with the one whose condition holds in the project. A gap is a fact stated to the requester;
-  turning it into a persisted conformance proposal is E50 (c) in `docs/etude-harnais-495.md`.
+  with the one whose condition holds in the project. Each gap is a conformance proposal kept
+  in `.495/proposals.json` (`harness495/core/proposals.py`), which the requester accepts,
+  declines with a reason, or defers through `495 proposals`; an accepted one becomes a change
+  run that puts the entry in place with a first test of the role, a declined one is not
+  proposed again.
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
 
