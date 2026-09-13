@@ -27,6 +27,14 @@ change is accepted only when the evidence supports it, never because the agent s
 Nothing reaches your working tree until you ask for it, and what you merged is checked against
 what was verified.
 
+<p align="center">
+   <img src="docs/assets/demo.gif" alt="A run driven from the surface: an intent typed into it, the specification stopped for approval before anything is produced, then the change written in its own worktree, verified, reviewed, concluded, and the delivered branch merged and checked" width="900">
+</p>
+
+<p align="center">
+   <sub><a href="docs/assets/demo.mp4">▶ Watch as a video</a> — four minutes, pausable</sub>
+</p>
+
 
 ## Why 495?
 
@@ -658,6 +666,14 @@ What this README describes is what the code does today.
 ```
 
 `pytest -m live` runs the tests that call real agent CLIs; they are deselected by default.
+
+The images and the recording above are rebuilt from a store the engine walked, with the three
+agent roles answering from a script so that neither costs a call:
+
+```bash
+.venv/bin/python tools/capture/surface.py   # docs/assets/run-surface.svg and store-page.svg
+bash tools/capture/record.sh                # docs/assets/demo.gif and demo.mp4 — needs vhs and ffmpeg
+```
 
 
 ## License

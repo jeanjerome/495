@@ -13,6 +13,9 @@ That matters because the surface reads a run, not a fixture. A mocked-up screen 
 badge no state produces, a headline no verdict would write, or a ledger that disagrees with
 the checks above it; this one cannot.
 
+The same store is what the recording opens on: :mod:`demo` walks these chapters, leaves the
+last one for the camera, and lets the real CLI drive them.
+
 Two images are written by default:
 
 ``docs/assets/run-surface.svg``
@@ -25,9 +28,9 @@ Two images are written by default:
 
 Usage::
 
-    ./run.sh --help            # 495 itself
-    python tools/capture_surface.py            # the two README images
-    python tools/capture_surface.py --all      # every stop of every run
+    ./run.sh --help                              # 495 itself
+    python tools/capture/surface.py              # the two README images
+    python tools/capture/surface.py --all        # every stop of every run
 """
 
 from __future__ import annotations
@@ -39,7 +42,9 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +66,7 @@ from harness495.core.models import (
 from harness495.core.store import RunStore
 from harness495.sandbox import Sandbox
 
-REPO = Path(__file__).resolve().parent.parent
+REPO = Path(__file__).resolve().parents[2]
 ASSETS = REPO / "docs" / "assets"
 
 WIDTH = 140
@@ -332,14 +337,22 @@ class ScriptedAgent(Agent):
 
     kind = "claude_code"
 
-    def __init__(self, spec: AgentSpec, script: Script) -> None:
+    def __init__(self, spec: AgentSpec, script: Script, pace: float = 0.0) -> None:
         super().__init__(spec)
         self.script = script
+        self.pace = pace
+        """Seconds to hold before answering.
+
+        A still needs none of it. A recording needs all of it: an intervention a real agent
+        spends minutes on comes back from here in microseconds, and a pipeline that walks its
+        eight stops between two frames is shown as a still of its last one.
+        """
 
     def check(self) -> tuple[bool, str]:
         return True, "scripted"
 
     def run(self, task: AgentTask) -> AgentResult:
+        time.sleep(self.pace)
         s = self.script
         structured: dict[str, Any] | None = None
         text = ""
@@ -821,90 +834,149 @@ REPEAT_PRODUCER_GOOD = summarised(
     "R2 requires",
 )
 
-RUN_IDS = ("run-15ebe4f8ec", "run-9c02b7a41d", "run-4e7fd1a8b3", "run-b81c60d52f")
+
+@dataclass(frozen=True)
+class Chapter:
+    """One run the store holds, and what it took to leave it where it stands.
+
+    A chapter is the whole of a run: the intent that opened it, what the three roles answer
+    while it walks, the gate it is left standing at or the answer that let it past, and
+    whether it was taken into the branch it was cut from. The images and the recording read
+    the same four, so a screenshot and a frame are of the same store.
+    """
+
+    run_id: str
+    intent: str
+    spec: dict[str, Any]
+    producers: list[Producer]
+    reviews: dict[str, list[dict[str, Any]]]
+    usage: tuple[int, int, int] = (96_400, 3_100, 11)
+    cost: float = 0.07
+    gated: bool = False
+    """The specification gate is left on for this one, so it stops there and stays."""
+    decision: tuple[str, str] | None = None
+    """An answer given mid-walk, with the note recorded beside it."""
+    merged: bool = False
+
+    def script(self) -> Script:
+        """A script of its own: the queues one holds are spent as the run walks."""
+        return Script(self.spec, self.producers, self.reviews, self.usage, self.cost)
+
+
+SHOUT = Chapter(
+    "run-15ebe4f8ec",
+    "Add a --shout option to the greeter: it prints the greeting in uppercase. "
+    "Extend the check script to cover the option, both on its own and with a name.",
+    SHOUT_SPEC,
+    [SHOUT_PRODUCER],
+    SHOUT_REVIEWS,
+    merged=True,
+)
+
+REPEAT = Chapter(
+    "run-9c02b7a41d",
+    "Add a --repeat N option printing the greeting N times. A value that is not a positive "
+    "integer must be refused with exit 2.",
+    REPEAT_SPEC,
+    [REPEAT_PRODUCER_BAD, REPEAT_PRODUCER_GOOD],
+    REPEAT_REVIEWS,
+    usage=(88_700, 4_200, 13),
+    cost=0.09,
+)
+
+# R2 rests on a human reading, which is a gap the gate raises whatever auto-approve says.
+LANG = Chapter(
+    "run-4e7fd1a8b3",
+    "Add a --lang option choosing the language of the greeting: en, fr or es, defaulting to "
+    "en. Keep the default output exactly as it is.",
+    LANG_SPEC,
+    [LANG_PRODUCER],
+    LANG_REVIEWS,
+    usage=(102_300, 3_600, 12),
+    cost=0.08,
+    decision=("approve_with_gaps", "the translations are mine to read"),
+)
+
+STDIN = Chapter(
+    "run-b81c60d52f",
+    "When no --name is given and something is piped in, greet the name read from stdin.",
+    STDIN_SPEC,
+    [],
+    {},
+    usage=(71_500, 2_800, 9),
+    cost=0.05,
+    gated=True,
+)
+
+CHAPTERS = (SHOUT, REPEAT, LANG, STDIN)
+"""One of each thing a store holds: one delivered and merged, one delivered and waiting to be
+taken, one stopped on a requirement no command can decide, one waiting at the gate."""
+
+RUN_IDS = tuple(c.run_id for c in CHAPTERS)
 
 AGES: dict[str, tuple[dt.timedelta, dt.timedelta]] = {
-    RUN_IDS[0]: (dt.timedelta(hours=3, minutes=12), dt.timedelta(hours=2, minutes=48)),
-    RUN_IDS[1]: (dt.timedelta(hours=1, minutes=55), dt.timedelta(hours=1, minutes=6)),
-    RUN_IDS[2]: (dt.timedelta(minutes=41), dt.timedelta(minutes=9)),
-    RUN_IDS[3]: (dt.timedelta(minutes=6), dt.timedelta(minutes=4)),
+    SHOUT.run_id: (dt.timedelta(hours=3, minutes=12), dt.timedelta(hours=2, minutes=48)),
+    REPEAT.run_id: (dt.timedelta(hours=1, minutes=55), dt.timedelta(hours=1, minutes=6)),
+    LANG.run_id: (dt.timedelta(minutes=41), dt.timedelta(minutes=9)),
+    STDIN.run_id: (dt.timedelta(minutes=6), dt.timedelta(minutes=4)),
 }
 
 
-def build(project: Path, cfg: HarnessConfig, store: RunStore) -> None:
-    """Walk four runs, so that the store holds one of each thing a store holds.
+def pin_ids(ids: Iterable[str]) -> None:
+    """Hand out these run ids before the engine invents its own.
 
-    One delivered and merged, one delivered and waiting to be taken, one stopped on a
-    requirement no command can decide, one waiting at the specification gate.
+    Fixed ids are what lets a capture and the console block quoted beside it name the same
+    run. Anything past the list, and anything that is not a run, is named as usual.
     """
-    current: dict[str, Script] = {}
-
-    def factory(spec: AgentSpec, sandbox: Sandbox) -> Agent:
-        return ScriptedAgent(spec, current["script"])
-
-    engine = Engine(store, sandbox=Sandbox(), agent_factory=factory)
-
-    # Fixed ids, so that a capture and the console output quoted beside it name the same run.
-    ids = iter(RUN_IDS)
-    real_new_id: Callable[[str], str] = engine_mod.new_id  # type: ignore[attr-defined]
+    queue = iter(ids)
+    invented: Callable[[str], str] = engine_mod.new_id  # type: ignore[attr-defined]
 
     def new_id(prefix: str) -> str:
-        return next(ids, real_new_id(prefix)) if prefix == "run" else real_new_id(prefix)
+        return next(queue, invented(prefix)) if prefix == "run" else invented(prefix)
 
     engine_mod.new_id = new_id  # type: ignore[attr-defined]
 
-    current["script"] = Script(SHOUT_SPEC, [SHOUT_PRODUCER], SHOUT_REVIEWS, cost=0.07)
-    shout = engine.create_run(
-        "Add a --shout option to the greeter: it prints the greeting in uppercase. "
-        "Extend the check script to cover the option, both on its own and with a name.",
-        project,
-        cfg,
-    )
-    engine.run(shout.id)
-    engine.merge_delivery(shout.id, how="fast-forward", rerun_verifications=True)
-    report(store, shout.id)
 
-    current["script"] = Script(
-        REPEAT_SPEC,
-        [REPEAT_PRODUCER_BAD, REPEAT_PRODUCER_GOOD],
-        REPEAT_REVIEWS,
-        usage=(88_700, 4_200, 13),
-        cost=0.09,
-    )
-    repeat = engine.create_run(
-        "Add a --repeat N option printing the greeting N times. A value that is not a positive "
-        "integer must be refused with exit 2.",
-        project,
-        cfg,
-    )
-    engine.run(repeat.id)
-    report(store, repeat.id)
+def scripted(held: dict[str, Script], pace: float = 0.0) -> Callable[[AgentSpec, Sandbox], Agent]:
+    """An agent factory reading whichever script is held right now.
 
-    current["script"] = Script(
-        LANG_SPEC, [LANG_PRODUCER], LANG_REVIEWS, usage=(102_300, 3_600, 12), cost=0.08
-    )
-    lang = engine.create_run(
-        "Add a --lang option choosing the language of the greeting: en, fr or es, defaulting to "
-        "en. Keep the default output exactly as it is.",
-        project,
-        cfg,
-    )
-    # R2 rests on a human reading, which is a gap the gate raises whatever auto-approve says.
-    engine.run(lang.id)
-    engine.decide(lang.id, "approve_with_gaps", "the translations are mine to read")
-    engine.run(lang.id)
-    report(store, lang.id)
+    The engine asks for an agent per intervention and says which role it is for, never which
+    run it is walking, so the chapter being walked is held beside the factory rather than
+    passed to it.
+    """
 
-    gated = cfg.model_copy(deep=True)
-    gated.auto_approve = False
-    current["script"] = Script(STDIN_SPEC, [], {}, usage=(71_500, 2_800, 9), cost=0.05)
-    stdin = engine.create_run(
-        "When no --name is given and something is piped in, greet the name read from stdin.",
-        project,
-        gated,
-    )
-    engine.run(stdin.id)
-    report(store, stdin.id)
+    def factory(spec: AgentSpec, sandbox: Sandbox) -> Agent:
+        return ScriptedAgent(spec, held["script"], pace)
+
+    return factory
+
+
+def build(
+    project: Path,
+    cfg: HarnessConfig,
+    store: RunStore,
+    chapters: Sequence[Chapter] = CHAPTERS,
+    pace: float = 0.0,
+) -> None:
+    """Walk the chapters into the store, each one to where it is meant to stand."""
+    held: dict[str, Script] = {}
+    engine = Engine(store, sandbox=Sandbox(), agent_factory=scripted(held, pace))
+    pin_ids(c.run_id for c in chapters)
+
+    for chapter in chapters:
+        held["script"] = chapter.script()
+        config = cfg
+        if chapter.gated:
+            config = cfg.model_copy(deep=True)
+            config.auto_approve = False
+        run = engine.create_run(chapter.intent, project, config)
+        engine.run(run.id)
+        if chapter.decision is not None:
+            engine.decide(run.id, *chapter.decision)
+            engine.run(run.id)
+        if chapter.merged:
+            engine.merge_delivery(run.id, how="fast-forward", rerun_verifications=True)
+        report(store, run.id)
 
 
 def report(store: RunStore, run_id: str) -> None:
@@ -918,11 +990,14 @@ def report(store: RunStore, run_id: str) -> None:
         print(f"   warning: {warning}")
 
 
-def dress(store: RunStore) -> None:
-    """Give the store an age and a plausible project root, in place, before rendering.
+def dress(store: RunStore, root: str | None = SHOWN_ROOT) -> None:
+    """Give the store an age, and a plausible project root, in place, before rendering.
 
     The listing answers "how long since this moved" and the header prints where the project
     is. Four runs created in the same second under a temporary path answer both with noise.
+
+    A recording keeps the root it was built at: what is only read can be told where it lives,
+    but a run that is about to be advanced, merged and checked has to say where it really is.
     """
     now = dt.datetime.now(dt.UTC).replace(microsecond=0)
     for run_dir in sorted(store.runs_dir.iterdir()):
@@ -933,7 +1008,8 @@ def dress(store: RunStore) -> None:
         created, updated = AGES.get(str(data["id"]), (dt.timedelta(0), dt.timedelta(0)))
         data["created_at"] = (now - created).isoformat().replace("+00:00", "Z")
         data["updated_at"] = (now - updated).isoformat().replace("+00:00", "Z")
-        data["project_root"] = SHOWN_ROOT
+        if root is not None:
+            data["project_root"] = root
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
