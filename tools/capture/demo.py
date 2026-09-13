@@ -75,6 +75,7 @@ model = "sonnet"
 
 [roles]
 specifier = "default"
+test_designer = false
 producer = "default"
 reviewers = [
   { perspective = "spec_compliance", agent = "default" },

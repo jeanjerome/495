@@ -48,6 +48,9 @@ Keep these true in every change; each has a test or a record that names it.
   out of every reviewer's context (`0004`, `0005`).
 - Build every prompt with `ContextPack`: harness-measured material under facts, agent- or
   repository-produced material under untrusted (`0005`).
+- A test to create is written by the test designer, in an intervention of its own before the
+  producer; the harness commits the test files it finds written and puts any other file back;
+  a version of the change that modifies one of them fails the scope check (`0020`).
 - A verification names the catalogue role it measures (`Verification.role`); a role no
   coverage row of the profile measures makes it `insufficient`, with the catalogue's
   recommendation as rationale, and the tool enters the project through a proposal, never

@@ -44,17 +44,19 @@ def test_full_change_workflow_accepts(
     assert [r.status for r in run.spec.requirements] == [RequirementStatus.satisfied] * 2
     # Readiness ran the project's test command on the base version.
     assert run.profile is not None and run.profile.readiness[0].executable
-    # Roles were mobilised in order: specifier, producer, the 2 configured reviewers and the
-    # test_quality one that a test to create calls for.
+    # Roles were mobilised in order: specifier, the test designer (V1 is a test to create),
+    # producer, the 2 configured reviewers and the test_quality one that a test to create
+    # calls for.
     assert [t.role for t in scenario.calls] == [
         Role.specifier,
+        Role.test_designer,
         Role.producer,
         Role.reviewer,
         Role.reviewer,
         Role.reviewer,
     ]
     # Reviewers received only the diff, spec, evidence: never the producer transcript.
-    reviewer_prompt = scenario.calls[2].prompt
+    reviewer_prompt = scenario.calls[3].prompt
     assert "Untrusted content" in reviewer_prompt and "git diff base..head" in reviewer_prompt
     assert "fake transcript" not in reviewer_prompt and "Established facts" in reviewer_prompt
     # Exact version: a commit on the run branch, patch hash recorded, evidence bound to it.
@@ -66,7 +68,12 @@ def test_full_change_workflow_accepts(
         for e in run.evidence
         if e.kind.value == "command_result"
     )
-    assert sorted(it.version.files_changed) == ["calc.py", "tests/test_calc.py"]
+    assert sorted(it.version.files_changed) == [
+        "calc.py",
+        "tests/test_calc.py",
+        "tests/test_subtract.py",
+    ]
+    assert run.test_design is not None and run.test_design.files == ["tests/test_subtract.py"]
     # Evidence: scope ok, V1 and V2 passed, three review verdicts.
     kinds = [e.kind.value for e in run.evidence]
     assert (
@@ -76,7 +83,7 @@ def test_full_change_workflow_accepts(
     )
     assert all(e.passed for e in run.evidence if e.kind.value == "command_result")
     # Consumption and cost accounted.
-    assert run.consumption.interventions == 5 and run.consumption.cost_usd > 0
+    assert run.consumption.interventions == 6 and run.consumption.cost_usd > 0
     assert run.consumption.cost_basis.value == "reported"
     # Decisions: auto approval + acceptance.
     assert [d.kind for d in run.decisions] == [DecisionKind.approve_spec, DecisionKind.acceptance]

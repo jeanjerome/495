@@ -35,6 +35,7 @@ from harness495.core.context import (
     render_profile,
     render_reviews,
     render_spec,
+    render_test_design,
     render_version,
     trim_output,
     truncate_diff,
@@ -53,6 +54,7 @@ from harness495.core.models import (
     DecisionKind,
     DecisionMaker,
     DecisionOption,
+    DesignedTest,
     Event,
     Evidence,
     EvidenceKind,
@@ -77,6 +79,7 @@ from harness495.core.models import (
     Severity,
     Spec,
     Sufficiency,
+    TestDesign,
     Verdict,
     Verification,
     VerificationKind,
@@ -86,7 +89,12 @@ from harness495.core.models import (
 )
 from harness495.core.profile import detect_profile, read_doc_excerpts
 from harness495.core.report import render_markdown
-from harness495.core.schemas import PRODUCER_SUMMARY_SCHEMA, REVIEW_SCHEMA, SPEC_SCHEMA
+from harness495.core.schemas import (
+    PRODUCER_SUMMARY_SCHEMA,
+    REVIEW_SCHEMA,
+    SPEC_SCHEMA,
+    TEST_DESIGNER_SUMMARY_SCHEMA,
+)
 from harness495.core.scope import check_scope
 from harness495.core.store import RunStore
 from harness495.core.verification import (
@@ -94,6 +102,7 @@ from harness495.core.verification import (
     assess_sufficiency,
     classify_instrument,
     instrument_files,
+    looks_like_a_test,
     measures_the_change,
     run_control,
     run_verification,
@@ -890,6 +899,7 @@ class Engine:
         passing_on_base = {
             r.command for r in run.profile.readiness if r.executable and r.exit_code == 0
         }
+        run.test_design = None  # the tests written for a previous specification do not carry over
         if run.spec.source == "user" and run.spec.requirements:
             _normalise_spec(run.spec)
             assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
@@ -1181,6 +1191,9 @@ class Engine:
             )
             self._set_status(run, RunStatus.produced)
             return run
+        blocked = self._design_tests(run)
+        if blocked is not None:
+            return blocked
         previous = run.current_iteration
         corrections = list(previous.correction_requests) if previous else []
         iteration = Iteration(n=n)
@@ -1202,7 +1215,19 @@ class Engine:
             "Allowed paths: " + (", ".join(_effective_allowed(run)) or "any path"),
             "Forbidden paths: " + ", ".join(run.config.project.scope.forbidden_paths),
         ]
+        design = run.test_design
+        if design is not None and design.files:
+            pack.add_fact("Tests written by the test designer", render_test_design(design))
+            scope_lines.append(
+                "Protected paths (tests written by the test designer; a version that modifies "
+                "one is rejected): " + ", ".join(design.files)
+            )
         pack.add_fact("Scope", "\n".join(scope_lines))
+        if design is not None and design.not_done:
+            pack.add_untrusted(
+                "what the test designer reported it could not write (agent-produced)",
+                "\n".join(f"- {c}" for c in design.not_done),
+            )
         pack.add_fact(
             "Version", f"base commit {base_for_diff}; the harness commits your work when you finish"
         )
@@ -1360,6 +1385,137 @@ class Engine:
             return self._raise_decision(run, pending, RunStatus.produced)
         return run
 
+    def _design_tests(self, run: Run) -> Run | None:
+        """Write the tests to create in an intervention of their own, before the producer.
+
+        The producer that writes the test that judges its change is one reasoner checking
+        itself: the control run only shows that such a test fails without the change, not that
+        it asserts anything (0019). The test designer writes the tests from the approved
+        scenarios in a tree where the behaviour does not exist yet, the harness commits them,
+        and the producer receives them as protected files. Runs once per approved
+        specification; returns the run when it had to stop it (budget, failure), None when
+        the producer may go on.
+        """
+        roles = run.config.roles
+        if (
+            run.mode is not RunMode.change
+            or run.test_design is not None
+            or roles.test_designer is None
+            or not any(v.to_create and v.sufficiency in ADMISSIBLE for v in run.spec.verifications)
+        ):
+            return None
+        assert run.profile is not None and run.profile.base_commit
+        wt = self._worktree(run)
+        self._set_status(run, RunStatus.producing)
+        before = git.head_commit(wt)
+        pack = ContextPack(role="test_designer")
+        pack.add_fact("Intent (as given by the requester)", run.intent.text)
+        pack.add_fact("Approved specification", render_spec(run.spec))
+        pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+        pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
+        pack.add_fact(
+            "Scope",
+            "Test files only, within the allowed paths: "
+            + (", ".join(_effective_allowed(run)) or "any path")
+            + ". Any other file you write is put back as it was.",
+        )
+        pack.add_fact(
+            "Version",
+            f"commit {before}; the behaviour the tests observe is not implemented here, and the "
+            "harness commits your tests when you finish",
+        )
+        pack.instructions = P.TEST_DESIGNER_TASK
+        try:
+            intervention, result = self._intervene(
+                run,
+                Role.test_designer,
+                roles.test_designer,
+                Capability.write,
+                P.TEST_DESIGNER_SYSTEM,
+                pack,
+                TEST_DESIGNER_SUMMARY_SCHEMA,
+            )
+        except budget_mod.BudgetExceeded as exc:
+            return self._budget_decision(run, str(exc), RunStatus.ready)
+        if intervention.status is InterventionStatus.tampered:
+            return self._fail(
+                run,
+                "the test designer modified the project working tree instead of its worktree; "
+                f"the run stops so you can inspect `git -C {run.project_root} status`",
+                RunStatus.ready,
+            )
+        if result is None or result.status not in (
+            InterventionStatus.completed,
+            InterventionStatus.failed,
+            InterventionStatus.timed_out,
+            InterventionStatus.budget_exceeded,
+        ):
+            return self._fail(
+                run,
+                f"test designer did not complete: {result.error if result else 'no result'}",
+                RunStatus.ready,
+            )
+        if result.status is not InterventionStatus.completed:
+            self._warn(
+                run,
+                f"test designer ended with {result.status.value}: {result.error}; keeping "
+                "whatever tests were written",
+            )
+        written = git.dirty_paths(wt)
+        kept = [f for f in written if looks_like_a_test(f)]
+        discarded = [f for f in written if f not in kept]
+        if discarded:
+            git.discard_paths(wt, discarded)
+            self._warn(
+                run,
+                "the test designer wrote files that are not tests, put back as they were: "
+                + ", ".join(discarded),
+            )
+        reported: list[DesignedTest] = []
+        not_done: list[str] = []
+        if isinstance(result.structured, dict):
+            not_done = [
+                str(c).strip()[:500]
+                for c in (result.structured.get("not_done") or [])
+                if str(c).strip()
+            ][:20]
+            reported = [
+                DesignedTest(
+                    verification_id=str(t["verification_id"]).strip()[:50],
+                    file=str(t["file"]).strip()[:500],
+                )
+                for t in (result.structured.get("tests") or [])
+                if isinstance(t, dict) and t.get("verification_id") and t.get("file")
+            ][:50]
+        commit = git.commit_all(wt, f"495 tests: {run.intent.text[:60]}") or before
+        run.test_design = TestDesign(
+            intervention_id=intervention.id,
+            base_commit=before,
+            commit=commit,
+            files=kept,
+            discarded=discarded,
+            reported=reported,
+            not_done=not_done,
+        )
+        for claim in not_done:
+            self.emit(run, "test_designer.blocked", claim)
+        if kept:
+            self.emit(
+                run,
+                "tests.designed",
+                f"{len(kept)} test file(s) written by the test designer, committed as "
+                f"{commit[:12]}; the producer may not modify them",
+                {"files": kept, "commit": commit, "intervention": intervention.id},
+            )
+        else:
+            self._warn(
+                run,
+                "the test designer wrote no test file; the producer creates the tests to create "
+                "itself, and the test_quality reviewer reads them",
+            )
+        self.store.save(run)
+        return None
+
     def _save_patch(self, run: Run, version: Version) -> str | None:
         wt = self._worktree(run)
         assert version.head_commit
@@ -1402,6 +1558,37 @@ class Engine:
             f"scope: {'ok' if report.ok else 'VIOLATION'} - {report.summary()}",
             {"id": scope_ev.id},
         )
+        design = run.test_design
+        if design is not None and design.files:
+            # The tests the designer wrote are the instrument; the change is what they measure.
+            # A version that edits one has moved the instrument, and what the instrument then
+            # reports is about the edit, not about the behaviour: that version is out of scope.
+            touched = [
+                f
+                for f in git.diff_names(wt, design.commit, it.version.head_commit)
+                if f in design.files
+            ]
+            protected_ev = Evidence(
+                id=new_id("ev"),
+                kind=EvidenceKind.scope_check,
+                iteration=it.n,
+                subject_version=it.version.head_commit,
+                passed=not touched,
+                summary=(
+                    f"{len(touched)} test file(s) written by the test designer modified by the "
+                    "change: " + ", ".join(touched)
+                    if touched
+                    else f"the {len(design.files)} test file(s) written by the test designer "
+                    "are as written"
+                ),
+            )
+            evidence.append(protected_ev)
+            self.emit(
+                run,
+                "evidence",
+                f"protected tests: {'ok' if not touched else 'VIOLATION'} - {protected_ev.summary}",
+                {"id": protected_ev.id},
+            )
         # Verifications.
         req_by_verification: dict[str, list[str]] = {}
         for r in run.spec.requirements:
@@ -1816,6 +2003,10 @@ class Engine:
             assert run.profile is not None
             pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
             pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
+            if run.test_design is not None and run.test_design.files:
+                pack.add_fact(
+                    "Tests written by the test designer", render_test_design(run.test_design)
+                )
             pack.add_untrusted("git diff base..head", truncate_diff(diff_text) or "(empty diff)")
             for e in evidence:
                 if e.output_ref and e.passed is False:

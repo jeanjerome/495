@@ -314,6 +314,15 @@ def _harness(runs: Sequence[Run]) -> RenderableType:
                     (" produces  ·  ", "h.meta"),
                     (_agent(cfg, cfg.roles.specifier), "h.value"),
                     (" specifies", "h.meta"),
+                    *(
+                        (
+                            ("  ·  ", "h.meta"),
+                            (_agent(cfg, cfg.roles.test_designer), "h.value"),
+                            (" writes the tests", "h.meta"),
+                        )
+                        if cfg.roles.test_designer
+                        else ()
+                    ),
                 ),
             ),
             ("reviewed by", Text(perspectives, style="h.value")),

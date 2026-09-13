@@ -306,6 +306,16 @@ def make_project(root: Path) -> Path:
 
 Producer = Callable[[Path], tuple[str, list[str]]]
 
+ACCEPT_REVIEW: dict[str, Any] = {
+    "verdict": "accept",
+    "summary": "nothing to report from this perspective",
+    "confidence": 0.9,
+    "requirement_assessment": [],
+    "findings": [],
+}
+"""What a perspective the script does not answer for says: the test_quality reviewer a test
+to create calls for, when the script only answers for the configured perspectives."""
+
 
 class Script:
     """What the three roles answer, for one run.
@@ -358,6 +368,8 @@ class ScriptedAgent(Agent):
         text = ""
         if task.role is Role.specifier:
             structured = s.spec
+        elif task.role is Role.test_designer:
+            structured = {"summary": "", "files_written": [], "tests": [], "not_done": []}
         elif task.role is Role.producer:
             step = s.producers[min(s.produced, len(s.producers) - 1)]
             s.produced += 1
@@ -376,7 +388,7 @@ class ScriptedAgent(Agent):
             )[0]
             n = s.reviewed.get(perspective, 0)
             s.reviewed[perspective] = n + 1
-            queue = s.reviews[perspective]
+            queue = s.reviews.get(perspective) or [ACCEPT_REVIEW]
             structured = queue[min(n, len(queue) - 1)]
         inp, out, requests = s.usage
         return AgentResult(
@@ -1073,6 +1085,7 @@ def main() -> None:
             ReviewerSpec(perspective="correctness"),
             ReviewerSpec(perspective="conventions"),
         ]
+        cfg.roles.test_designer = None  # the scripted producer writes the tests it is given
         cfg.budget.max_cost_usd = 5.0
         cfg.budget.max_iterations = 3
         cfg.sandbox.backend = "seatbelt"

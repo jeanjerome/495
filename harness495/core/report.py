@@ -137,6 +137,14 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
             f"- files changed: {len(v.files_changed)}",
         ]
         lines += [f"  - `{f}`" for f in v.files_changed[:100]]
+        design = run.test_design
+        if design is not None and design.files:
+            lines.append(
+                f"- tests written by the test designer before the producer, committed as "
+                f"`{design.commit}` (intervention {design.intervention_id}), protected from the "
+                f"change: {len(design.files)}"
+            )
+            lines += [f"  - `{f}`" for f in design.files[:100]]
         lines.append("")
     lines += [
         "## Requirements",

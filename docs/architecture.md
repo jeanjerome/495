@@ -11,6 +11,7 @@ question is the requester's to answer, or in `paused` on interruption.
 
 ```
 created ─► profiled ─► specified ─► ready ─► producing ─► produced ─► verifying ─► verified
+                                        (design tests, then produce)
         ─► reviewing ─► reviewed ─► accepted ─► delivered
                                  └► rejected ─► ready        (one more iteration)
                                  └► undetermined             (the run asks)
@@ -21,8 +22,9 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any; a test stated as a given/when/then scenario), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure or a test to create without a scenario being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
-| produce | producer agent, write | the change, in the run's worktree; a test to create is written from its scenario's steps, as a feature file where the project measures `bdd` and in its runner otherwise; the harness commits the work so the evaluated version is one commit |
-| verify | harness | scope check, then every verification on that commit; each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited |
+| design tests | test designer agent, write | once per approved specification with a test to create: the tests, written from their scenarios' steps as a feature file where the project measures `bdd` and in the project's runner otherwise, on a tree where the behaviour does not exist; the harness keeps the test files, puts every other file back, commits them (`Run.test_design`) and protects them from the change |
+| produce | producer agent, write | the change, in the run's worktree, with the designed tests as read-only files (without a designer the producer writes the tests to create itself); the harness commits the work so the evaluated version is one commit |
+| verify | harness | scope check (allowed paths, and no designed test modified), then every verification on that commit; each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited |
 | review | reviewer agents, read-only, one per perspective | structured verdicts with findings that cite an observation; `test_quality`, called whenever a test is to be created, holds each scenario against its requirement and its test and reads an unconfirmed test's assertions; a reviewer that alters the tree is discarded |
 | decide | harness | each requirement `satisfied`, `violated` or `undetermined`; violations become correction requests and a new iteration; `undetermined` stops and asks |
 | deliver | harness | patch, branch `495/<run-id>`, Markdown report; nothing merged |
@@ -75,7 +77,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
-| `prompts` | system prompts and tasks for the three roles; the reviewer perspectives |
+| `prompts` | system prompts and tasks for the four roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
 | `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`; a run's `retrospective.json` |
@@ -116,6 +118,8 @@ against the catalogue, the `DeclinedRole`s read from the proposals, `ReadinessCh
 `non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes,
 when it measures a catalogue role, that `CatalogueRole`, and when it is a test, the
 `BehaviourScenario` it enacts: given, when and then steps). An
+`TestDesign` records the tests the test designer wrote for the specification: the commit
+that holds them, the protected files, the paths put back, and what the designer reported. An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
 `command_result`, `scope_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A

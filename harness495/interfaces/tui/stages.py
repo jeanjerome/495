@@ -167,7 +167,7 @@ def furthest_stage(run: Run) -> str:
         return "checks"
     it = run.current_iteration
     if (it and it.version and it.version.head_commit) or any(
-        i.role is Role.producer for i in run.interventions
+        i.role in (Role.producer, Role.test_designer) for i in run.interventions
     ):
         return "change"
     if run.spec.requirements:

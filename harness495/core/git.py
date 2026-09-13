@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -66,6 +68,44 @@ def has_uncommitted_changes(path: Path) -> bool:
 
 def status_porcelain(path: Path) -> str:
     return git(["status", "--porcelain", "--untracked-files=normal"], path)
+
+
+def dirty_paths(path: Path, exclude: tuple[str, ...] | None = None) -> list[str]:
+    """Every file the working tree differs from HEAD on: modified, added, deleted, untracked.
+
+    Untracked files are listed one by one, never as a directory. A rename is reported by its
+    new name. Paths are relative to the repository root, as git prints them. ``exclude`` are
+    the build-cache patterns ``commit_all`` leaves out (its default when None): a file whose
+    name or any directory of its path matches one is not reported.
+    """
+    patterns = TRANSIENT_PATTERNS if exclude is None else exclude
+    out: list[str] = []
+    for line in git(["status", "--porcelain", "--untracked-files=all"], path).splitlines():
+        if len(line) < 4:
+            continue
+        name = line[3:]
+        if " -> " in name:
+            name = name.split(" -> ", 1)[1]
+        name = name.strip().strip('"')
+        parts = name.split("/")
+        if any(fnmatch.fnmatch(part, pat) for part in parts for pat in patterns):
+            continue
+        out.append(name)
+    return out
+
+
+def discard_paths(path: Path, paths: list[str]) -> None:
+    """Put the given paths back as HEAD has them; a path HEAD does not have is removed."""
+    for p in paths:
+        tracked = git(["ls-files", "--error-unmatch", "--", p], path, check=False).strip()
+        if tracked:
+            git(["checkout", "HEAD", "--", p], path)
+        else:
+            target = path / p
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+            elif target.exists():
+                target.unlink()
 
 
 def ensure_excluded(root: Path, pattern: str) -> None:

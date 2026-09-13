@@ -61,6 +61,11 @@ def _roles_from(data: dict[str, Any]) -> RolesConfig:
         kwargs["specifier"] = roles["specifier"]
     if "producer" in roles:
         kwargs["producer"] = roles["producer"]
+    if "test_designer" in roles:
+        # `false` (or an empty string) in TOML, where there is no null: the producer writes
+        # the tests to create itself.
+        designer = roles["test_designer"]
+        kwargs["test_designer"] = designer if isinstance(designer, str) and designer else None
     if "reviewers" in roles:
         kwargs["reviewers"] = [ReviewerSpec(**r) for r in roles["reviewers"]]
     return RolesConfig(**kwargs)
@@ -124,12 +129,14 @@ context_window = 32768
 
 [roles]
 specifier = "default"
+test_designer = "default"   # writes the tests to create before the producer; false hands them to the producer
 producer = "default"
 reviewers = [
   { perspective = "spec_compliance", agent = "default" },
   { perspective = "correctness", agent = "default" },
   { perspective = "security", agent = "default" },
 ]
+# test_quality is added to the reviewers whenever a verification is a test to create.
 
 [budget]
 max_cost_usd = 10.0

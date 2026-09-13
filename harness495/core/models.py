@@ -75,6 +75,9 @@ class AgentKind(StrEnum):
 
 class Role(StrEnum):
     specifier = "specifier"
+    test_designer = "test_designer"
+    """Writes the tests the specification says to create, before the producer, in an
+    intervention of its own; the producer may not touch them."""
     producer = "producer"
     reviewer = "reviewer"
 
@@ -238,6 +241,9 @@ class ReviewerSpec(StrictModel):
 
 class RolesConfig(StrictModel):
     specifier: str = "default"
+    test_designer: str | None = "default"
+    """The agent that writes the tests to create before the producer runs; None hands them to
+    the producer, which then writes the tests that judge its own change."""
     producer: str = "default"
     reviewers: list[ReviewerSpec] = Field(
         default_factory=lambda: [
@@ -888,6 +894,33 @@ class ReportedCommand(StrictModel):
     exit_code: int
 
 
+class DesignedTest(StrictModel):
+    """Which file the test designer says holds the test of one verification. A claim."""
+
+    verification_id: str
+    file: str
+
+
+class TestDesign(StrictModel):
+    """The tests to create, written before the producer by an intervention of their own.
+
+    ``files`` are the test files the harness found written after the intervention, committed
+    as ``commit`` on top of ``base_commit``; they are protected: a version of the change that
+    modifies or deletes one is rejected on scope. ``discarded`` are the files the designer
+    wrote that are not test files by the naming convention (``looks_like_a_test``), reverted
+    before the commit. ``reported`` and ``not_done`` are what the designer said: which file
+    holds which verification's test, and what it could not write; claims, never facts.
+    """
+
+    intervention_id: str
+    base_commit: str
+    commit: str
+    files: list[str] = Field(default_factory=list)
+    discarded: list[str] = Field(default_factory=list)
+    reported: list[DesignedTest] = Field(default_factory=list)
+    not_done: list[str] = Field(default_factory=list)
+
+
 class Iteration(StrictModel):
     n: int
     version: Version | None = None
@@ -963,6 +996,9 @@ class Run(StrictModel):
     config: HarnessConfig = Field(default_factory=HarnessConfig)
     profile: ProjectProfile | None = None
     spec: Spec = Field(default_factory=Spec)
+    test_design: TestDesign | None = None
+    """The tests to create as written by the test designer for the approved specification;
+    None until it has run, and again whenever the specification is replaced."""
     budget: Budget = Field(default_factory=Budget)
     consumption: Consumption = Field(default_factory=Consumption)
     iterations: list[Iteration] = Field(default_factory=list)

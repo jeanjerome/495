@@ -99,9 +99,14 @@ def _change(run: Run) -> Text:
             style="h.value",
         )
     live = running_intervention(run)
-    if live is not None and live.role is Role.producer:
+    if live is not None and live.role in (Role.producer, Role.test_designer):
+        doing = (
+            "is holding the worktree"
+            if live.role is Role.producer
+            else "is writing the tests to create, before the producer"
+        )
         return Text(
-            f"{live.agent.kind.value}:{live.agent.model or 'default'} is holding the worktree, "
+            f"{live.agent.kind.value}:{live.agent.model or 'default'} {doing}, "
             f"{hms((dt.datetime.now(dt.UTC) - live.started_at).total_seconds())} of a "
             f"{live.timeout_s // 60}m timeout.",
             style="attn.work",

@@ -175,6 +175,16 @@ la base dans la signature (patterns pytest/jest/go test/JUnit) et déclasser en 
 une V dont l'échec sur base n'est pas une assertion ; (c) un rôle **test designer** distinct qui
 écrit les tests `to_create` *avant* le producteur, dans une intervention à part, le producteur ne
 pouvant plus modifier ces fichiers (scope) ; c'est l'étape TEST DESIGN du pipeline de l'article.
+Fait le 2026-09-14 : (a) et (b) avec E32 (ADR 0019) ; (c) le rôle `test_designer`
+(`RolesConfig.test_designer`, agent par défaut, `false` pour le désactiver) écrit les tests
+`to_create` depuis les scénarios approuvés dans une intervention en écriture avant le premier
+producteur (`Engine._design_tests`) ; le harnais garde les fichiers reconnus comme tests
+(`looks_like_a_test`), remet les autres en l'état, committe (`Run.test_design`) ; le producteur
+et les réviseurs reçoivent le fait « Tests written by the test designer », le producteur les a
+en chemins protégés, et une version qui en modifie un échoue au `scope_check` (correction
+`[scope]`, itération rejetée) ; `_specify` remet le design à zéro à chaque spécification
+adoptée ; pas de designer en mode `evaluate` (ADR 0020, `tests/features/test_designer.feature`).
+E03 est clos.
 
 **E04 · Le contrôle d'instrument n'a qu'un mutant : l'absence du changement.** Priorité haute ·
 effort M. Traité en §6 (E30).
@@ -210,7 +220,7 @@ suffit : la spécification approuvée est la cible, l'intent n'est fourni que po
 | Décision d'acceptation | déterministe | `assess` |
 | Budgets, coûts | déterministe | `budget.py`, `pricing.py` |
 | Spécification (R, V, gaps proposés) | jugement | spécificateur |
-| Création des tests `to_create` | jugement | producteur (E03) |
+| Création des tests `to_create` | jugement | test designer, avant le producteur, fichiers protégés (E03) |
 | Conformité à la spec, correction, sécurité | jugement | réviseurs |
 | Sufficiency `insufficient` pour `review`/`manual` | déterministe sur une déclaration de jugement | `assess_sufficiency` |
 
@@ -408,7 +418,7 @@ nouvelle fonction et laisser passer presque toutes ses implémentations fausses.
 
 | Contrat | Ce qu'il définit | Vérification recommandée | Ce que 495 fait aujourd'hui | Écart |
 |---|---|---|---|---|
-| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | partiel : le test d'acceptation est écrit par le producteur (E03) ; scénario BDD décidé comme norme, énoncé par le spécificateur, forme du test dictée par l'outil `bdd` du profil (E51) ; l'outil `bdd` détecté au profil et proposé s'il manque (E50) |
+| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | fait : le test d'acceptation est écrit par le test designer avant le producteur, qui ne peut pas le modifier (E03) ; scénario BDD décidé comme norme, énoncé par le spécificateur, forme du test dictée par l'outil `bdd` du profil (E51) ; l'outil `bdd` détecté au profil et proposé s'il manque (E50) |
 | **Domaine** | invariants métier | property-based testing | rien : `VerificationKind` n'a pas de `property`, le spécificateur n'est pas invité à formuler d'invariants, Hypothesis/fast-check/QuickCheck ne sont pas détectés (`.hypothesis` n'apparaît que comme cache à exclure) | absent |
 | **API** | échanges autorisés | schémas, OpenAPI, types | `typecheck` détecté (mypy, pyright, tsc) ; pas de validation de schéma ni de diff d'API | partiel |
 | **Architecture** | dépendances et frontières | tests d'architecture | rien : `allowed_paths` est un périmètre de fichiers, pas une règle de dépendance ; import-linter, dependency-cruiser, ArchUnit, `deptry` ne sont pas détectés | absent |
@@ -795,7 +805,7 @@ semaine ou plus).
 | Id | Écart | Axe | Effort | Effet attendu |
 |---|---|---|---|---|
 | E01 | `requirement_assessment: violated` sans finding étayé rendait l'exigence violée ; lue comme `undetermined` depuis le 2026-09-13 (fait) | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
-| E03 · E32 | le producteur écrit ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise : depuis le 2026-09-14 il rend la V `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer (E32 fait) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec (faits), puis rôle test designer |
+| E03 · E32 | le producteur écrivait ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise. Depuis le 2026-09-14 : la V est `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer ; les tests à créer sont écrits par le rôle `test_designer` avant le producteur, qui ne peut plus les modifier (faits) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, rôle test designer |
 | E33 | la suite existante peut être affaiblie (suppression, skip) sans détection | tests hôtes | M | comptage des tests base/changement, protection des tests existants |
 | E30 · E31 | force de la suite non mesurée : ni couverture du diff ni mutation ciblée | tests hôtes | M à L | dit *où* la spécification ne regarde pas ; sort du « satisfied = passe et ne passait pas » |
 | E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |

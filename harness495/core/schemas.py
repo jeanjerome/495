@@ -131,3 +131,19 @@ PRODUCER_SUMMARY_SCHEMA: dict[str, Any] = _obj(
 )
 """``not_done`` is the producer's only channel for "this could not be done": the harness reads
 it as a claim to surface to the requester, never as a fact and never as a veto."""
+
+
+TEST_DESIGNER_SUMMARY_SCHEMA: dict[str, Any] = _obj(
+    {
+        "summary": {"type": "string"},
+        "files_written": {"type": ["array", "null"], "items": {"type": "string"}},
+        "tests": {
+            "type": ["array", "null"],
+            "items": _obj({"verification_id": {"type": "string"}, "file": {"type": "string"}}),
+        },
+        "not_done": {"type": ["array", "null"], "items": {"type": "string"}},
+    }
+)
+"""``tests`` says which file holds which verification's test and ``not_done`` what could not
+be written; both are claims the harness shows and never concludes from. The files that count
+are the ones found written in the worktree."""

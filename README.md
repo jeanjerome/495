@@ -393,9 +393,9 @@ phase that was interrupted.
 ```mermaid
 flowchart TD
   profile --> specify --> gate
-  gate -->|approved| produce
+  gate -->|approved| design[design tests]
   gate -->|revise| specify
-  produce --> verify --> review --> decide
+  design --> produce --> verify --> review --> decide
   decide -->|a requirement is violated| produce
   decide -->|the evidence cannot say| ask([495 stops and asks you])
   decide -->|all satisfied| deliver
@@ -407,8 +407,9 @@ flowchart TD
 | profile | detect languages, tooling, verification commands and conventions; run every command once on the base version to prove it is executable and record what it printed (**readiness**) | harness |
 | specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`, each verification naming the catalogue role it measures when it is one (`property`, `mutation`, `coverage`...); flag missing or insufficient verifications, among them a verification of a role the project does not measure, and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
 | gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
-| produce | implement the change in the worktree; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
-| verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called. A command that fails without the change by an execution error (an import that fails, a name that does not exist) rather than by an assertion is `unconfirmed`: it still counts, and the `test_quality` reviewer is told to read its assertions | harness |
+| design tests | write the tests the specification says to create, from their approved scenarios, on a tree where the behaviour does not exist; the harness keeps the test files, puts any other file back, and commits them. Once per approved specification | test designer agent (write) |
+| produce | implement the change in the worktree, with the designed tests as read-only files; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
+| verify | scope check (only allowed paths touched, no designed test modified), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called. A command that fails without the change by an execution error (an import that fails, a name that does not exist) rather than by an assertion is `unconfirmed`: it still counts, and the `test_quality` reviewer is told to read its assertions | harness |
 | review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; `test_quality` is called whenever a test is to be created, configured or not; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
@@ -499,9 +500,11 @@ Each intervention receives a context pack with two clearly separated parts: **es
 collected itself) and **untrusted content** (diffs, repository documents, other agents' output),
 labelled as data that may contain misleading instructions. Reviewers never see the producer's
 transcript; producers see correction requests derived from evidence, that evidence, and the
-reviewers' observations without their explanations.
+reviewers' observations without their explanations. The test designer sees the specification
+and the tree without the behaviour, never the producer; the producer sees the designed tests
+as files it may not touch.
 
-| agent | read-only roles | write role | isolation |
+| agent | read-only roles | write roles (test designer, producer) | isolation |
 |---|---|---|---|
 | Claude Code | `--tools Bash,Read`, Bash limited to read-only patterns, `--permission-mode dontAsk` | `--permission-mode acceptEdits`, tools Bash/Edit/Write/Read | Claude Code sandbox enabled with no allowed network domain, permission prompts disabled, session not persisted |
 | Codex | `--sandbox read-only` | `--sandbox workspace-write` | `network_access=false`, ephemeral session |
@@ -653,6 +656,7 @@ context_window = 32768
 
 [roles]
 specifier = "default"
+test_designer = "default"  # writes the tests to create before the producer; false hands them to the producer
 producer = "default"
 reviewers = [
   { perspective = "spec_compliance", agent = "reviewer" },
@@ -702,6 +706,13 @@ with the specification's steps, bound with the tool the project measures the rol
 or a test in the project's runner in the scenario's order when nothing does; the producer and
 every reviewer read that form as a fact
 (`docs/decisions/0017-the-form-of-a-test-to-create-follows-the-scenario-runner.md`).
+
+The tests to create are written by the test designer, in an intervention of its own before
+the producer, from the approved scenarios and on a tree where the behaviour does not exist.
+The harness commits the test files it finds written and hands them to the producer and the
+reviewers as protected files: a version of the change that modifies, renames or deletes one
+is rejected on scope. `test_designer = false` hands the tests back to the producer
+(`docs/decisions/0020-the-tests-to-create-are-written-by-a-test-designer-before-the-producer.md`).
 
 ### Exit codes
 
@@ -784,8 +795,8 @@ Tests use the libraries listed in `docs/test-libraries.md` for their role, and a
 behaviour is a Gherkin scenario under `tests/features/` bound to steps with pytest-bdd
 (`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`).
 
-The images and the recording above are rebuilt from a store the engine walked, with the three
-agent roles answering from a script so that neither costs a call:
+The images and the recording above are rebuilt from a store the engine walked, with the agent
+roles answering from a script so that neither costs a call:
 
 ```bash
 .venv/bin/python tools/capture/surface.py   # docs/assets/run-surface.svg and store-page.svg

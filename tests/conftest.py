@@ -162,6 +162,20 @@ def reject_review(perspective: str) -> dict[str, Any]:
     }
 
 
+DESIGNED_TEST = """from calc import subtract
+
+
+def test_subtract():
+    assert subtract(5, 3) == 2
+    assert subtract(3, 5) == -2
+"""
+
+
+def design_tests(cwd: Path) -> None:
+    """What the scripted test designer writes: the test of V1, and nothing else."""
+    (cwd / "tests" / "test_subtract.py").write_text(DESIGNED_TEST, encoding="utf-8")
+
+
 def good_producer(cwd: Path) -> None:
     (cwd / "calc.py").write_text(
         SAMPLE_MODULE + "\n\ndef subtract(a: int, b: int) -> int:\n    return a - b\n",
@@ -191,6 +205,8 @@ class Scenario:
 
     def __init__(self) -> None:
         self.spec: dict[str, Any] = json.loads(json.dumps(SPEC_JSON))
+        self.designers: list[Callable[[Path], None]] = [design_tests]
+        self.designer_not_done: list[str] = []
         self.producers: list[Callable[[Path], None]] = [good_producer]
         self.reviews: dict[str, list[dict[str, Any]]] = {}
         self.default_review: Callable[[str], dict[str, Any]] = accept_review
@@ -211,6 +227,10 @@ class Scenario:
     def next_producer(self) -> Callable[[Path], None]:
         n = sum(1 for t in self.calls if t.role is Role.producer) - 1
         return self.producers[min(n, len(self.producers) - 1)]
+
+    def next_designer(self) -> Callable[[Path], None]:
+        n = sum(1 for t in self.calls if t.role is Role.test_designer) - 1
+        return self.designers[min(n, len(self.designers) - 1)]
 
     def next_review(self, perspective: str) -> dict[str, Any]:
         n = sum(1 for t in self.calls if t.role is Role.reviewer and perspective in t.prompt) - 1
@@ -238,6 +258,15 @@ class FakeAgent(Agent):
         status = InterventionStatus.completed
         if task.role is Role.specifier:
             structured = sc.spec
+        elif task.role is Role.test_designer:
+            sc.next_designer()(task.cwd)
+            text = "wrote tests/test_subtract.py; ran pytest: exit 1 (ImportError)"
+            structured = {
+                "summary": text,
+                "files_written": ["tests/test_subtract.py"],
+                "tests": [{"verification_id": "V1", "file": "tests/test_subtract.py"}],
+                "not_done": list(sc.designer_not_done),
+            }
         elif task.role is Role.producer:
             sc.next_producer()(task.cwd)
             text = "changed calc.py and tests/test_calc.py; ran pytest: exit 0"

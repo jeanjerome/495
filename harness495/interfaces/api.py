@@ -93,6 +93,8 @@ def _config_from_body(base: HarnessConfig, body: dict[str, Any]) -> HarnessConfi
         base.agents[spec.name] = spec
         base.roles.specifier = spec.name
         base.roles.producer = spec.name
+        if base.roles.test_designer is not None:
+            base.roles.test_designer = spec.name
         for r in base.roles.reviewers:
             r.agent = spec.name
     if body.get("max_cost_usd") is not None:

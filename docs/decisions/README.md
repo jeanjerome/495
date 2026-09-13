@@ -28,3 +28,4 @@ carries the decision.
 | [0017](0017-the-form-of-a-test-to-create-follows-the-scenario-runner.md) | The form of a test to create follows the project's scenario runner, and the reviewer compares requirement, scenario and test | accepted | 2026-09-13 |
 | [0018](0018-the-report-shows-the-scenario-under-the-requirement-it-verifies.md) | The report shows, under each requirement, the scenario that verifies it and what its command reported | accepted | 2026-09-13 |
 | [0019](0019-an-execution-error-without-the-change-does-not-confirm-a-test.md) | A test that fails without the change by an execution error is unconfirmed, and a test to create calls for the test_quality reviewer | accepted | 2026-09-14 |
+| [0020](0020-the-tests-to-create-are-written-by-a-test-designer-before-the-producer.md) | The tests to create are written by a test designer before the producer, and the producer may not touch them | accepted | 2026-09-14 |

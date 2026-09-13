@@ -209,6 +209,8 @@ def _apply_overrides(
         config.agents[spec.name] = spec
         config.roles.specifier = spec.name
         config.roles.producer = spec.name
+        if config.roles.test_designer is not None:
+            config.roles.test_designer = spec.name
         for r in config.roles.reviewers:
             r.agent = spec.name
     if producer:

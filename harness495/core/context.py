@@ -16,6 +16,7 @@ from harness495.core.models import (
     ReviewVerdict,
     Spec,
     Sufficiency,
+    TestDesign,
     Version,
 )
 
@@ -202,6 +203,25 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
     if spec.allowed_paths:
         lines.append("")
         lines.append("Allowed paths (globs): " + ", ".join(spec.allowed_paths))
+    return "\n".join(lines)
+
+
+def render_test_design(design: TestDesign) -> str:
+    """The tests written by the test designer, as the producer and the reviewers read them.
+
+    The files are what the harness found written and committed; they are protected, and the
+    sentence says so. What the designer reported (which file holds which verification's test)
+    is shown as its report, since the harness has not read the tests.
+    """
+    lines = [
+        f"Written before the producer, committed as {design.commit[:12]} on top of the base "
+        f"version {design.base_commit[:12]}. These files are read-only for the change: a "
+        "version that modifies, renames or deletes one of them is rejected on scope."
+    ]
+    lines.extend(f"- {f}" for f in design.files)
+    if design.reported:
+        lines.append("The test designer reported:")
+        lines.extend(f"- {t.verification_id}: {t.file}" for t in design.reported)
     return "\n".join(lines)
 
 
