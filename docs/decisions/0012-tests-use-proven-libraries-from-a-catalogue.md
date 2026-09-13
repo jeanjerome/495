@@ -58,7 +58,8 @@ ecosystem already provides.
 
 - Adding a role or a technology to the catalogue is a documentation change with a source; adding
   a library without a source is refused in review.
-- Profile detection (`harness495/core/profile.py`) carries a notion of *role coverage*: for each
+- Profile detection (`harness495/core/profile.py`, markers in `harness495/core/coverage.py`)
+  carries a notion of *role coverage*: for each
   role of the catalogue and each technology of the project, which tool measures it
   (`RoleCoverage`, with the marker the tool was recognised from). The roles are the enum
   `CatalogueRole`, kept equal to the document's Roles table by `tests/test_catalogue.py`; the
@@ -98,8 +99,9 @@ ecosystem already provides.
 - `tests/test_architecture.py`.
 - `AGENTS.md`, section Invariants (the rule for 495's own tests).
 - `harness495/core/models.py`: `CatalogueRole`, `RoleCoverage`, `ProjectProfile.role_coverage`.
-- `harness495/core/profile.py`: `ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`,
-  `_python_coverage`, `_shell_coverage`; `core/context.py::render_profile`, `495 profile` and
+- `harness495/core/coverage.py`: `ROLES_BY_TECHNOLOGY`, the marker tables (`PYTHON_TOOLS`,
+  `SHELL_TOOLS`), `rows`; `harness495/core/profile.py` gathers each technology's `Tree`;
+  `core/context.py::render_profile`, `495 profile` and
   the TUI profile view show the rows.
 - `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`;
   `harness495/core/models.py`: `CatalogueGap`, `GapKind`, `ProjectProfile.catalogue_gaps`;

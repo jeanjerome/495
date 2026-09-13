@@ -16,6 +16,7 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
+from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import (
     CatalogueRole,
     Evidence,
@@ -33,7 +34,6 @@ from harness495.core.models import (
     Version,
     new_id,
 )
-from harness495.core.profile import ROLES_BY_TECHNOLOGY
 from harness495.core.retro import retrospect
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app

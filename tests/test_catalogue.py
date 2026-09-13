@@ -11,8 +11,8 @@ import re
 from pathlib import Path
 
 from harness495.core.catalogue import CONTRADICTING_ROLES, RECOMMENDED, ROLE_CONTRACTS
+from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import CatalogueRole
-from harness495.core.profile import ROLES_BY_TECHNOLOGY
 
 CATALOGUE = Path(__file__).resolve().parent.parent / "docs" / "test-libraries.md"
 

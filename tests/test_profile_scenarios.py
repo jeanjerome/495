@@ -19,6 +19,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
 from harness495.core.context import render_catalogue, render_profile
+from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import (
     CatalogueGap,
     CatalogueRole,
@@ -27,7 +28,7 @@ from harness495.core.models import (
     RoleCoverage,
     Run,
 )
-from harness495.core.profile import ROLES_BY_TECHNOLOGY, detect_profile
+from harness495.core.profile import detect_profile
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 

@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
+from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import (
     CatalogueGap,
     CatalogueRole,
@@ -34,7 +35,6 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
-from harness495.core.profile import ROLES_BY_TECHNOLOGY
 from harness495.core.store import RunStore
 from harness495.core.verification import assess_sufficiency
 from tests.conftest import Scenario

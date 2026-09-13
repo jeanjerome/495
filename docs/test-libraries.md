@@ -13,7 +13,7 @@ One recommended library per technology and per role. Binds 495's own tests and t
   (`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`).
 - Profiling a host project: the profile reports, per technology and per role of the table
   below, the tool the project measures it with and what it was recognised from (the role
-  coverage, `harness495/core/profile.py`; the markers are those of the studies' "What a profile
+  coverage, `harness495/core/coverage.py`; the markers are those of the studies' "What a profile
   can detect" sections; a technology whose study is not done has no rows). `495 init` and
   `495 profile` then compare the coverage with the entries below and state each gap: a role
   nothing measures, a role measured with another tool than the recommended one, a role
