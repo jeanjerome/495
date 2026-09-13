@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +27,159 @@ DOC_CANDIDATES = [
 ]
 
 
+NOT_THE_PROJECT = frozenset(
+    {"node_modules", "vendor", "target", "build", "dist", "venv", "__pycache__", "site-packages"}
+)
+"""Directories whose contents belong to something else: dependencies, and what a build wrote.
+
+A script found in one of them says what a library ships with, not what this project is written
+in. Directories whose name starts with a dot are skipped for the same reason, and because that
+is where the caches are.
+"""
+
+
 def _cmd(name: str, command: str, kind: VerificationKind, source: str) -> ProjectCommand:
     return ProjectCommand(name=name, command=command, kind=kind, source=source)
+
+
+SHFMT_KEYS = (
+    "shell_variant",
+    "binary_next_line",
+    "switch_case_indent",
+    "space_redirects",
+    "keep_padding",
+    "function_next_line",
+)
+"""EditorConfig properties nothing but shfmt reads.
+
+``indent_style`` and ``indent_size`` are in every ``.editorconfig`` ever written and say
+nothing about who formats the shell.
+"""
+
+
+@dataclass(frozen=True)
+class _ShellTree:
+    """What one bounded walk found, for every shell question there is to ask."""
+
+    scripts: tuple[Path, ...]
+    bats: tuple[Path, ...]
+    shunit2: bool
+
+    def __bool__(self) -> bool:
+        return bool(self.scripts or self.bats or self.shunit2)
+
+
+def _walk_shell(root: Path, max_depth: int = 3, limit: int = 200) -> _ShellTree:
+    """Look for what a shell project is made of, wherever it keeps it.
+
+    Every other stack here is recognised by a manifest — ``pyproject.toml``, ``package.json``,
+    ``Cargo.toml``, ``go.mod``. Shell has none, so the files are the only evidence there is,
+    and looking at the root alone finds nothing in the ordinary layout: scripts live in
+    ``scripts/``, ``bin/`` or ``tools/``, and tests in ``test/`` or ``tests/``. Three levels
+    reaches those without walking a monorepo to the bottom.
+    """
+    scripts: list[Path] = []
+    bats: list[Path] = []
+    shunit2 = False
+    edge = [(root, 0)]
+    while edge:
+        here, depth = edge.pop()
+        try:
+            entries = sorted(here.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.is_dir():
+                if (
+                    depth < max_depth
+                    and entry.name not in NOT_THE_PROJECT
+                    and not entry.name.startswith(".")
+                ):
+                    edge.append((entry, depth + 1))
+            elif entry.suffix == ".sh" and len(scripts) < limit:
+                scripts.append(entry)
+            elif entry.suffix == ".bats" and len(bats) < limit:
+                bats.append(entry)
+            elif entry.name == "shunit2":
+                shunit2 = True
+    return _ShellTree(tuple(scripts), tuple(bats), shunit2)
+
+
+def _uses_shellcheck(root: Path, scripts: tuple[Path, ...], sample: int = 40) -> bool:
+    """Whether the project lints its shell, by its configuration or by its own directives.
+
+    ``.shellcheckrc`` is the declaration, and the rarer of the two: most projects that run
+    shellcheck never write one. A ``# shellcheck`` comment is what someone leaves behind on
+    the day they silence a finding, which is the same evidence one step further on.
+    """
+    if (root / ".shellcheckrc").exists():
+        return True
+    for script in scripts[:sample]:
+        try:
+            if script.stat().st_size > 256_000:
+                continue
+            if "# shellcheck" in script.read_text(encoding="utf-8", errors="ignore"):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _uses_shfmt(root: Path) -> bool:
+    """Whether the project formats its shell, by the EditorConfig keys only shfmt reads."""
+    config = root / ".editorconfig"
+    try:
+        text = config.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return any(key in text for key in SHFMT_KEYS)
+
+
+def _detect_shell(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
+    """The stack with no manifest: what it is written in, and what keeps it honest.
+
+    Last of the detectors, and the only one that reads what the others concluded. Most
+    projects carry a script or two in ``scripts/`` or ``bin/`` without being written in shell,
+    so a ``.sh`` file names the language only where nothing else was found — otherwise naming
+    it would make a Django application part shell because it has a deploy script.
+
+    The tools are reported either way, because they really are used here and the agents are
+    told what a project is kept honest with. Their *commands* are not: a repository whose lint
+    is shellcheck would be told that two helper scripts are all it checks.
+    """
+    tree = _walk_shell(root)
+    if not tree:
+        return
+
+    written_in_shell = not prof.languages and bool(tree.scripts)
+    if written_in_shell:
+        prof.languages.append("shell")
+
+    def propose(name: str, command: str, kind: VerificationKind) -> None:
+        if written_in_shell:
+            cmds.setdefault(name, _cmd(name, command, kind, "detected"))
+
+    if _uses_shellcheck(root, tree.scripts):
+        prof.tooling.append("shellcheck")
+        # Through git rather than a glob: the command is run from the worktree root by a
+        # shell, and what is tracked there is exactly what the project is answerable for.
+        propose("lint", "shellcheck $(git ls-files '*.sh')", VerificationKind.lint)
+    if _uses_shfmt(root):
+        prof.tooling.append("shfmt")
+        propose("format", "shfmt -d .", VerificationKind.lint)
+    if (root / ".shellspec").exists() or (
+        (root / "spec").is_dir() and any((root / "spec").glob("*_spec.sh"))
+    ):
+        prof.tooling.append("shellspec")
+        propose("test", "shellspec", VerificationKind.test)
+    if tree.bats:
+        prof.tooling.append("bats")
+        where = tree.bats[0].parent.relative_to(root)
+        propose("test", f"bats {where}", VerificationKind.test)
+    if tree.shunit2:
+        # No command. shunit2 is sourced by the test script that uses it, and which script
+        # that is, is the project's to say.
+        prof.tooling.append("shunit2")
 
 
 def _detect_python(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
@@ -155,15 +307,6 @@ def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComm
         prof.detected_from.append("build.gradle")
         gradle = "./gradlew" if (root / "gradlew").exists() else "gradle"
         cmds.setdefault("test", _cmd("test", f"{gradle} test", VerificationKind.test, "detected"))
-    if (
-        (root / ".shellspec").exists()
-        or (root / "spec").is_dir()
-        and any((root / "spec").glob("*_spec.sh"))
-    ):
-        prof.tooling.append("shellspec")
-        cmds.setdefault("test", _cmd("test", "shellspec", VerificationKind.test, "detected"))
-    if any(root.glob("*.sh")) and "shell" not in prof.languages:
-        prof.languages.append("shell")
     makefile = root / "Makefile"
     if makefile.exists():
         prof.detected_from.append("Makefile")
@@ -198,6 +341,8 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     _detect_python(root, prof, cmds)
     _detect_node(root, prof, cmds)
     _detect_others(root, prof, cmds)
+    # Last: it is the one that asks what the others concluded.
+    _detect_shell(root, prof, cmds)
     prof.commands = list(cmds.values())
     prof.conventions = list(project.conventions)
     _collect_docs(root, prof, project.docs)

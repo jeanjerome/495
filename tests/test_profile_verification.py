@@ -49,6 +49,94 @@ def test_detect_python_and_node_and_makefile(tmp_path: Path) -> None:
     assert read_doc_excerpts(tmp_path, ["CONTRIBUTING.md"])["CONTRIBUTING.md"] == "be nice"
 
 
+def test_shell_is_detected_wherever_the_scripts_are_kept(tmp_path: Path) -> None:
+    """Shell has no manifest to be recognised by, and its scripts are rarely at the root."""
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "deploy.sh").write_text("#!/bin/sh\necho deploying\n")
+    assert "shell" in detect_profile(tmp_path).languages
+
+
+def test_a_script_shipped_by_a_dependency_is_not_the_project(tmp_path: Path) -> None:
+    """What is vendored says what a library is written in, not what this project is."""
+    (tmp_path / "node_modules" / "pkg").mkdir(parents=True)
+    (tmp_path / "node_modules" / "pkg" / "install.sh").write_text("#!/bin/sh\n")
+    (tmp_path / ".cache").mkdir()
+    (tmp_path / ".cache" / "leftover.sh").write_text("#!/bin/sh\n")
+    assert "shell" not in detect_profile(tmp_path).languages
+
+
+def test_a_helper_script_does_not_make_the_project_shell(tmp_path: Path) -> None:
+    """The common layout everywhere: one deploy script beside the code it deploys."""
+    (tmp_path / "pyproject.toml").write_text('[project]\nname="x"\ndependencies=["pytest"]\n')
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "deploy.sh").write_text("#!/bin/sh\necho deploying\n")
+    (tmp_path / "run.sh").write_text("#!/bin/sh\nexec python -m x\n")
+    assert detect_profile(tmp_path).languages == ["python"]
+
+
+def _shell_project(root: Path) -> None:
+    (root / "scripts").mkdir()
+    (root / "scripts" / "deploy.sh").write_text("#!/bin/sh\necho deploying\n")
+
+
+def test_shellcheck_is_read_from_its_configuration(tmp_path: Path) -> None:
+    _shell_project(tmp_path)
+    (tmp_path / ".shellcheckrc").write_text("disable=SC2086\n")
+    prof = detect_profile(tmp_path)
+    assert "shellcheck" in prof.tooling
+    assert prof.command("lint").command == "shellcheck $(git ls-files '*.sh')"
+
+
+def test_shellcheck_is_read_from_a_directive_left_in_a_script(tmp_path: Path) -> None:
+    """The commoner evidence by far: nobody writes the config, everybody silences a finding."""
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "release.sh").write_text(
+        "#!/bin/sh\n# shellcheck disable=SC2086\nrm $files\n"
+    )
+    assert "shellcheck" in detect_profile(tmp_path).tooling
+
+
+def test_bats_is_run_where_its_tests_are(tmp_path: Path) -> None:
+    _shell_project(tmp_path)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "deploy.bats").write_text("@test 'it runs' {\n  true\n}\n")
+    prof = detect_profile(tmp_path)
+    assert "bats" in prof.tooling
+    assert prof.command("test").command == "bats tests"
+
+
+def test_shfmt_is_read_from_the_keys_only_it_knows(tmp_path: Path) -> None:
+    _shell_project(tmp_path)
+    (tmp_path / ".editorconfig").write_text("[*.sh]\nindent_style = space\n")
+    assert "shfmt" not in detect_profile(tmp_path).tooling, "every editor reads indent_style"
+    (tmp_path / ".editorconfig").write_text("[*.sh]\nswitch_case_indent = true\n")
+    prof = detect_profile(tmp_path)
+    assert "shfmt" in prof.tooling and prof.command("format").command == "shfmt -d ."
+
+
+def test_shunit2_is_named_but_brings_no_command(tmp_path: Path) -> None:
+    """It is sourced by the test script that uses it, and which one that is, is not ours."""
+    _shell_project(tmp_path)
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "shunit2").write_text("# vendored\n")
+    prof = detect_profile(tmp_path)
+    assert "shunit2" in prof.tooling
+    assert [c.name for c in prof.commands] == []
+
+
+def test_a_shell_toolchain_is_named_but_does_not_become_another_stack_lint(
+    tmp_path: Path,
+) -> None:
+    """Naming it is right — it is used here. Making it the project's lint is not: it would
+    say that two helper scripts are all this repository checks."""
+    (tmp_path / "pom.xml").write_text("<project/>")
+    _shell_project(tmp_path)
+    (tmp_path / ".shellcheckrc").write_text("disable=SC2086\n")
+    prof = detect_profile(tmp_path)
+    assert prof.languages == ["java"] and "shellcheck" in prof.tooling
+    assert all(c.name != "lint" for c in prof.commands)
+
+
 def test_user_commands_win(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text('[project]\nname="x"\ndependencies=["pytest"]\n')
     cfg = ProjectConfig(
