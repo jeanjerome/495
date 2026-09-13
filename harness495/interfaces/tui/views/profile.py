@@ -115,6 +115,7 @@ def build_profile(ctx: ViewContext) -> StageContent:
         f"{r.technology} {r.role.value}: {', '.join(r.tools) if r.tools else 'not measured'}"
         for r in p.role_coverage
     ]
+    gaps = [f"{g.technology} {g.role.value}: {g.statement}" for g in p.catalogue_gaps]
     given = panel(
         Group(
             bullets("conventions the agents are held to", p.conventions, "h.value"),
@@ -122,6 +123,8 @@ def build_profile(ctx: ViewContext) -> StageContent:
             bullets("documents put in their context", p.doc_files, "h.ref"),
             Text(),
             bullets("test roles the project measures", measured, "h.value"),
+            Text(),
+            bullets("gaps against the catalogue", gaps, "suf.insufficient"),
         ),
         ICON["briefing"],
         "what the agents are told",

@@ -178,6 +178,17 @@ base commit: de61b9f447a58b9bfbec47d001ce565b776954c7; docs: README.md
 │ python     │ performance  │ —          │ nothing measures it                   │
 │ python     │ doubles      │ —          │ nothing measures it                   │
 └────────────┴──────────────┴────────────┴───────────────────────────────────────┘
+    Gaps against the catalogue: roles that can contradict the agent's implementation
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ technology ┃ role         ┃ in place ┃ recommended             ┃ gap                 ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ python     │ fuzzing      │ —        │ atheris                 │ nothing measures it │
+│ python     │ mutation     │ —        │ mutmut                  │ nothing measures it │
+│ python     │ coverage     │ —        │ coverage.py, diff-cover │ nothing measures it │
+│ python     │ architecture │ —        │ import-linter           │ nothing measures it │
+│ python     │ security     │ —        │ ruff, pip-audit         │ nothing measures it │
+│ python     │ contract     │ —        │ schemathesis            │ nothing measures it │
+└────────────┴──────────────┴──────────┴─────────────────────────┴─────────────────────┘
 ```
 
 Commands are detected from `pyproject.toml`, `package.json`, `Makefile`, `Cargo.toml`,
@@ -193,6 +204,18 @@ role nothing measures is listed as such. The rows exist for the technologies who
 profile has markers for, Python and shell today; a technology without markers gets no rows
 rather than rows that would read as findings about the project. The agents see the same list
 in their context.
+
+The third table is the **gaps against the catalogue**: for each role the catalogue has an
+entry for, whether the project measures it with the recommended tool. A gap is a role nothing
+measures, a role measured with another tool than the recommended one (`bandit` where the
+catalogue says `ruff` and `pip-audit`), or a role measured with part of the recommended entry
+(`coverage.py` without `diff-cover`). Only the roles whose measure can contradict what the
+agent produced are compared: a scenario the requester approved, inputs the agent did not
+choose, a verdict on the agent's own tests, rules the project set. The runner, the test doubles
+and the performance bound hold no such oracle and are never a gap. A cell with several
+entries is compared with the one whose condition holds in the project: `pytest-bdd` where
+there is a pytest suite, `behave` otherwise, and the gap says which condition applied. The
+same gaps are in the `--json` output under `catalogue_gaps`, and in the TUI's profile view.
 
 Detection is not a contract. Every command is run once on the base version at the start of a
 run — that is the **readiness** check — and a command that cannot run there, or that already

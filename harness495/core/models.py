@@ -119,6 +119,17 @@ class CatalogueRole(StrEnum):
     doubles = "doubles"
 
 
+class GapKind(StrEnum):
+    """How a role's coverage differs from the catalogue's recommendation (``CatalogueGap``)."""
+
+    unmeasured = "unmeasured"
+    """Nothing in the project measures the role."""
+    other_tool = "other_tool"
+    """The role is measured, with none of the tools the catalogue recommends."""
+    incomplete = "incomplete"
+    """Some of the recommended tools are in place, not all (coverage.py without diff-cover)."""
+
+
 class Sufficiency(StrEnum):
     sufficient = "sufficient"
     insufficient = "insufficient"
@@ -326,12 +337,48 @@ class RoleCoverage(StrictModel):
         return bool(self.tools)
 
 
+class CatalogueGap(StrictModel):
+    """One role a project measures otherwise than the catalogue recommends, for one technology.
+
+    Stated only for a role whose measure can contradict the agent's implementation (the
+    catalogue's Roles table says which) and only where the catalogue has an entry for the
+    technology; a technology whose section is empty has no gaps. ``recommended`` is the entry
+    that applies to the project, ``condition`` the words under which it applies when the cell
+    holds several entries (empty for the default one), ``missing`` the recommended tools not
+    in place.
+    """
+
+    technology: str
+    role: CatalogueRole
+    kind: GapKind
+    in_place: list[str] = Field(default_factory=list)
+    recommended: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+    condition: str = ""
+
+    @property
+    def statement(self) -> str:
+        """The gap in words, without the technology and role."""
+        recommended = ", ".join(self.recommended)
+        if self.condition:
+            recommended += f" ({self.condition})"
+        if self.kind is GapKind.unmeasured:
+            return f"nothing measures it; the catalogue recommends {recommended}"
+        measured = f"measured with {', '.join(self.in_place)}"
+        if self.kind is GapKind.other_tool:
+            return f"{measured}; the catalogue recommends {recommended}"
+        return (
+            f"{measured}; the catalogue recommends {recommended}: {', '.join(self.missing)} missing"
+        )
+
+
 class ProjectProfile(StrictModel):
     root: str
     languages: list[str] = Field(default_factory=list)
     tooling: list[str] = Field(default_factory=list)
     commands: list[ProjectCommand] = Field(default_factory=list)
     role_coverage: list[RoleCoverage] = Field(default_factory=list)
+    catalogue_gaps: list[CatalogueGap] = Field(default_factory=list)
     conventions: list[str] = Field(default_factory=list)
     doc_files: list[str] = Field(default_factory=list)
     detected_from: list[str] = Field(default_factory=list)

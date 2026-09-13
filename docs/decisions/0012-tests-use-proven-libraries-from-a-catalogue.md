@@ -1,7 +1,8 @@
 # 0012. Tests are implemented with proven specialised libraries, chosen from a catalogue by technology and role that binds 495 and the host projects alike
 
 - Status: accepted
-- Date: 2026-09-13; refined 2026-09-13 (a cell may hold several recommended entries, each with its condition)
+- Date: 2026-09-13; refined 2026-09-13 (a cell may hold several recommended entries, each with
+  its condition; a gap is stated only on a role whose measure can contradict the agent)
 
 ## Context
 
@@ -33,10 +34,15 @@ ecosystem already provides.
 3. The catalogue applies to 495 itself: a test added to `tests/` uses the catalogued library for
    its role, or the exception in point 1.
 4. The catalogue applies to host projects: when the profile finds no test of a catalogued role,
-   or a library other than the catalogued one for that role, 495 proposes to the requester to
-   put the catalogued one in place. The proposal is made at `495 init` (or `495 profile`) and is
-   persisted so that it can be acted on later, as runs to process or an equivalent record. The
-   mechanism is to be designed and built: `docs/etude-harnais-495.md`, E50.
+   or a library other than the catalogued one for that role, 495 states the gap to the
+   requester at `495 init` and `495 profile`, and proposes to put the catalogued one in place.
+   Only the roles whose measure can contradict what the agent produced are compared: a
+   scenario the requester approved, inputs the agent did not choose, a verdict on the agent's
+   own tests, rules the project set. The runner, the test doubles and the performance bound
+   hold no such oracle; they stay in the catalogue for 495's own tests and are never a gap.
+   The Roles table of the catalogue marks each role. The proposal is persisted so that it can
+   be acted on later, as runs to process or an equivalent record; that part is to be built:
+   `docs/etude-harnais-495.md`, E50 (c).
 
 ## Consequences
 
@@ -49,8 +55,16 @@ ecosystem already provides.
   markers come from the studies' "What a profile can detect" sections. A technology without
   markers has no rows, so that an unmeasured role always states a fact about the project and
   never a gap in the profile. Tools found this way join the profile's tooling, so the agents
-  are told about them. The comparison with the catalogue and the proposal (point 4) build on
-  these rows.
+  are told about them.
+- The comparison with the catalogue (point 4) is `harness495/core/catalogue.py::compare`,
+  run at the end of `detect_profile`; its result is stored on the profile (`CatalogueGap`,
+  `ProjectProfile.catalogue_gaps`) so that a run records the gaps it saw. `RECOMMENDED`
+  mirrors the document's `recommended` entries and `CONTRADICTING_ROLES` its Roles table;
+  `tests/test_catalogue.py` keeps both equal to the document. A cell with several entries is
+  compared with the first conditional entry whose condition holds in the project, else with
+  the default; a project that measures every tool of that entry has no gap, whatever else it
+  measures. A technology whose section is empty has no gap: nothing is stated against a
+  recommendation that does not exist.
 - A host project may keep a library the catalogue does not recommend; 495 proposes, the
   requester decides, and the decision is recorded like any other.
 - First application: `tests/test_architecture.py` runs `import-linter` contracts declared in
@@ -66,6 +80,9 @@ ecosystem already provides.
 - `harness495/core/profile.py`: `ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`,
   `_python_coverage`, `_shell_coverage`; `core/context.py::render_profile`, `495 profile` and
   the TUI profile view show the rows.
-- `tests/features/profile.feature` with `tests/test_profile_scenarios.py`;
-  `tests/test_catalogue.py`.
-- To build: the conformance proposal at `init`/`profile`; its persistence (E50 (b), (c)).
+- `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`;
+  `harness495/core/models.py`: `CatalogueGap`, `GapKind`, `ProjectProfile.catalogue_gaps`;
+  `495 profile` and `495 init` print the gaps, the TUI profile view lists them.
+- `tests/features/profile.feature` and `tests/features/catalogue.feature` with
+  `tests/test_profile_scenarios.py`; `tests/test_catalogue.py`.
+- To build: the persisted conformance proposal and the requester's answer (E50 (c)).

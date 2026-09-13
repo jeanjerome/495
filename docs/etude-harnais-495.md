@@ -507,8 +507,18 @@ configurations, des fichiers de test et de CI (prolonge E34) ; les marqueurs Pyt
 pas de lignes (la couverture énonce un fait sur le projet, jamais une lacune du profil) ; les
 lignes sont affichées par `495 profile`, la vue profil du TUI et le contexte des agents
 (`tests/features/profile.feature`, `tests/test_catalogue.py`) ;
-(b) `495 init` et `495 profile` comparent cette couverture au catalogue et énoncent les écarts :
-rôle non mesuré, ou mesuré avec un autre outil que celui recommandé ;
+(b) **fait** : `495 init` et `495 profile` comparent cette couverture au catalogue et énoncent
+les écarts (`core/catalogue.py::compare`, `CatalogueGap` persisté dans le profil, table CLI,
+`catalogue_gaps` en JSON, vue profil du TUI ; `tests/features/catalogue.feature`) : rôle non
+mesuré, mesuré avec un autre outil que celui recommandé, ou mesuré avec une partie seulement
+de l'entrée recommandée (coverage.py sans diff-cover). Seuls les rôles dont la mesure peut
+contredire l'implémentation de l'agent sont comparés (colonne « Proposed to a host project »
+de la table des rôles : bdd, property, fuzzing, mutation, coverage, architecture, static,
+types, security, contract) ; runner, doubles et performance ne portent pas d'oracle extérieur
+à l'agent et ne sont jamais un écart. Une cellule à plusieurs entrées est comparée à celle
+dont la condition tient dans le projet (pytest-bdd avec une suite pytest, behave sinon), et
+l'écart énonce la condition ; une technologie dont la section du catalogue est vide n'a pas
+d'écart ;
 (c) chaque écart devient une **proposition de mise en conformité** persistée dans `.495/`, que
 le demandeur accepte, refuse ou diffère ; une proposition acceptée devient un run `change` dont
 l'intent est la mise en place de l'outil et d'un premier test du rôle, avec la spécification qui
@@ -536,11 +546,12 @@ donne au demandeur, à l'approbation de la spécification, le texte même du tes
 (c) le producteur reçoit, quand le profil détecte l'outil `bdd`, la consigne d'écrire le test
 `to_create` en fichier `.feature` et steps, et le réviseur `test_quality` vérifie que le
 scénario dit ce que l'exigence dit ;
-(d) le profil détecte l'outil `bdd` (dépendance, fichiers `.feature`, `from pytest_bdd import`)
-dans la couverture de rôles (E50), et son absence devient une proposition de mise en
-conformité ; le catalogue admet plusieurs entrées recommandées par cellule, chacune avec sa
-condition (pytest-bdd quand le projet a des tests pytest, behave sinon), et l'écart n'est
-proposé que si la condition désigne un autre outil que celui en place ;
+(d) **fait pour l'écart** : le profil détecte l'outil `bdd` (dépendance, fichiers `.feature`,
+`from pytest_bdd import`) dans la couverture de rôles (E50), et son absence est énoncée comme
+écart à `init`/`profile` ; le catalogue admet plusieurs entrées recommandées par cellule,
+chacune avec sa condition (pytest-bdd quand le projet a des tests pytest, behave sinon), et
+l'écart n'est énoncé que si la condition désigne un autre outil que celui en place ; reste la
+proposition de mise en conformité persistée (E50 (c)) ;
 (e) le rapport montre, sous chaque exigence, le scénario qui la vérifie.
 Prérequis pour (b) à (e) : E50 (a) à (c).
 
@@ -689,7 +700,7 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles (faite pour Python et shell), mise en conformité du projet hôte (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles et écarts au catalogue énoncés à `init`/`profile` (faits, pour les rôles qui peuvent contredire l'agent), proposition de mise en conformité persistée (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne

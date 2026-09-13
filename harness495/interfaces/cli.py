@@ -27,8 +27,10 @@ from harness495.core.models import (
     AgentSpec,
     DecisionMaker,
     Event,
+    GapKind,
     HarnessConfig,
     PendingDecision,
+    ProjectProfile,
     ReviewerSpec,
     Run,
     RunMode,
@@ -329,6 +331,40 @@ def profile_cmd(ctx: typer.Context) -> None:
                 Text("; ".join(r.markers) or "nothing measures it"),
             )
         console.print(roles)
+    _print_catalogue_gaps(prof)
+
+
+def _print_catalogue_gaps(prof: ProjectProfile) -> None:
+    """The roles the project measures otherwise than the catalogue recommends.
+
+    Only the roles whose measure can contradict the agent's implementation are compared, and
+    only where the catalogue has an entry; a project with nothing to state is told so.
+    """
+    if not prof.catalogue_gaps:
+        console.print(
+            "catalogue: no gap stated on the roles that can contradict the agent's implementation"
+        )
+        return
+    gaps = Table(
+        title="Gaps against the catalogue: roles that can contradict the agent's implementation"
+    )
+    gaps.add_column("technology")
+    gaps.add_column("role")
+    gaps.add_column("in place")
+    gaps.add_column("recommended")
+    gaps.add_column("gap")
+    for g in prof.catalogue_gaps:
+        recommended = ", ".join(g.recommended)
+        if g.condition:
+            recommended += f" ({g.condition})"
+        if g.kind is GapKind.unmeasured:
+            what = "nothing measures it"
+        elif g.kind is GapKind.other_tool:
+            what = "another tool than the catalogue's"
+        else:
+            what = f"{', '.join(g.missing)} missing"
+        gaps.add_row(g.technology, g.role.value, ", ".join(g.in_place) or "—", recommended, what)
+    console.print(gaps)
 
 
 @app.command()

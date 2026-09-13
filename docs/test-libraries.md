@@ -14,9 +14,15 @@ One recommended library per technology and per role. Binds 495's own tests and t
 - Profiling a host project: the profile reports, per technology and per role of the table
   below, the tool the project measures it with and what it was recognised from (the role
   coverage, `harness495/core/profile.py`; the markers are those of the studies' "What a profile
-  can detect" sections; a technology whose study is not done has no rows). A role with no
-  tool, or a tool other than the recommended one, is a conformance proposal to the requester
-  (mechanism: E50 in `docs/etude-harnais-495.md`).
+  can detect" sections; a technology whose study is not done has no rows). `495 init` and
+  `495 profile` then compare the coverage with the entries below and state each gap: a role
+  nothing measures, a role measured with another tool than the recommended one, a role
+  measured with part of the recommended entry (`harness495/core/catalogue.py`, which mirrors
+  the `recommended` entries; `tests/test_catalogue.py` keeps it equal to this document). Only
+  the roles marked *proposed to a host project* in the Roles table are compared: those whose
+  measure can contradict what the agent produced. A cell with several entries is compared
+  with the one whose condition holds in the project. A gap is a fact stated to the requester;
+  turning it into a persisted conformance proposal is E50 (c) in `docs/etude-harnais-495.md`.
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
 
@@ -36,21 +42,26 @@ run in the suite for at least one change; it is still listed, not assumed.
 
 ## Roles
 
-| Role | Contract it measures | What the test must show |
-|---|---|---|
-| runner | Produit | planned cases hold, through public interfaces |
-| bdd | Produit | behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to steps and run by the runner |
-| property | Domaine | no counter-example to a stated invariant over a generated input range |
-| fuzzing | Domaine, Sécurité | no crash, hang or unbounded consumption on malformed input |
-| mutation | Tests | the suite detects a deliberate alteration of the code it covers |
-| coverage | Tests | which changed lines the suite executes |
-| architecture | Architecture | forbidden dependencies and layer crossings fail the build |
-| static | Qualité | lint, formatting, complexity, duplication |
-| types | API | type contracts hold |
-| security | Sécurité | SAST findings, secrets, vulnerable dependencies |
-| contract | API | schemas and API descriptions match the implementation |
-| performance | Performance | latency, memory, throughput against a bound |
-| doubles | Produit | test doubles and fixtures with a known discipline |
+The last column says whether a gap on the role is stated to a host project: yes when the
+role's verdict comes from outside the agent that produced the change, so that it can
+contradict the implementation; no when the role serves the writing of tests without holding an
+oracle of its own. A role marked no stays in the catalogue for 495's own tests.
+
+| Role | Contract it measures | What the test must show | Proposed to a host project |
+|---|---|---|---|
+| runner | Produit | planned cases hold, through public interfaces | no: carries the other roles' tests, holds no oracle of its own |
+| bdd | Produit | behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to steps and run by the runner | yes: the scenario is approved by the requester before the agent produces |
+| property | Domaine | no counter-example to a stated invariant over a generated input range | yes: inputs the agent did not choose |
+| fuzzing | Domaine, Sécurité | no crash, hang or unbounded consumption on malformed input | yes: inputs the agent did not choose |
+| mutation | Tests | the suite detects a deliberate alteration of the code it covers | yes: a verdict on the agent's own tests |
+| coverage | Tests | which changed lines the suite executes | yes: the changed lines no test of the agent reaches |
+| architecture | Architecture | forbidden dependencies and layer crossings fail the build | yes: rules the project set, not the agent |
+| static | Qualité | lint, formatting, complexity, duplication | yes: rules the project set, not the agent |
+| types | API | type contracts hold | yes: contracts a tool checks, not the agent |
+| security | Sécurité | SAST findings, secrets, vulnerable dependencies | yes: rules the project set, not the agent |
+| contract | API | schemas and API descriptions match the implementation | yes: the API description against the implementation |
+| performance | Performance | latency, memory, throughput against a bound | no: a bound only the project can set |
+| doubles | Produit | test doubles and fixtures with a known discipline | no: a writing discipline, no verdict |
 
 ## Entries
 

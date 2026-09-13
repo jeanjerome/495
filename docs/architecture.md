@@ -18,7 +18,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 
 | Phase | Who | What it establishes |
 |---|---|---|
-| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), conventions, documents; every command run once on the base version (readiness and baseline) |
+| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role) and the gaps against the catalogue, conventions, documents; every command run once on the base version (readiness and baseline) |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm`, out of scope, assumptions, allowed paths; the harness then audits sufficiency |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
@@ -50,7 +50,8 @@ Dependencies point downwards only (`docs/decisions/0011-package-boundaries.md`):
 - `interfaces` may import anything. Nothing outside `interfaces` imports it.
 - Inside `core`, only `engine` imports `agents`, and only `engine` and `verification` import
   `sandbox`. The rest of `core` (`models`, `decide`, `scope`, `context`, `prompts`, `schemas`,
-  `profile`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on `core` alone.
+  `profile`, `catalogue`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on
+  `core` alone.
 - `agents` imports `core.models`, `core.pricing` and `sandbox`; never `core.engine`, `core.store`
   or `core.decide`.
 - `sandbox` imports `core.models` and nothing else of 495.
@@ -67,6 +68,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `decide` | `assess()`: the pure acceptance decision over spec, evidence and reviews |
 | `verification` | running one command on the exact commit, the control run on the base version, the failure signature, sufficiency, test-file recognition |
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; role coverage against the catalogue's roles, from markers per technology (`ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`) |
+| `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), and `compare()`: the profile's gaps against them |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the three roles; the reviewer perspectives |
@@ -103,7 +105,8 @@ renders from the store and drives the engine through the same public methods as 
 ## The data model
 
 A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
-`ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, `ReadinessCheck`s), one
+`ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the `CatalogueGap`s
+against the catalogue, `ReadinessCheck`s), one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
 `non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes). An

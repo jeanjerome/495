@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from harness495.core import git
+from harness495.core import catalogue, git
 from harness495.core.models import (
     CatalogueRole,
     ProjectCommand,
@@ -754,6 +754,7 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     prof.tooling = list(
         dict.fromkeys([*prof.tooling, *(t for r in prof.role_coverage for t in r.tools)])
     )
+    prof.catalogue_gaps = catalogue.compare(prof)
     if git.is_repo(root):
         try:
             prof.base_commit = git.head_commit(root)

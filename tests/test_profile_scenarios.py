@@ -1,22 +1,27 @@
-"""Scenarios of ``tests/features/profile.feature``: the role coverage of a host project.
+"""Scenarios of ``tests/features/profile.feature`` and ``catalogue.feature``: the role coverage
+of a host project, and its gaps against the catalogue.
 
-The steps lay a project out in a temporary directory from the scenario text, profile it once,
-and read the coverage; nothing is asserted outside a ``Then``.
+The steps lay a project out in a temporary directory from the scenario text, profile it once
+(through the API or through the CLI), and read the coverage and the gaps; nothing is asserted
+outside a ``Then``.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
+from typer.testing import CliRunner
 
 from harness495.core.context import render_profile
-from harness495.core.models import CatalogueRole, ProjectProfile, RoleCoverage
+from harness495.core.models import CatalogueGap, CatalogueRole, ProjectProfile, RoleCoverage
 from harness495.core.profile import ROLES_BY_TECHNOLOGY, detect_profile
+from harness495.interfaces.cli import app
 
-scenarios("features/profile.feature")
+scenarios("features/profile.feature", "features/catalogue.feature")
 
 
 @dataclass
@@ -27,6 +32,8 @@ class Project:
     ruff_select: list[str] = field(default_factory=list)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
+    last_gap: CatalogueGap | None = None
+    output: str = ""
 
     def write_pyproject(self) -> None:
         deps = ", ".join(f'"{d}"' for d in self.dependencies)
@@ -47,6 +54,16 @@ class Project:
         assert row is not None, f"no coverage row for {technology} {role}"
         self.last_role = row
         return row
+
+    def gap(self, technology: str, role: str) -> CatalogueGap | None:
+        for gap in self.profiled().catalogue_gaps:
+            if gap.technology == technology and gap.role is CatalogueRole(role):
+                return gap
+        return None
+
+    def the_gap(self) -> CatalogueGap:
+        assert self.last_gap is not None, "no gap was looked up before"
+        return self.last_gap
 
 
 @pytest.fixture
@@ -100,6 +117,15 @@ def the_harness_profiles_the_project(project: Project) -> None:
     project.profile = detect_profile(project.root)
 
 
+@when(parsers.parse('the requester runs "495 {arguments}"'))
+def the_requester_runs(project: Project, arguments: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A wide terminal: the tables are read whole, a cell is never folded on two lines.
+    monkeypatch.setenv("COLUMNS", "200")
+    result = CliRunner().invoke(app, ["--project", str(project.root), *arguments.split()])
+    assert result.exit_code == 0, result.output
+    project.output = result.output
+
+
 @then(parsers.parse('the role "{role}" of "{technology}" is measured with "{tools}"'))
 def the_role_is_measured_with(project: Project, role: str, technology: str, tools: str) -> None:
     assert project.coverage(technology, role).tools == [t.strip() for t in tools.split(",")]
@@ -135,3 +161,47 @@ def the_tooling_names(project: Project, tool: str) -> None:
 @then(parsers.parse('the profile rendered to the agents says "{line}"'))
 def the_rendered_profile_says(project: Project, line: str) -> None:
     assert line in render_profile(project.profiled())
+
+
+@then(parsers.parse('the gap on "{role}" of "{technology}" is "{kind}"'))
+def the_gap_is(project: Project, role: str, technology: str, kind: str) -> None:
+    gap = project.gap(technology, role)
+    assert gap is not None, f"no gap on {technology} {role}"
+    project.last_gap = gap
+    assert gap.kind.value == kind
+
+
+@then(parsers.parse('there is no gap on "{role}" of "{technology}"'))
+def there_is_no_gap(project: Project, role: str, technology: str) -> None:
+    assert project.gap(technology, role) is None
+
+
+@then(parsers.parse('that gap recommends "{tools}"'))
+def that_gap_recommends(project: Project, tools: str) -> None:
+    assert project.the_gap().recommended == [t.strip() for t in tools.split(",")]
+
+
+@then(parsers.parse('that gap reads "{text}"'))
+def that_gap_reads(project: Project, text: str) -> None:
+    assert project.the_gap().statement == text
+
+
+@then("that gap states no condition")
+def that_gap_states_no_condition(project: Project) -> None:
+    assert project.the_gap().condition == ""
+
+
+@then(parsers.parse('that gap states the condition "{text}"'))
+def that_gap_states_the_condition(project: Project, text: str) -> None:
+    assert project.the_gap().condition == text
+
+
+@then(parsers.parse('the output shows "{text}"'))
+def the_output_shows(project: Project, text: str) -> None:
+    assert text in project.output, project.output
+
+
+@then(parsers.parse('the JSON output lists a gap on "{role}" of "{technology}"'))
+def the_json_output_lists_a_gap(project: Project, role: str, technology: str) -> None:
+    gaps = json.loads(project.output)["catalogue_gaps"]
+    assert any(g["technology"] == technology and g["role"] == role for g in gaps), gaps
