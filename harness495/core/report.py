@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from harness495.core.models import RequirementStatus, Run, Verdict
+from harness495.core.models import (
+    NON_DISCRIMINATING,
+    EvidenceKind,
+    RequirementStatus,
+    Run,
+    Verdict,
+    Verification,
+)
 
 if TYPE_CHECKING:
     from harness495.core.store import RunStore
@@ -25,6 +32,67 @@ def _cost(run: Run) -> str:
     if c.cost_unknown_interventions:
         label += f", {c.cost_unknown_interventions} intervention(s) without pricing"
     return label
+
+
+def _observed(run: Run, ver: Verification) -> str:
+    """What the verification reported on the evaluated commit, read as the decision reads it.
+
+    Only a command result of the current iteration says anything about the change: a control
+    run on the base version and a baseline run carry the same verification id and are left
+    out, as ``decide.assess`` leaves them out. A verification that reports the same with and
+    without the change is stated as such, since its result is neither proof nor defect.
+    """
+    if ver.sufficiency in NON_DISCRIMINATING:
+        return (
+            "reports the same with and without the change: "
+            f"{ver.rationale or 'does not observe the change'}"
+        )
+    it = run.current_iteration
+    results = [
+        e
+        for e in (run.evidence_by_id(x) for x in (it.evidence_ids if it else []))
+        if e and e.kind is EvidenceKind.command_result and e.verification_id == ver.id
+    ]
+    if not results:
+        return "not run on the evaluated commit"
+    last = results[-1]
+    if last.passed is True:
+        return f"PASS on the evaluated commit ({last.id})"
+    if last.passed is False:
+        return f"FAIL on the evaluated commit ({last.id}): {_cell(last.summary)}"
+    return f"no result on the evaluated commit ({last.id}): {_cell(last.summary)}"
+
+
+def _scenario_sections(run: Run) -> list[str]:
+    """One section per requirement that leans on a verification stated as a scenario.
+
+    The scenario is the text the requester approved (0016); under the requirement it verifies,
+    next to what its command reported, the reader checks the behaviour asked for against the
+    behaviour observed without opening the specification or the evidence. A requirement none
+    of whose verifications carries a scenario has no section: its table row says all there is.
+    """
+    lines: list[str] = []
+    for r in run.spec.requirements:
+        carried = [
+            v for v in (run.spec.verification(x) for x in r.verification_ids) if v and v.scenario
+        ]
+        if not carried:
+            continue
+        lines += [f"### {r.id} {STATUS_ICON[r.status]}: {_cell(r.statement)}", ""]
+        for v in carried:
+            assert v.scenario is not None
+            flag = ", to create" if v.to_create else ""
+            role = f" / {v.role.value}" if v.role else ""
+            lines += [
+                f"{v.id} ({v.kind.value}{role}{flag}): {_observed(run, v)}",
+                "",
+                "```gherkin",
+                f"Scenario: {v.description.strip()}",
+                *(f"  {step}" for step in v.scenario.lines()),
+                "```",
+                "",
+            ]
+    return lines
 
 
 def render_markdown(run: Run, store: RunStore | None = None) -> str:
@@ -75,6 +143,7 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
             f"| {r.id} | {STATUS_ICON[r.status]} | {_cell(r.statement)} | {', '.join(r.verification_ids)} | {_cell(r.status_reason)} |"
         )
     lines.append("")
+    lines += _scenario_sections(run)
     if run.spec.verifications:
         lines += [
             "## Verifications",

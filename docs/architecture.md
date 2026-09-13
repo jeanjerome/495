@@ -79,7 +79,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
 | `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`; a run's `retrospective.json` |
-| `report` | the Markdown restitution of a run from its persisted state |
+| `report` | the Markdown restitution of a run from its persisted state; under each requirement, the scenario of every verification stated as one and what it reported on the evaluated commit |
 | `config` | precedence: defaults, `~/.config/495/config.toml`, `.495/config.toml`, `.495/project.toml`, command line |
 | `budget`, `pricing` | limits checked before each intervention; cost `reported`, `estimated` or `unknown` |
 

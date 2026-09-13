@@ -762,7 +762,7 @@ What this README describes is what the code does today.
 | `docs/studies/` | The studies that admit or reject a catalogue entry, with what was measured and how |
 | `docs/etude-harnais-495.md` | The gap study against the harness-engineering recommendations, prioritised |
 | `495 schema run` | The shape of a run document: requirements, interventions, evidence, decisions, result |
-| `495 report <id>` | The Markdown restitution of one run: what was asked, what was produced, what was observed, what was concluded |
+| `495 report <id>` | The Markdown restitution of one run: what was asked, what was produced, what was observed, what was concluded; under each requirement, the scenario of every verification stated as one and what its command reported on the evaluated commit |
 | `harness495/interfaces/tui/__init__.py` | How the run surface is laid out, and the two rules that hold it together |
 
 ## Development

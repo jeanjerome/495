@@ -631,7 +631,14 @@ exigence, scénario et test, tout écart étant un constat sur la vérification
 chacune avec sa condition (pytest-bdd quand le projet a des tests pytest, behave sinon), et
 l'écart n'est énoncé que si la condition désigne un autre outil que celui en place ; l'écart
 est une proposition persistée que le demandeur accepte, refuse ou diffère (E50 (c)) ;
-(e) le rapport montre, sous chaque exigence, le scénario qui la vérifie.
+(e) **fait** (`docs/decisions/0018-the-report-shows-the-scenario-under-the-requirement-it-verifies.md`) :
+le rapport porte, sous le tableau des exigences, une section par exigence qui s'appuie sur une
+vérification énoncée en scénario : l'identifiant, le statut et l'énoncé de l'exigence, puis pour
+chaque vérification une ligne (identifiant, kind, rôle, à créer) avec ce que sa commande a
+rapporté sur le commit évalué, lu comme la décision le lit (dernier `command_result` de
+l'itération courante ; `not run` sans ; « reports the same with and without the change » pour
+une vérification `broken`/`vacuous`), et le scénario en bloc Gherkin ; une exigence sans
+scénario garde sa ligne de tableau et n'a pas de section (`tests/features/report.feature`).
 Prérequis pour (b) à (e) : E50 (a) à (c).
 
 **E37 · Aucune politique de sécurité déterministe.** Priorité moyenne · effort S. Même sans outil
@@ -782,7 +789,7 @@ semaine ou plus).
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
-| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017), migration de la suite de 495 et scénario sous chaque exigence du rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
+| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017 ; le rapport montre sous chaque exigence le scénario qui la vérifie et ce qu'il a rapporté, ADR 0018), migration de la suite de 495 au fil des modifications (reste) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne
 
