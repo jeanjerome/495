@@ -75,44 +75,6 @@ def _review(
     )
 
 
-def test_undetermined_without_sufficient_verification() -> None:
-    spec = _spec()
-    a = assess(spec, [_ev("V1", True)], [_review("p", Verdict.accept)])
-    assert a.requirement_status["R1"] is RequirementStatus.satisfied
-    assert a.requirement_status["R2"] is RequirementStatus.undetermined
-    assert a.outcome is Verdict.undetermined
-
-
-def test_failed_verification_rejects_with_correction() -> None:
-    spec = _spec()
-    spec.verifications[1] = Verification(
-        id="V2", kind=VerificationKind.test, description="t", command="false"
-    )
-    a = assess(spec, [_ev("V1", True), _ev("V2", False)], [_review("p", Verdict.accept)])
-    assert a.outcome is Verdict.reject
-    assert a.requirement_status["R2"] is RequirementStatus.violated
-    assert any("[R2]" in c for c in a.correction_requests)
-
-
-def test_reviewer_violation_requires_evidence() -> None:
-    spec = _spec()
-    spec.verifications[1] = Verification(
-        id="V2", kind=VerificationKind.test, description="t", command="true"
-    )
-    evidence = [_ev("V1", True), _ev("V2", True)]
-    no_evidence = Finding(severity=Severity.major, title="bad", requirement_id="R1", evidence="")
-    a = assess(spec, evidence, [_review("p", Verdict.reject, [no_evidence])])
-    # A major finding without evidence does not make the requirement violated.
-    assert a.requirement_status["R1"] is RequirementStatus.satisfied
-    assert a.outcome is Verdict.accept
-    with_evidence = Finding(
-        severity=Severity.major, title="bad", requirement_id="R1", evidence="file.py:3"
-    )
-    a = assess(spec, evidence, [_review("p", Verdict.reject, [with_evidence])])
-    assert a.requirement_status["R1"] is RequirementStatus.violated
-    assert a.outcome is Verdict.reject
-
-
 def test_no_review_means_undetermined_and_discarded_ignored() -> None:
     spec = _spec()
     spec.verifications[1] = Verification(

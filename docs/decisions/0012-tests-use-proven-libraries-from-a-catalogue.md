@@ -1,7 +1,7 @@
 # 0012. Tests are implemented with proven specialised libraries, chosen from a catalogue by technology and role that binds 495 and the host projects alike
 
 - Status: accepted
-- Date: 2026-09-13
+- Date: 2026-09-13; refined 2026-09-13 (a cell may hold several recommended entries, each with its condition)
 
 ## Context
 
@@ -20,9 +20,13 @@ ecosystem already provides.
    that is proven in its ecosystem. A hand-written script is admissible only when no such
    library exists for that role and technology; the test's docstring then states that the
    catalogue has no entry and what was searched.
-2. `docs/test-libraries.md` is the catalogue: one recommended library per technology and per
-   role (test runner, property-based testing, fuzzing, mutation testing, coverage, architecture
-   rules, static analysis, type checking, security, API contract, performance, test doubles).
+2. `docs/test-libraries.md` is the catalogue: the recommended library per technology and per
+   role (test runner, BDD scenarios, property-based testing, fuzzing, mutation testing,
+   coverage, architecture rules, static analysis, type checking, security, API contract,
+   performance, test doubles). A cell holds one entry, or several when each states the
+   condition under which it is the one to take: the first is the default, the others apply
+   when their condition holds in the project (for Python BDD, pytest-bdd when the project has
+   pytest tests, behave otherwise).
    An entry enters the catalogue only through a study, a piece of research, or a retrospective
    on a host project; the entry names its source and date. A rejected library is kept with the
    reason, so that it is not proposed again.

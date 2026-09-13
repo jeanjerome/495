@@ -20,4 +20,5 @@ carries the decision.
 | [0009](0009-a-run-is-claimed-by-the-process-advancing-it.md) | A run is claimed by the process advancing it; a dead claim is taken over | accepted | 2026-09-12 |
 | [0010](0010-merge-on-request-in-four-shapes.md) | Merging happens on request only, in four shapes, and leaves the repository as found on failure | accepted | 2026-09-12 |
 | [0011](0011-package-boundaries.md) | Package dependencies point one way, and a test enforces it | accepted | 2026-09-13 |
-| [0012](0012-tests-use-proven-libraries-from-a-catalogue.md) | Tests use proven specialised libraries from a catalogue by technology and role, in 495 and in host projects | accepted | 2026-09-13 |
+| [0012](0012-tests-use-proven-libraries-from-a-catalogue.md) | Tests use proven specialised libraries from a catalogue by technology and role, in 495 and in host projects | accepted | 2026-09-13, refined 2026-09-13 |
+| [0013](0013-tests-are-behaviour-scenarios-in-gherkin.md) | Tests are behaviour scenarios, in Gherkin or in a Given/When/Then shape that reads like it | accepted | 2026-09-13 |

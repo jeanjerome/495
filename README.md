@@ -656,6 +656,7 @@ What this README describes is what the code does today.
 | `docs/architecture.md` | The workflow, the packages and their boundaries, the data model, the state on disk |
 | `docs/decisions/` | One record per design decision, with what a change to the code it names must preserve |
 | `docs/test-libraries.md` | The recommended test library per technology and role, for 495 and for host projects |
+| `docs/studies/` | The studies that admit or reject a catalogue entry, with what was measured and how |
 | `docs/etude-harnais-495.md` | The gap study against the harness-engineering recommendations, prioritised |
 | `495 schema run` | The shape of a run document: requirements, interventions, evidence, decisions, result |
 | `495 report <id>` | The Markdown restitution of one run: what was asked, what was produced, what was observed, what was concluded |
@@ -672,7 +673,9 @@ What this README describes is what the code does today.
 ```
 
 `pytest -m live` runs the tests that call real agent CLIs; they are deselected by default.
-Tests use the libraries listed in `docs/test-libraries.md` for their role.
+Tests use the libraries listed in `docs/test-libraries.md` for their role, and a test of a
+behaviour is a Gherkin scenario under `tests/features/` bound to steps with pytest-bdd
+(`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`).
 
 The images and the recording above are rebuilt from a store the engine walked, with the three
 agent roles answering from a script so that neither costs a call:

@@ -30,6 +30,10 @@ Keep these true in every change; each has a test or a record that names it.
 - A test uses the library the catalogue `docs/test-libraries.md` recommends for its role and
   technology. A hand-written check is admissible only for a role with no entry, and its docstring
   says so (`0012`).
+- A test of a behaviour is a Gherkin scenario in a `.feature` file bound to steps by the
+  catalogue's `bdd` entry (pytest-bdd for Python with pytest tests, behave otherwise); a test
+  of another contract keeps the Given/When/Then shape in its name and body, and asserts only in
+  the *then* part (`0013`).
 - `core/decide.py::assess` stays a pure function of spec, evidence and reviews. A requirement
   becomes `satisfied` only from a verification that ran on the evaluated commit and passed;
   `violated` only from a failed verification or a reviewer finding that cites an observation;

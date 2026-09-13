@@ -60,7 +60,8 @@ harness495 = "harness495.interfaces.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
+    "pytest>=8,<10",
+    "pytest-bdd>=8.1,<9",
     "ruff>=0.5",
     "mypy>=1.10",
     "import-linter>=2.15,<3",

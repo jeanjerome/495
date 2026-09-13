@@ -404,7 +404,7 @@ nouvelle fonction et laisser passer presque toutes ses implémentations fausses.
 
 | Contrat | Ce qu'il définit | Vérification recommandée | Ce que 495 fait aujourd'hui | Écart |
 |---|---|---|---|---|
-| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | partiel : le test d'acceptation est écrit par le producteur (E03) ; pas de scénario BDD détecté (`.feature` reconnu comme test, sans exécution dédiée) |
+| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | partiel : le test d'acceptation est écrit par le producteur (E03) ; scénario BDD décidé comme norme (E51) ; `.feature` reconnu comme test, sans détection de l'outil ni exécution dédiée |
 | **Domaine** | invariants métier | property-based testing | rien : `VerificationKind` n'a pas de `property`, le spécificateur n'est pas invité à formuler d'invariants, Hypothesis/fast-check/QuickCheck ne sont pas détectés (`.hypothesis` n'apparaît que comme cache à exclure) | absent |
 | **API** | échanges autorisés | schémas, OpenAPI, types | `typecheck` détecté (mypy, pyright, tsc) ; pas de validation de schéma ni de diff d'API | partiel |
 | **Architecture** | dépendances et frontières | tests d'architecture | rien : `allowed_paths` est un périmètre de fichiers, pas une règle de dépendance ; import-linter, dependency-cruiser, ArchUnit, `deptry` ne sont pas détectés | absent |
@@ -492,8 +492,11 @@ Décision prise le 2026-09-13 (`docs/decisions/0012-tests-use-proven-libraries-f
 les tests, dans 495 comme dans les projets hôtes, s'appuient sur une bibliothèque spécialisée
 et éprouvée, choisie dans un catalogue par technologie et par rôle (`docs/test-libraries.md`),
 alimenté au fil des études, recherches et rétrospectives ; un script maison n'est admis qu'en
-l'absence d'entrée. Le catalogue existe, seuls les outils déjà en usage dans 495 y figurent
-(pytest, import-linter, ruff, mypy). Reste à construire le mécanisme côté projet hôte :
+l'absence d'entrée. Le catalogue existe ; sa section Python est remplie par l'étude du
+2026-09-13 (`docs/studies/2026-09-13-python-test-libraries.md`) : les douze rôles sont pourvus,
+chaque entrée avec sa version mesurée et ses notes d'usage, sept bibliothèques sont rejetées avec
+leur raison, et l'étude liste les marqueurs par lesquels un profil peut détecter chaque outil.
+Les autres technologies restent à étudier. Reste à construire le mécanisme côté projet hôte :
 (a) le profil calcule une **couverture de rôles** : pour chaque rôle du catalogue, quel outil le
 projet utilise, à partir des manifestes, des configurations et des fichiers de test (prolonge E34) ;
 (b) `495 init` et `495 profile` comparent cette couverture au catalogue et énoncent les écarts :
@@ -507,7 +510,31 @@ des V du bon kind avec le bon outil quand il existe, et de signaler un gap quand
 (e) les rétrospectives (E44) alimentent le catalogue : un outil qui a fait ses preuves sur un
 projet hôte entre avec sa source, un outil qui a posé problème est consigné en rejeté.
 Prérequis : les kinds de vérification `property`, `architecture`, `security`, `mutation`,
-`coverage` (E34) et un premier passage d'étude pour remplir le catalogue par technologie.
+`coverage` (E34) et un passage d'étude par technologie (Python fait le 2026-09-13 ; JavaScript /
+TypeScript, Rust, Go, Java / Kotlin et Shell restent à faire).
+
+**E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**
+Priorité haute · effort M (495) puis L (projets hôtes).
+Décision prise le 2026-09-13 (`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`) :
+un test de comportement est un scénario Gherkin (`.feature`) lié à ses steps par l'entrée `bdd`
+du catalogue (pytest-bdd pour Python, étude `docs/studies/2026-09-13-python-bdd-libraries.md`) ;
+un test d'un autre contrat garde la forme Given/When/Then dans son nom et son corps. Fait :
+le rôle `bdd` au catalogue, pytest-bdd au groupe dev, quatre scénarios de `decide.py` dans
+`tests/features/decide.feature` comme première application. Reste :
+(a) la suite de 495 (182 tests fonction) migre au fil des modifications, les tests d'acceptation
+de `test_engine.py` et `test_cli_api.py` en premier ;
+(b) le spécificateur formule chaque V de kind `test` comme un scénario Given/When/Then, ce qui
+donne au demandeur, à l'approbation de la spécification, le texte même du test attendu ;
+(c) le producteur reçoit, quand le profil détecte l'outil `bdd`, la consigne d'écrire le test
+`to_create` en fichier `.feature` et steps, et le réviseur `test_quality` vérifie que le
+scénario dit ce que l'exigence dit ;
+(d) le profil détecte l'outil `bdd` (dépendance, fichiers `.feature`, `from pytest_bdd import`)
+dans la couverture de rôles (E50), et son absence devient une proposition de mise en
+conformité ; le catalogue admet plusieurs entrées recommandées par cellule, chacune avec sa
+condition (pytest-bdd quand le projet a des tests pytest, behave sinon), et l'écart n'est
+proposé que si la condition désigne un autre outil que celui en place ;
+(e) le rapport montre, sous chaque exigence, le scénario qui la vérifie.
+Prérequis pour (b) à (e) : E50 (a) à (c).
 
 **E37 · Aucune politique de sécurité déterministe.** Priorité moyenne · effort S. Même sans outil
 détecté, le harnais peut vérifier sur le diff : secrets par motifs (clés, jetons), nouvelles
@@ -611,7 +638,8 @@ Ce que 495 exige des projets hôtes, appliqué à lui-même :
 Priorité moyenne · effort S à M. *Partiellement résorbé le 2026-09-13 : les frontières entre
 paquets sont fixées par `docs/decisions/0011-package-boundaries.md`, écrites en contrats
 import-linter dans `pyproject.toml` et vérifiées par `tests/test_architecture.py`. Propriétés et
-mutation restent à faire, avec les bibliothèques que le catalogue (E50) retiendra.* Un test `import-linter` ou un test pytest de dix lignes sur les
+mutation restent à faire, avec les bibliothèques que le catalogue (E50) retient : Hypothesis et
+mutmut.* Un test `import-linter` ou un test pytest de dix lignes sur les
 imports fixe la frontière `core`/`interfaces` ; Hypothesis sur les trois fonctions citées ;
 `mutmut` sur `decide.py` et `verification.py` (moins de 700 lignes à eux deux, exécution rapide)
 comme mesure de la force de la suite. Ce serait aussi le premier terrain d'essai des kinds
@@ -653,7 +681,8 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé), couverture de rôles et mise en conformité du projet hôte (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles et mise en conformité du projet hôte (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne
 
