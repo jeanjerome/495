@@ -42,6 +42,58 @@ _VOLATILE = (
 
 SIGNATURE_LINES = 40
 
+_ASSERTION = re.compile(
+    r"AssertionError|AssertionFailedError|ComparisonFailure|assertion `?left|"
+    r"^\s*E\s+assert\b|\bassert\b.*(?:==|!=|is |in )|"  # pytest
+    r"expect\(received\)|Expected:|Received:|toBe|toEqual|toStrictEqual|"  # jest, vitest
+    r"^\s*--- FAIL:|Error Trace:|Not equal:|expected .* got|expected .* but was|"  # go, junit
+    r"AssertionError:|expected:? <|\bexpected\b.*\bactual\b|"  # junit, spock
+    r"^\s*(?:should|expected|but got)\b",  # shellspec, rspec, mocha
+    re.IGNORECASE | re.MULTILINE,
+)
+"""What a test prints when it reaches an assertion and the assertion fails."""
+
+_EXECUTION_ERROR = re.compile(
+    r"^.*\b(?:"
+    r"ImportError|ModuleNotFoundError|NameError|AttributeError|"  # python
+    r"TypeError: .*(?:unexpected keyword|positional argument|not callable|is not a function|"
+    r"is not a constructor)|"  # python, javascript
+    r"ReferenceError|Cannot find module|Could not resolve|is not defined|is not exported|"  # node
+    r"undefined: \S+|cannot find package|no required module|has no field or method|"
+    r"too many arguments|not enough arguments|\[build failed\]|"  # go
+    r"error\[E0\d{3}\]|unresolved import|cannot find (?:function|value|type|method)|"
+    r"no method named|no function or associated item|"  # rust
+    r"cannot find symbol|ClassNotFoundException|NoClassDefFoundError|NoSuchMethodError|"
+    r"NoSuchMethodException|compilation failed|COMPILATION ERROR|"  # jvm
+    r"command not found|No such file or directory|not found in PATH"  # shell
+    r")\b.*$",
+    re.MULTILINE,
+)
+"""What a run prints when the code a test needs is not there to run, so that the test never
+reached what it was written to observe."""
+
+
+def asserted(output: str) -> bool:
+    """Whether the output shows a test reaching an assertion and failing it."""
+    return _ASSERTION.search(output) is not None
+
+
+def execution_error(output: str) -> str | None:
+    """The first line of the output that reports an execution error, or None.
+
+    An execution error is a failure that happened before any assertion could run: the module
+    the test imports does not exist, the name it calls is not defined, the signature it uses
+    is not the one in place. A test that fails this way without the change has shown that its
+    target is absent, not that it observes the behaviour; a test that asserts anything at all
+    on a target that exists would fail the same way. The families are those of the runners the
+    catalogue names for Python, Node, Go, Rust, the JVM and the shell.
+    """
+    m = _EXECUTION_ERROR.search(output)
+    if m is None:
+        return None
+    line = m.group(0).strip()
+    return line[:200]
+
 
 def failure_signature(output: str) -> str:
     """What failed, blind to when and where it ran.
@@ -368,9 +420,29 @@ def classify_instrument(
     reported says which kind of instrument it is: one that never reports success, or one that
     reports it whatever the tree contains.
     """
-    if measures_the_change(subject_exit, subject_output, control, subject_timed_out):
-        return True, Sufficiency.sufficient, ""
     where = base_commit[:12]
+    if measures_the_change(subject_exit, subject_output, control, subject_timed_out):
+        error = (
+            execution_error(control.output)
+            if subject_passed
+            and not control.timed_out
+            and control.exit_code != v.expected_exit_code
+            and not asserted(control.output)
+            else None
+        )
+        if error is not None:
+            # It fails there and passes here, so it observes the change; but what it reports
+            # there is that the code it needs does not exist, which any test that names the
+            # new code would report, an assertion about nothing included. The pair shows the
+            # target is absent without the change, not that the test observes its behaviour.
+            return (
+                True,
+                Sufficiency.unconfirmed,
+                f"fails without the change (base version {where}) by an execution error, not "
+                f"by an assertion: `{error}`; the test was seen missing its target, not "
+                "observing the behaviour",
+            )
+        return True, Sufficiency.sufficient, ""
     if subject_passed:
         if not applied:
             # The command was asked to run a test the change creates, and that test was not

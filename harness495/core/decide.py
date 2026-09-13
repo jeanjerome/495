@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from harness495.core.models import (
+    ADMISSIBLE,
     NON_DISCRIMINATING,
     Evidence,
     EvidenceKind,
@@ -108,7 +109,7 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 faulty.append(f"{vid}: {v.rationale or 'does not observe the change'}")
                 faulty_instruments.setdefault(vid, v.rationale or "does not observe the change")
                 continue
-            if v.sufficiency is Sufficiency.sufficient or settled_either_way:
+            if v.sufficiency in ADMISSIBLE or settled_either_way:
                 insufficient_only = False
             evs = by_verification.get(vid, [])
             if not evs:
@@ -116,7 +117,18 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 continue
             last = evs[-1]
             if last.passed is True:
-                passed.append(vid)
+                # An unconfirmed verification credits the requirement as a sufficient one does:
+                # it passed on the change and reported something else without it. What the
+                # reason keeps is that the something else was an execution error, so that the
+                # reader knows the test was never seen asserting the behaviour.
+                passed.append(
+                    vid
+                    + (
+                        f" (unconfirmed: {v.rationale})"
+                        if v.sufficiency is Sufficiency.unconfirmed
+                        else ""
+                    )
+                )
             elif last.passed is False:
                 failed.append(f"{vid}: {last.summary}")
                 failures_by_observation.setdefault(f"{vid} {last.summary}", []).append(r.id)

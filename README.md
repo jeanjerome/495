@@ -408,8 +408,8 @@ flowchart TD
 | specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`, each verification naming the catalogue role it measures when it is one (`property`, `mutation`, `coverage`...); flag missing or insufficient verifications, among them a verification of a role the project does not measure, and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
 | gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
 | produce | implement the change in the worktree; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
-| verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called | harness |
-| review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; a reviewer that alters the tree has its verdict discarded | reviewer agents |
+| verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called. A command that fails without the change by an execution error (an import that fails, a name that does not exist) rather than by an assertion is `unconfirmed`: it still counts, and the `test_quality` reviewer is told to read its assertions | harness |
+| review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; `test_quality` is called whenever a test is to be created, configured or not; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
 | merge | on request only: brings the delivered branch into the branch you have checked out — fast-forward, rebase, squash or merge, three of which leave a linear history — followed by the integration check. Refuses an unclean tree or a branch that already carries the change, and puts the branch back rather than leaving a conflict | harness, at your word |
@@ -691,7 +691,11 @@ kind = "test"             # command | test | lint | build | typecheck
 Built-in reviewer perspectives: `spec_compliance`, `correctness`, `security`, `test_quality`,
 `standards`, `maintainability`; any other name works with a generic brief, and `instructions`
 in a reviewer entry replaces the brief. `test_quality` compares, for every verification that
-carries a scenario, the requirement, the scenario and the test written for it.
+carries a scenario, the requirement, the scenario and the test written for it, and reads with
+particular care a test the harness marked `unconfirmed` (it fails without the change by an
+execution error, never by an assertion). It is added to the configured reviewers whenever a
+verification is a test to create
+(`docs/decisions/0019-an-execution-error-without-the-change-does-not-confirm-a-test.md`).
 
 A test to create that carries a scenario takes the form the profile dictates: a `.feature` file
 with the specification's steps, bound with the tool the project measures the role `bdd` with,

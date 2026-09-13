@@ -371,7 +371,7 @@ def test_which_files_of_a_change_are_the_instrument(path: str, is_test: bool) ->
 def test_a_command_that_reports_something_else_without_the_change_is_believed() -> None:
     v = Verification(id="V1", kind=VerificationKind.test, description="d", command="c")
     discriminates, sufficiency, _ = classify_instrument(
-        v, True, 0, "2 passed", False, _pair(1, "ImportError"), "abc123", ["tests/t.py"]
+        v, True, 0, "2 passed", False, _pair(1, "E   assert 8 == 2"), "abc123", ["tests/t.py"]
     )
     assert discriminates is True and sufficiency is Sufficiency.sufficient
 

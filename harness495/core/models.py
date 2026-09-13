@@ -140,10 +140,18 @@ class Sufficiency(StrEnum):
     """The command passes with and without the change: it reports success either way."""
     faulty = "faulty"
     """Both of the above, before they were told apart; kept so that earlier runs still load."""
+    unconfirmed = "unconfirmed"
+    """The command reports something else without the change, but what it reports there is an
+    execution error (an import that fails, a name that does not exist), not an assertion: the
+    test was seen missing its target, never observing the behaviour. It still counts as proof,
+    and the reviewer is told."""
 
 
 NON_DISCRIMINATING = frozenset({Sufficiency.broken, Sufficiency.vacuous, Sufficiency.faulty})
 """Verifications whose outcome does not depend on the change, whatever they report."""
+
+ADMISSIBLE = frozenset({Sufficiency.sufficient, Sufficiency.unconfirmed})
+"""Verifications whose report on the change may credit or charge a requirement."""
 
 
 class RequirementKind(StrEnum):
@@ -238,6 +246,25 @@ class RolesConfig(StrictModel):
             ReviewerSpec(perspective="security"),
         ]
     )
+
+    def reviewers_for(self, spec: Spec) -> list[ReviewerSpec]:
+        """The reviewers a specification calls for: the configured ones, and ``test_quality``
+        whenever a verification is a test to create.
+
+        A test written as part of the change is judged by the same run that judges the change,
+        and the control run only shows that it fails without the change, not that it observes
+        the behaviour; the perspective that reads the test against its requirement is therefore
+        not optional there. It runs with the agent of the first configured reviewer (the
+        producer's when none is configured), and a configured ``test_quality`` entry is kept
+        as it is.
+        """
+        reviewers = list(self.reviewers)
+        if any(v.to_create for v in spec.verifications) and not any(
+            r.perspective == "test_quality" for r in reviewers
+        ):
+            agent = reviewers[0].agent if reviewers else self.producer
+            reviewers.append(ReviewerSpec(perspective="test_quality", agent=agent))
+        return reviewers
 
 
 class Budget(StrictModel):

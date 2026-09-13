@@ -231,7 +231,12 @@ PERSPECTIVES: dict[str, str] = {
         'for step, in the form the facts state under "Behaviour scenarios", and asserts its '
         "`then` steps and nothing else. A departure between the scenario and the requirement, "
         "or between the test and the scenario, is a finding on the verification, quoting the "
-        "step and the text it departs from."
+        "step and the text it departs from. A verification the specification marks "
+        "`unconfirmed` failed without the change by an execution error (the code it names did "
+        "not exist there), never by an assertion: the harness has seen it miss its target, not "
+        "observe the behaviour. Read that test with particular care: state whether its "
+        "assertions would fail on an implementation that exists but behaves otherwise, and "
+        "report a finding on the verification, quoting the assertion, when they would not."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

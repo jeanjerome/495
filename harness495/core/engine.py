@@ -41,6 +41,7 @@ from harness495.core.context import (
 )
 from harness495.core.decide import Assessment, assess
 from harness495.core.models import (
+    ADMISSIBLE,
     NON_DISCRIMINATING,
     AgentIdentity,
     BehaviourScenario,
@@ -994,7 +995,7 @@ class Engine:
         }
         produced: list[Evidence] = []
         for v in run.spec.verifications:
-            if not v.command or v.command in already or v.sufficiency is not Sufficiency.sufficient:
+            if not v.command or v.command in already or v.sufficiency not in ADMISSIBLE:
                 continue
             already.add(v.command)
             req = ExecRequest(
@@ -1611,7 +1612,7 @@ class Engine:
             for v in [run.spec.verification(e.verification_id)]
             if v is not None
             and v.command
-            and v.sufficiency is Sufficiency.sufficient
+            and v.sufficiency in ADMISSIBLE
             and (v.to_create or v.id in leaned_on)
         ]
         if not subjects:
@@ -1680,8 +1681,17 @@ class Engine:
                         run,
                         "control.ended",
                         f"{v.id}: reports something else without the change, so what it reports "
-                        "with it is about the change",
-                        {"verification": v.id, "faulty": False},
+                        "with it is about the change"
+                        + (
+                            f"; unconfirmed: {rationale}"
+                            if sufficiency is Sufficiency.unconfirmed
+                            else ""
+                        ),
+                        {
+                            "verification": v.id,
+                            "faulty": False,
+                            "unconfirmed": sufficiency is Sufficiency.unconfirmed,
+                        },
                     )
                     continue
                 if sufficiency is Sufficiency.sufficient:
@@ -1788,7 +1798,7 @@ class Engine:
         self._set_status(run, RunStatus.reviewing)
         diff_text = git.diff(wt, it.version.base_commit, it.version.head_commit)
         evidence = [e for e in (run.evidence_by_id(x) for x in it.evidence_ids) if e]
-        for reviewer in run.config.roles.reviewers:
+        for reviewer in run.config.roles.reviewers_for(run.spec):
             if any(
                 r.perspective == reviewer.perspective
                 and r.intervention_id in it.review_ids

@@ -40,7 +40,9 @@ Keep these true in every change; each has a test or a record that names it.
   `undetermined` otherwise, and `undetermined` blocks acceptance (`0001`).
 - Every verification a `behaviour` requirement leans on is measured on the change and on the
   base version carrying the change's test files; a command reporting the same on both leaves
-  the evidence (`0002`, `0003`).
+  the evidence (`0002`, `0003`); one that fails on the base by an execution error and not by
+  an assertion is `unconfirmed`, still credited, and the `test_quality` reviewer, called
+  whenever a test is to be created, is told to read it (`0019`).
 - A correction request carries the requirement, the claim and the observation. Reviewer
   explanations and remedies stay out of the producer's context; the producer's transcript stays
   out of every reviewer's context (`0004`, `0005`).

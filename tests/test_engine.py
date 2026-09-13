@@ -44,10 +44,12 @@ def test_full_change_workflow_accepts(
     assert [r.status for r in run.spec.requirements] == [RequirementStatus.satisfied] * 2
     # Readiness ran the project's test command on the base version.
     assert run.profile is not None and run.profile.readiness[0].executable
-    # Roles were mobilised in order: specifier, producer, 2 reviewers.
+    # Roles were mobilised in order: specifier, producer, the 2 configured reviewers and the
+    # test_quality one that a test to create calls for.
     assert [t.role for t in scenario.calls] == [
         Role.specifier,
         Role.producer,
+        Role.reviewer,
         Role.reviewer,
         Role.reviewer,
     ]
@@ -65,16 +67,16 @@ def test_full_change_workflow_accepts(
         if e.kind.value == "command_result"
     )
     assert sorted(it.version.files_changed) == ["calc.py", "tests/test_calc.py"]
-    # Evidence: scope ok, V1 and V2 passed, two review verdicts.
+    # Evidence: scope ok, V1 and V2 passed, three review verdicts.
     kinds = [e.kind.value for e in run.evidence]
     assert (
         kinds.count("command_result") == 2
-        and kinds.count("review_verdict") == 2
+        and kinds.count("review_verdict") == 3
         and "scope_check" in kinds
     )
     assert all(e.passed for e in run.evidence if e.kind.value == "command_result")
     # Consumption and cost accounted.
-    assert run.consumption.interventions == 4 and run.consumption.cost_usd > 0
+    assert run.consumption.interventions == 5 and run.consumption.cost_usd > 0
     assert run.consumption.cost_basis.value == "reported"
     # Decisions: auto approval + acceptance.
     assert [d.kind for d in run.decisions] == [DecisionKind.approve_spec, DecisionKind.acceptance]
@@ -281,7 +283,8 @@ def test_evaluate_mode_reviews_existing_commit(
     assert run.status is RunStatus.delivered and run.result.outcome is Verdict.accept
     assert Role.producer not in [t.role for t in scenario.calls]
     assert run.iterations[0].version.head_commit == head
-    assert run.consumption.interventions == 3
+    # The specifier, the two configured reviewers, and test_quality for the test to create.
+    assert run.consumption.interventions == 4
 
 
 def test_evaluate_working_tree_and_patch(
@@ -788,7 +791,7 @@ def test_a_command_that_would_pass_anyway_is_not_proof_that_the_change_works(
     run = engine.run(run.id)
     # Answered before the reviewers, the run picks up where it was: they are called, and then
     # R1 is not credited by V1, while R2 asked only that the suite go on passing, and it did.
-    assert [t.role for t in scenario.calls].count(Role.reviewer) == 2
+    assert [t.role for t in scenario.calls].count(Role.reviewer) == 3
     assert run.spec.requirement("R1").status is RequirementStatus.undetermined
     assert run.spec.requirement("R2").status is RequirementStatus.satisfied
 

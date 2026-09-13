@@ -81,6 +81,7 @@ THEME = Theme(
         "suf.broken": f"bold {WARN}",
         "suf.vacuous": f"bold {WARN}",
         "suf.faulty": f"bold {WARN}",
+        "suf.unconfirmed": WARN,
         # ---- what a reviewer concluded, and how loudly
         "verdict.accept": f"bold {GOOD}",
         "verdict.reject": f"bold {BAD}",

@@ -9,6 +9,7 @@ from harness495.core.models import (
     EvidenceKind,
     RequirementStatus,
     Run,
+    Sufficiency,
     Verdict,
     Verification,
 )
@@ -57,7 +58,12 @@ def _observed(run: Run, ver: Verification) -> str:
         return "not run on the evaluated commit"
     last = results[-1]
     if last.passed is True:
-        return f"PASS on the evaluated commit ({last.id})"
+        unconfirmed = (
+            f"; unconfirmed: {_cell(ver.rationale)}"
+            if ver.sufficiency is Sufficiency.unconfirmed
+            else ""
+        )
+        return f"PASS on the evaluated commit ({last.id}){unconfirmed}"
     if last.passed is False:
         return f"FAIL on the evaluated commit ({last.id}): {_cell(last.summary)}"
     return f"no result on the evaluated commit ({last.id}): {_cell(last.summary)}"

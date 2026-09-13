@@ -59,7 +59,8 @@ as `baseline` evidence and shown with the question, never concluded from.
   the `None` case and is warned, not judged.
 - Known limit: one mutant only, the absence of the change. A test that fails on the base for an
   import error and passes with the change is `discriminating` even if its assertions observe
-  nothing (`docs/etude-harnais-495.md`, E03, E30, E32).
+  nothing (`docs/etude-harnais-495.md`, E03, E30, E32); since 0019 such a pair makes the
+  verification `unconfirmed`, still credited, and read by the `test_quality` reviewer.
 
 ## Where in the code
 

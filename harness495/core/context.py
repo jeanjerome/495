@@ -15,6 +15,7 @@ from harness495.core.models import (
     RequirementKind,
     ReviewVerdict,
     Spec,
+    Sufficiency,
     Version,
 )
 
@@ -188,6 +189,8 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
             lines.extend(f"    {step}" for step in v.scenario.lines())
         if v.sufficiency in NON_DISCRIMINATING:
             lines.append(f"  reports the same with and without the change: {v.rationale}")
+        elif v.sufficiency is Sufficiency.unconfirmed:
+            lines.append(f"  unconfirmed: {v.rationale}")
     if spec.out_of_scope:
         lines.append("")
         lines.append("Out of scope:")

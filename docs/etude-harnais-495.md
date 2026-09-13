@@ -453,6 +453,16 @@ reconnaître les familles d'erreurs (`ImportError`, `ModuleNotFoundError`, `Name
 `undefined: `) ; une V `to_create` dont l'échec sur base n'est pas une assertion est marquée
 `unconfirmed` (nouvelle `Sufficiency`) : elle reste discriminante, mais le rapport et le réviseur
 `test_quality` le savent, et une politique stricte peut la déclasser en `undetermined`.
+Fait le 2026-09-14 : `classify_instrument` lit la sortie du contrôle quand la paire diffère
+(`verification.asserted`, `verification.execution_error`, familles Python, Node, Go, Rust, JVM,
+shell) ; un échec sur base par erreur d'exécution sans assertion donne `Sufficiency.unconfirmed`,
+discriminante et admissible (`ADMISSIBLE`), avec la ligne d'erreur en rationale ; la raison de
+l'exigence, `render_spec` et le rapport la portent ; le réviseur `test_quality` est instruit de
+lire les assertions d'un tel test, et `RolesConfig.reviewers_for` l'ajoute aux réviseurs dès
+qu'une V `to_create` existe (piste (a) de E03). La politique stricte est écartée : tout test
+d'un symbole nouveau échoue sur base par import, la déclasser arrêterait chaque run sur une
+question dont la réponse est toujours la même ; c'est le réviseur qui tranche
+(ADR 0019, `tests/features/instrument_nature.feature`). E32 est clos.
 
 **E33 · Le producteur peut affaiblir la suite existante sans que rien ne le voie.**
 Priorité haute · effort M. `allowed_paths` inclut naturellement `tests/**` : le producteur peut
@@ -785,7 +795,7 @@ semaine ou plus).
 | Id | Écart | Axe | Effort | Effet attendu |
 |---|---|---|---|---|
 | E01 | `requirement_assessment: violated` sans finding étayé rendait l'exigence violée ; lue comme `undetermined` depuis le 2026-09-13 (fait) | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
-| E03 · E32 | le producteur écrit ses tests ; un échec sur base par erreur d'import vaut discrimination | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, puis rôle test designer |
+| E03 · E32 | le producteur écrit ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise : depuis le 2026-09-14 il rend la V `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer (E32 fait) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec (faits), puis rôle test designer |
 | E33 | la suite existante peut être affaiblie (suppression, skip) sans détection | tests hôtes | M | comptage des tests base/changement, protection des tests existants |
 | E30 · E31 | force de la suite non mesurée : ni couverture du diff ni mutation ciblée | tests hôtes | M à L | dit *où* la spécification ne regarde pas ; sort du « satisfied = passe et ne passait pas » |
 | E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
