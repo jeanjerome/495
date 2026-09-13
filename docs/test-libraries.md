@@ -165,17 +165,22 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
-| runner | | | | |
-| bdd | | | | |
-| property | | | | |
-| mutation | | | | |
-| coverage | | | | |
-| architecture | | | | |
-| static | | | | |
-| security | | | | |
-| contract | | | | |
-| performance | | | | |
-| doubles | | | | |
+| runner | junit-jupiter | recommended | study 2026-09-13 (`docs/studies/2026-09-13-java-kotlin-test-libraries.md`) | JUnit 6.1.3 measured with surefire 3.6.0; the platform every other entry runs on |
+| runner | kotest | recommended | study 2026-09-13 (jvm) | when the project is written in Kotlin: 6.2.5 measured, its own specs on the JUnit platform |
+| bdd | cucumber-jvm | recommended | study 2026-09-13 (jvm) | cucumber-java and cucumber-junit-platform-engine 7.34.8 measured; one `@Suite @IncludeEngines("cucumber")` class runs the `.feature` files under `src/test/resources`; kotest's `BehaviorSpec` is code, not a feature file |
+| property | jqwik | recommended | study 2026-09-13 (jvm) | 1.10.1 measured; `@Property` with `@ForAll` and constraints, 1000 tries |
+| property | kotest-property | recommended | study 2026-09-13 (jvm) | when the project runs kotest: 6.2.5 measured, `forAll` with `Arb` generators inside the specs |
+| mutation | pitest | recommended | study 2026-09-13 (jvm) | 1.30.0 measured with pitest-junit5-plugin 1.2.3; `mutationCoverage`, `mutations.xml` under `target/pit-reports/`; bytecode mutators, Kotlin included |
+| coverage | jacoco | recommended | study 2026-09-13 (jvm) | 0.8.15 measured; `prepare-agent` and `report`, XML with per-line counts, which `diff-cover --compare-branch` reads for the changed lines |
+| coverage | kover | recommended | study 2026-09-13 (jvm) | when the project is written in Kotlin and built with Gradle: 0.9.9 measured, `koverXmlReport` with per-line counts |
+| architecture | archunit | recommended | study 2026-09-13 (jvm) | 1.5.0 measured; rules as JUnit tests over the bytecode, the violation names caller, callee and line; a compile-time constant is inlined and leaves no dependency to see |
+| static | checkstyle, with PMD | recommended | study 2026-09-13 (jvm) | 14.1.0 and PMD 7.17.0 (maven-pmd-plugin 3.28.0) measured; checkstyle for the style rules, PMD for complexity and its CPD for duplication (`-DminimumTokens`), build failure on violations |
+| static | detekt, with ktlint | recommended | study 2026-09-13 (jvm) | when the project is written in Kotlin: detekt 1.23.8 and ktlint through org.jlleitschuh.gradle.ktlint 13.1.0 measured |
+| security | spotbugs (findsecbugs), OWASP dependency-check | recommended | study 2026-09-13 (jvm) | spotbugs 4.10.4 with findsecbugs 1.14.0 measured (command injection, weak digest); dependency-check 13.0.0 needs an NVD API key, free from NIST, and fails its update without one |
+| contract | swagger-request-validator | recommended | study 2026-09-13 (jvm) | 3.0.0 measured; a request and response pair validated against the OpenAPI description in-process; adapters for RestAssured, MockMvc, WireMock and Spring |
+| performance | jmh | recommended | study 2026-09-13 (jvm) | 1.37 measured; the last release is three years and one month old, the JDK project's repository is active, the study states the exception; JDK 23 and later need `-proc:full` for its annotation processor; kotlinx-benchmark wraps it for Kotlin |
+| doubles | mockito | recommended | study 2026-09-13 (jvm) | 5.23.0 measured; final classes mock by default since 5; wiremock for HTTP doubles |
+| doubles | mockk | recommended | study 2026-09-13 (jvm) | when the project is written in Kotlin: 1.14.11 measured, `every { } returns` |
 
 ### Shell
 
@@ -236,3 +241,10 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Go | mutation | go-mutesting | no tagged release; the upstream's last commit is 2021-06 | study 2026-09-13 (go) |
 | Go | coverage | gocov | last release 2024-10; a JSON converter for the same profile | study 2026-09-13 (go) |
 | Go | architecture | arch-go | last release 2025-02; not run | study 2026-09-13 (go) |
+| Java / Kotlin | runner | testng, spock | runners of their own; a project that has one keeps it | study 2026-09-13 (jvm) |
+| Java / Kotlin | property | quicktheories | last release 2019-03 | study 2026-09-13 (jvm) |
+| Java / Kotlin | architecture | konsist | `Project directory not found` on the smoke run under Gradle 9.7 with Kotlin 2.4 and 2.2; not run to a verdict | study 2026-09-13 (jvm) |
+| Java / Kotlin | static | error-prone | compiler-time bug patterns, a complement to the lint, not the lint | study 2026-09-13 (jvm) |
+| Java / Kotlin | contract | spring-cloud-contract | Spring only | study 2026-09-13 (jvm) |
+| Java / Kotlin | contract | pact-jvm | consumer-driven contracts between services, a different question than the description against the implementation | study 2026-09-13 (jvm) |
+| Java / Kotlin | contract | openapi4j | last release 2021-03 | study 2026-09-13 (jvm) |

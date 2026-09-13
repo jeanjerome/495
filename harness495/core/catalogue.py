@@ -104,6 +104,31 @@ def _measures_with(
     return holds
 
 
+def _is_kotlin(profile: ProjectProfile) -> bool:
+    root = Path(profile.root)
+    if (root / "src" / "main" / "kotlin").is_dir():
+        return True
+    for name, marks in (
+        ("build.gradle.kts", ("kotlin(", "org.jetbrains.kotlin")),
+        ("build.gradle", ("org.jetbrains.kotlin",)),
+        ("pom.xml", ("kotlin-maven-plugin",)),
+    ):
+        try:
+            text = (root / name).read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if any(mark in text for mark in marks):
+            return True
+    return False
+
+
+def _is_kotlin_on_gradle(profile: ProjectProfile) -> bool:
+    root = Path(profile.root)
+    return _is_kotlin(profile) and any(
+        (root / name).is_file() for name in ("build.gradle.kts", "build.gradle")
+    )
+
+
 @dataclass(frozen=True)
 class Recommendation:
     """One ``recommended`` entry of the catalogue: the tools of the cell, and when it applies.
@@ -200,6 +225,52 @@ RECOMMENDED: tuple[Recommendation, ...] = (
     Recommendation("go", CatalogueRole.static, ("golangci-lint",)),
     Recommendation("go", CatalogueRole.security, ("gosec", "govulncheck")),
     Recommendation("go", CatalogueRole.performance, ("go test -bench", "benchstat")),
+    Recommendation("java/kotlin", CatalogueRole.runner, ("junit-jupiter",)),
+    Recommendation(
+        "java/kotlin",
+        CatalogueRole.runner,
+        ("kotest",),
+        "the project is written in Kotlin",
+        _is_kotlin,
+    ),
+    Recommendation("java/kotlin", CatalogueRole.bdd, ("cucumber-jvm",)),
+    Recommendation("java/kotlin", CatalogueRole.property, ("jqwik",)),
+    Recommendation(
+        "java/kotlin",
+        CatalogueRole.property,
+        ("kotest-property",),
+        "the project runs kotest",
+        _measures_with("java/kotlin", CatalogueRole.runner, "kotest"),
+    ),
+    Recommendation("java/kotlin", CatalogueRole.mutation, ("pitest",)),
+    Recommendation("java/kotlin", CatalogueRole.coverage, ("jacoco",)),
+    Recommendation(
+        "java/kotlin",
+        CatalogueRole.coverage,
+        ("kover",),
+        "the project is written in Kotlin and built with Gradle",
+        _is_kotlin_on_gradle,
+    ),
+    Recommendation("java/kotlin", CatalogueRole.architecture, ("archunit",)),
+    Recommendation("java/kotlin", CatalogueRole.static, ("checkstyle", "PMD")),
+    Recommendation(
+        "java/kotlin",
+        CatalogueRole.static,
+        ("detekt", "ktlint"),
+        "the project is written in Kotlin",
+        _is_kotlin,
+    ),
+    Recommendation("java/kotlin", CatalogueRole.security, ("spotbugs", "OWASP dependency-check")),
+    Recommendation("java/kotlin", CatalogueRole.contract, ("swagger-request-validator",)),
+    Recommendation("java/kotlin", CatalogueRole.performance, ("jmh",)),
+    Recommendation("java/kotlin", CatalogueRole.doubles, ("mockito",)),
+    Recommendation(
+        "java/kotlin",
+        CatalogueRole.doubles,
+        ("mockk",),
+        "the project is written in Kotlin",
+        _is_kotlin,
+    ),
 )
 """The document's ``recommended`` entries, in its order; a cell with several entries lists
 its default first. A technology whose section of the document is empty has no entry here,

@@ -46,12 +46,33 @@ class Project:
     node_scripts: dict[str, str] = field(default_factory=dict)
     cargo_dev_dependencies: list[str] = field(default_factory=list)
     go_requires: list[str] = field(default_factory=list)
+    pom_artifacts: list[str] = field(default_factory=list)
+    gradle_plugins: list[str] = field(default_factory=list)
+    gradle_dependencies: list[str] = field(default_factory=list)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
     last_proposal: Proposal | None = None
     output: str = ""
     exit_code: int = 0
+
+    def write_pom(self) -> None:
+        deps = "".join(
+            f"<dependency><groupId>g</groupId><artifactId>{a}</artifactId></dependency>"
+            for a in self.pom_artifacts
+        )
+        (self.root / "pom.xml").write_text(
+            "<project><modelVersion>4.0.0</modelVersion><groupId>x</groupId>"
+            f"<artifactId>x</artifactId><version>0</version><dependencies>{deps}</dependencies>"
+            "</project>\n"
+        )
+
+    def write_gradle(self) -> None:
+        plugins = "".join(f"    {p}\n" for p in self.gradle_plugins)
+        deps = "".join(f'    testImplementation("{d}")\n' for d in self.gradle_dependencies)
+        (self.root / "build.gradle.kts").write_text(
+            f"plugins {{\n{plugins}}}\n\ndependencies {{\n{deps}}}\n"
+        )
 
     def write_go_mod(self) -> None:
         requires = "".join(f"\t{m} v1.0.0\n" for m in self.go_requires)
@@ -191,6 +212,36 @@ def a_go_project(project: Project) -> None:
 def go_mod_requires(project: Project, module: str) -> None:
     project.go_requires.append(module)
     project.write_go_mod()
+
+
+@given("a Java project")
+def a_java_project(project: Project) -> None:
+    project.write_pom()
+
+
+@given(parsers.parse('its pom.xml declares the artifact "{artifact}"'))
+def pom_declares_an_artifact(project: Project, artifact: str) -> None:
+    project.pom_artifacts.append(artifact)
+    project.write_pom()
+
+
+@given("a Kotlin project")
+def a_kotlin_project(project: Project) -> None:
+    (project.root / "src" / "main" / "kotlin").mkdir(parents=True)
+    project.gradle_plugins.append('kotlin("jvm") version "2.4.20"')
+    project.write_gradle()
+
+
+@given(parsers.parse('its build.gradle.kts depends on "{coordinate}"'))
+def gradle_depends_on(project: Project, coordinate: str) -> None:
+    project.gradle_dependencies.append(coordinate)
+    project.write_gradle()
+
+
+@given(parsers.parse('its build.gradle.kts applies the plugin "{plugin}"'))
+def gradle_applies_a_plugin(project: Project, plugin: str) -> None:
+    project.gradle_plugins.append(f'id("{plugin}") version "1"')
+    project.write_gradle()
 
 
 @given("a Ruby project")

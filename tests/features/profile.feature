@@ -158,6 +158,31 @@ Feature: Role coverage of a host project
     And the role "architecture" of "go" is measured with "depguard"
     And the role "mutation" of "go" is not measured
 
+  Scenario: A Maven project's pom.xml names the tools of its roles
+    Given a Java project
+    And its pom.xml declares the artifact "junit-jupiter"
+    And its pom.xml declares the artifact "jqwik"
+    And its pom.xml declares the artifact "jacoco-maven-plugin"
+    And the file "src/test/resources/sample/clamp.feature" contains "Feature: Clamping"
+    When the harness profiles the project
+    Then the role "runner" of "java/kotlin" is measured with "junit-jupiter"
+    And the role "property" of "java/kotlin" is measured with "jqwik"
+    And that role is recognised from "pom.xml: dependency jqwik"
+    And the role "coverage" of "java/kotlin" is measured with "jacoco"
+    And the role "bdd" of "java/kotlin" is measured with "cucumber-jvm"
+    And that role is recognised from "src/test/resources/sample/clamp.feature"
+    And the role "mutation" of "java/kotlin" is not measured
+
+  Scenario: A Gradle build's plugins and coordinates name the tools of its roles
+    Given a Kotlin project
+    And its build.gradle.kts depends on "io.kotest:kotest-runner-junit5:6.2.5"
+    And its build.gradle.kts applies the plugin "io.gitlab.arturbosch.detekt"
+    When the harness profiles the project
+    Then the role "runner" of "java/kotlin" is measured with "kotest"
+    And that role is recognised from "build.gradle.kts: dependency kotest-runner-junit5"
+    And the role "static" of "java/kotlin" is measured with "detekt"
+    And that role is recognised from "build.gradle.kts: dependency io.gitlab.arturbosch.detekt"
+
   Scenario: A technology without markers has no coverage rows
     Given a Ruby project
     When the harness profiles the project

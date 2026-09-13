@@ -174,6 +174,30 @@ Feature: Gaps of a host project against the test-library catalogue
     And that gap recommends "go-arch-lint"
     And that gap states no condition
 
+  Scenario: A Kotlin project on Gradle is told the Kotlin entries, each with its condition
+    Given a Kotlin project
+    And its build.gradle.kts depends on "io.kotest:kotest-runner-junit5:6.2.5"
+    When the harness profiles the project
+    Then the gap on "property" of "java/kotlin" is "unmeasured"
+    And that gap recommends "kotest-property"
+    And that gap states the condition "the project runs kotest"
+    And the gap on "static" of "java/kotlin" is "unmeasured"
+    And that gap recommends "detekt, ktlint"
+    And that gap states the condition "the project is written in Kotlin"
+    And the gap on "coverage" of "java/kotlin" is "unmeasured"
+    And that gap recommends "kover"
+
+  Scenario: A Java project is told the default entries of the cells
+    Given a Java project
+    When the harness profiles the project
+    Then the gap on "property" of "java/kotlin" is "unmeasured"
+    And that gap recommends "jqwik"
+    And that gap states no condition
+    And the gap on "static" of "java/kotlin" is "unmeasured"
+    And that gap recommends "checkstyle, PMD"
+    And the gap on "coverage" of "java/kotlin" is "unmeasured"
+    And that gap recommends "jacoco"
+
   Scenario: The specifier is told when nothing is known about the roles of the project
     Given a Ruby project
     When the harness profiles the project

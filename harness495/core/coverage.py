@@ -59,6 +59,19 @@ ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
         CatalogueRole.security,
         CatalogueRole.performance,
     ),
+    "java/kotlin": (
+        CatalogueRole.runner,
+        CatalogueRole.bdd,
+        CatalogueRole.property,
+        CatalogueRole.mutation,
+        CatalogueRole.coverage,
+        CatalogueRole.architecture,
+        CatalogueRole.static,
+        CatalogueRole.security,
+        CatalogueRole.contract,
+        CatalogueRole.performance,
+        CatalogueRole.doubles,
+    ),
 }
 """The roles the catalogue (``docs/test-libraries.md``) has a table for, per technology."""
 
@@ -680,11 +693,140 @@ enables), ``ci`` the CI files and Makefile. Every module measures the runner: ``
 the toolchain's; its ``-fuzz`` and ``-bench`` modes are recognised from the test functions.
 """
 
+# -------------------------------------------------------------------------- java/kotlin
+
+JVM_TOOLS: ToolTable = (
+    (
+        CatalogueRole.runner,
+        "junit-jupiter",
+        (
+            dependency("junit-jupiter"),
+            dependency("junit-jupiter-api"),
+            dependency("junit-bom"),
+            dependency("kotlin-test-junit5"),
+        ),
+    ),
+    (CatalogueRole.runner, "kotest", (dependency("kotest-runner-junit5"),)),
+    (CatalogueRole.runner, "testng", (dependency("testng"),)),
+    (CatalogueRole.runner, "spock", (dependency("spock-core"),)),
+    (
+        CatalogueRole.bdd,
+        "cucumber-jvm",
+        (
+            dependency("cucumber-java"),
+            dependency("cucumber-junit-platform-engine"),
+            dependency("cucumber-junit"),
+            _test_file((".feature",)),
+        ),
+    ),
+    (CatalogueRole.property, "jqwik", (dependency("jqwik"),)),
+    (CatalogueRole.property, "kotest-property", (dependency("kotest-property"),)),
+    (CatalogueRole.property, "quicktheories", (dependency("quicktheories"),)),
+    (
+        CatalogueRole.mutation,
+        "pitest",
+        (dependency("pitest-maven"), dependency("info.solidsoft.pitest"), in_ci("pitest")),
+    ),
+    (
+        CatalogueRole.coverage,
+        "jacoco",
+        (dependency("jacoco-maven-plugin"), dependency("jacoco")),
+    ),
+    (
+        CatalogueRole.coverage,
+        "kover",
+        (dependency("kover-maven-plugin"), dependency("org.jetbrains.kotlinx.kover")),
+    ),
+    (
+        CatalogueRole.architecture,
+        "archunit",
+        (dependency("archunit-junit5"), dependency("archunit")),
+    ),
+    (CatalogueRole.architecture, "konsist", (dependency("konsist"),)),
+    (
+        CatalogueRole.static,
+        "checkstyle",
+        (
+            dependency("maven-checkstyle-plugin"),
+            dependency("checkstyle"),
+            config_file("checkstyle.xml"),
+            directory("config/checkstyle"),
+        ),
+    ),
+    (
+        CatalogueRole.static,
+        "PMD",
+        (dependency("maven-pmd-plugin"), dependency("pmd"), directory("config/pmd")),
+    ),
+    (
+        CatalogueRole.static,
+        "detekt",
+        (
+            dependency("io.gitlab.arturbosch.detekt"),
+            config_file("detekt.yml"),
+            directory("config/detekt"),
+        ),
+    ),
+    (
+        CatalogueRole.static,
+        "ktlint",
+        (
+            dependency("org.jlleitschuh.gradle.ktlint"),
+            dependency("ktlint-cli"),
+            dependency("ktlint-maven-plugin"),
+            in_ci("ktlint"),
+        ),
+    ),
+    (CatalogueRole.static, "error-prone", (dependency("error_prone_core"),)),
+    (
+        CatalogueRole.security,
+        "spotbugs",
+        (
+            dependency("spotbugs-maven-plugin"),
+            dependency("com.github.spotbugs"),
+            config_file("spotbugs-exclude.xml"),
+        ),
+    ),
+    (
+        CatalogueRole.security,
+        "OWASP dependency-check",
+        (
+            dependency("dependency-check-maven"),
+            dependency("org.owasp.dependencycheck"),
+            in_ci("dependency-check"),
+        ),
+    ),
+    (
+        CatalogueRole.contract,
+        "swagger-request-validator",
+        (in_manifest("swagger-request-validator"),),
+    ),
+    (CatalogueRole.contract, "spring-cloud-contract", (in_manifest("spring-cloud-contract"),)),
+    (CatalogueRole.contract, "pact-jvm", (in_manifest("au.com.dius.pact"),)),
+    (
+        CatalogueRole.performance,
+        "jmh",
+        (dependency("jmh-core"), dependency("me.champeau.jmh"), in_manifest("kotlinx-benchmark")),
+    ),
+    (CatalogueRole.doubles, "mockito", (dependency("mockito-core"), in_manifest("mockito"))),
+    (CatalogueRole.doubles, "mockk", (dependency("mockk"),)),
+    (CatalogueRole.doubles, "wiremock", (in_manifest("wiremock"),)),
+)
+"""The Java / Kotlin markers (``docs/studies/2026-09-13-java-kotlin-test-libraries.md``).
+
+``dependencies`` are the ``artifactId``s of ``pom.xml``, the artifact names and plugin ids
+of the Gradle build files (root and one level down) and of ``gradle/libs.versions.toml``;
+``manifests`` their text; ``tests`` the files under ``src/test``. The tools of both languages
+are in one table: the technology is ``java/kotlin`` whichever the build tool, and the
+catalogue's Kotlin entries apply through their condition.
+"""
+
 TABLES: dict[str, ToolTable] = {
     "python": PYTHON_TOOLS,
     "shell": SHELL_TOOLS,
     "javascript/typescript": NODE_TOOLS,
     "rust": RUST_TOOLS,
     "go": GO_TOOLS,
+    "java/kotlin": JVM_TOOLS,
 }
 """The marker table of each technology that has coverage rows."""

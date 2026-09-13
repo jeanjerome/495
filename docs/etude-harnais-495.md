@@ -499,7 +499,8 @@ l'absence d'entrée. Le catalogue existe ; sa section Python est remplie par l'�
 2026-09-13 (`docs/studies/2026-09-13-python-test-libraries.md`) : les douze rôles sont pourvus,
 chaque entrée avec sa version mesurée et ses notes d'usage, sept bibliothèques sont rejetées avec
 leur raison, et l'étude liste les marqueurs par lesquels un profil peut détecter chaque outil.
-Les autres technologies restent à étudier. Mécanisme côté projet hôte :
+Les cinq autres sections sont remplies par les études du même jour (voir la fin de
+l'entrée). Mécanisme côté projet hôte :
 (a) **fait** : le profil calcule une **couverture de rôles** (`RoleCoverage`, un par technologie
 et par `CatalogueRole`) : pour chaque rôle du catalogue, quel outil le projet utilise et à quel
 marqueur il a été reconnu, à partir des manifestes (`pyproject.toml`, `requirements*.txt`), des
@@ -588,7 +589,13 @@ clippy avec rustfmt, criterion ; `core/coverage.py::RUST_TOOLS`, arbre lu dans `
 gremlins (`--timeout-coefficient` obligatoire sur une suite rapide), `go test -cover` avec
 gocover-cobertura, go-arch-lint ou depguard sous golangci-lint, golangci-lint, gosec et
 govulncheck, `go test -bench` avec benchstat ; `core/coverage.py::GO_TOOLS`, arbre lu dans
-`go.mod`, les `_test.go` et `.golangci.yml`) ; Java / Kotlin reste à faire. Les kinds de
+`go.mod`, les `_test.go` et `.golangci.yml`) ; Java / Kotlin **fait** le 2026-09-13
+(`docs/studies/2026-09-13-java-kotlin-test-libraries.md` : JUnit Jupiter ou kotest, cucumber-jvm,
+jqwik ou kotest-property, pitest, JaCoCo ou kover, ArchUnit, checkstyle avec PMD ou detekt avec
+ktlint, SpotBugs (findsecbugs) et dependency-check (clé NVD), swagger-request-validator, JMH,
+Mockito ou MockK, les entrées Kotlin portant leur condition ; `core/coverage.py::JVM_TOOLS`,
+arbre lu dans `pom.xml`, les fichiers Gradle et `gradle/libs.versions.toml`). Les six sections
+du catalogue sont remplies ; E50 est clos. Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**
@@ -762,7 +769,7 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait) ; restent les études des autres technologies | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne

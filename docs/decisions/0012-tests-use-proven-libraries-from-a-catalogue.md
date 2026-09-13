@@ -100,7 +100,8 @@ ecosystem already provides.
 - `AGENTS.md`, section Invariants (the rule for 495's own tests).
 - `harness495/core/models.py`: `CatalogueRole`, `RoleCoverage`, `ProjectProfile.role_coverage`.
 - `harness495/core/coverage.py`: `ROLES_BY_TECHNOLOGY`, the marker tables (`PYTHON_TOOLS`,
-  `SHELL_TOOLS`), `rows`; `harness495/core/profile.py` gathers each technology's `Tree`;
+  `SHELL_TOOLS`, `NODE_TOOLS`, `RUST_TOOLS`, `GO_TOOLS`, `JVM_TOOLS`), `rows`;
+  `harness495/core/profile.py` gathers each technology's `Tree`;
   `core/context.py::render_profile`, `495 profile` and
   the TUI profile view show the rows.
 - `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`;

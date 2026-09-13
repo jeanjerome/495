@@ -508,6 +508,53 @@ def _go_tree(root: Path) -> Tree:
     return tree
 
 
+POM_ARTIFACT = re.compile(r"<artifactId>\s*([A-Za-z0-9_.-]+)\s*</artifactId>")
+GRADLE_COORDINATE = re.compile(r"""['"][A-Za-z0-9_.-]+:([A-Za-z0-9_.-]+)(?::[^'"]*)?['"]""")
+GRADLE_PLUGIN = re.compile(r"""id\s*\(?\s*['"]([A-Za-z0-9_.-]+)['"]""")
+CATALOGUE_NAME = re.compile(
+    r"""(?:module\s*=\s*['"][A-Za-z0-9_.-]+:|name\s*=\s*['"])([A-Za-z0-9_.-]+)['"]"""
+)
+GRADLE_FILES = ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
+
+
+def _jvm_tree(root: Path) -> Tree:
+    """What the Java / Kotlin markers read: the ``artifactId``s of ``pom.xml``, the artifact
+    names and plugin ids of the Gradle build files (root and one level down) and of
+    ``gradle/libs.versions.toml``; the text of those files; the files under ``src/test``;
+    the CI files."""
+    tree = Tree(root=root)
+    manifests = [
+        root / "pom.xml",
+        *sorted(root.glob("*/pom.xml")),
+        *(root / name for name in GRADLE_FILES),
+        *sorted(p for name in GRADLE_FILES for p in root.glob(f"*/{name}")),
+        root / "gradle" / "libs.versions.toml",
+    ]
+    for manifest in manifests:
+        if not manifest.is_file() or any(p in NOT_THE_PROJECT for p in manifest.parts):
+            continue
+        text = _read_small(manifest)
+        rel = tree.rel(manifest)
+        tree.manifests[rel] = text
+        if manifest.name == "pom.xml":
+            names = POM_ARTIFACT.findall(text)
+        elif manifest.name == "libs.versions.toml":
+            names = CATALOGUE_NAME.findall(text) + GRADLE_PLUGIN.findall(text)
+        else:
+            names = GRADLE_COORDINATE.findall(text) + GRADLE_PLUGIN.findall(text)
+        for name in names:
+            tree.dependencies.setdefault(name, rel)
+
+    def is_test(path: Path) -> bool:
+        parts = path.relative_to(root).parts
+        return "test" in parts[:-1] and "src" in parts[:-1]
+
+    for path in _walk(root, is_test, max_depth=6):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    read_ci(tree, _read_small)
+    return tree
+
+
 def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     if (root / "Cargo.toml").exists():
         prof.languages.append("rust")
@@ -527,6 +574,10 @@ def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComm
             "build", _cmd("build", "go build ./...", VerificationKind.build, "detected")
         )
         cmds.setdefault("lint", _cmd("lint", "go vet ./...", VerificationKind.lint, "detected"))
+    if (root / "pom.xml").exists() or any(
+        (root / name).exists() for name in ("build.gradle", "build.gradle.kts")
+    ):
+        prof.role_coverage.extend(coverage.rows("java/kotlin", _jvm_tree(root), coverage.JVM_TOOLS))
     if (root / "pom.xml").exists():
         prof.languages.append("java")
         prof.detected_from.append("pom.xml")
