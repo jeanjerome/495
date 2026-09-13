@@ -9,6 +9,7 @@ from typing import Any
 from harness495.core.catalogue import ROLE_CONTRACTS, applicable
 from harness495.core.models import (
     NON_DISCRIMINATING,
+    CatalogueRole,
     Evidence,
     ProjectProfile,
     RequirementKind,
@@ -134,6 +135,36 @@ def render_catalogue(profile: ProjectProfile) -> str:
                     f"{condition}, which the requester puts in place through a proposal"
                 )
     return "\n".join(lines)
+
+
+def render_behaviour_test_form(profile: ProjectProfile) -> str:
+    """The form a test to create takes when it carries a scenario, from the profile's coverage.
+
+    Where a coverage row of role ``bdd`` is measured, the test is a feature file whose scenario
+    has the specification's steps, bound with that tool; where none is, the test is written
+    with the project's test runner in the scenario's order. The producer and the reviewers
+    read the same sentence, so what one is told to write is what the other checks.
+    """
+    tools = "; ".join(
+        f"{', '.join(r.tools)} for {r.technology}"
+        for r in profile.role_coverage
+        if r.role is CatalogueRole.bdd and r.measured
+    )
+    if tools:
+        return (
+            f"The project binds behaviour scenarios with {tools}. A test to create that carries "
+            "a scenario is a `.feature` file whose scenario has the specification's steps, "
+            "word for word, bound to step definitions the way the project's existing features "
+            "are, and run by the verification's command."
+        )
+    return (
+        "The project has no tool binding behaviour scenarios (no coverage row of role `bdd` is "
+        "measured). A test to create that carries a scenario is written with the project's test "
+        "runner, one test per scenario, its body in the scenario's order: the `given` steps set "
+        "the state, the `when` steps are the action, the `then` steps are the only assertions. "
+        "No scenario runner is added to the project by the change: that is the requester's "
+        "decision, taken through a proposal."
+    )
 
 
 def render_spec(spec: Spec, include_status: bool = False) -> str:

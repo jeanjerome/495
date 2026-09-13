@@ -690,7 +690,14 @@ kind = "test"             # command | test | lint | build | typecheck
 
 Built-in reviewer perspectives: `spec_compliance`, `correctness`, `security`, `test_quality`,
 `standards`, `maintainability`; any other name works with a generic brief, and `instructions`
-in a reviewer entry replaces the brief.
+in a reviewer entry replaces the brief. `test_quality` compares, for every verification that
+carries a scenario, the requirement, the scenario and the test written for it.
+
+A test to create that carries a scenario takes the form the profile dictates: a `.feature` file
+with the specification's steps, bound with the tool the project measures the role `bdd` with,
+or a test in the project's runner in the scenario's order when nothing does; the producer and
+every reviewer read that form as a fact
+(`docs/decisions/0017-the-form-of-a-test-to-create-follows-the-scenario-runner.md`).
 
 ### Exit codes
 

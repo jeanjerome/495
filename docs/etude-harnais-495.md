@@ -404,7 +404,7 @@ nouvelle fonction et laisser passer presque toutes ses implémentations fausses.
 
 | Contrat | Ce qu'il définit | Vérification recommandée | Ce que 495 fait aujourd'hui | Écart |
 |---|---|---|---|---|
-| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | partiel : le test d'acceptation est écrit par le producteur (E03) ; scénario BDD décidé comme norme (E51) ; `.feature` reconnu comme test, sans détection de l'outil ni exécution dédiée |
+| **Produit** | ce que l'application doit faire | tests d'acceptation, scénarios | R/V, commandes du projet, tests `to_create`, différentiel base/changement | partiel : le test d'acceptation est écrit par le producteur (E03) ; scénario BDD décidé comme norme, énoncé par le spécificateur, forme du test dictée par l'outil `bdd` du profil (E51) ; l'outil `bdd` détecté au profil et proposé s'il manque (E50) |
 | **Domaine** | invariants métier | property-based testing | rien : `VerificationKind` n'a pas de `property`, le spécificateur n'est pas invité à formuler d'invariants, Hypothesis/fast-check/QuickCheck ne sont pas détectés (`.hypothesis` n'apparaît que comme cache à exclure) | absent |
 | **API** | échanges autorisés | schémas, OpenAPI, types | `typecheck` détecté (mypy, pyright, tsc) ; pas de validation de schéma ni de diff d'API | partiel |
 | **Architecture** | dépendances et frontières | tests d'architecture | rien : `allowed_paths` est un périmètre de fichiers, pas une règle de dépendance ; import-linter, dependency-cruiser, ArchUnit, `deptry` ne sont pas détectés | absent |
@@ -616,9 +616,15 @@ spécificateur en reçoit la règle, l'audit rend `insufficient` un test `to_cre
 ou sans étape `when`/`then` (écart à la porte), les étapes sont affichées entières à
 l'approbation (CLI, TUI) et rendues sous la vérification dans la spécification que reçoivent
 producteur et réviseurs (`tests/features/expected_test.feature`) ;
-(c) le producteur reçoit, quand le profil détecte l'outil `bdd`, la consigne d'écrire le test
-`to_create` en fichier `.feature` et steps, et le réviseur `test_quality` vérifie que le
-scénario dit ce que l'exigence dit ;
+(c) **fait** (`docs/decisions/0017-the-form-of-a-test-to-create-follows-the-scenario-runner.md`) :
+la forme du test `to_create` est une phrase calculée du profil (`render_behaviour_test_form`),
+posée en fait « Behaviour scenarios » chez le producteur et chez chaque réviseur : fichier
+`.feature` aux étapes de la spécification, lié aux steps, quand une ligne `bdd` est mesurée
+(l'outil est nommé par technologie) ; test dans le runner du projet, dans l'ordre du scénario et
+sans ajouter d'outil, sinon ; le producteur reçoit que le scénario est le texte du test (aucune
+étape reformulée, une étape impossible va dans `not_done`) et le réviseur `test_quality` compare
+exigence, scénario et test, tout écart étant un constat sur la vérification
+(`tests/features/behaviour_test_form.feature`) ;
 (d) **fait pour l'écart** : le profil détecte l'outil `bdd` (dépendance, fichiers `.feature`,
 `from pytest_bdd import`) dans la couverture de rôles (E50), et son absence est énoncée comme
 écart à `init`/`profile` ; le catalogue admet plusieurs entrées recommandées par cellule,
@@ -776,7 +782,7 @@ semaine ou plus).
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
-| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016), migration de la suite de 495 et scénarios côté producteur et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
+| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017), migration de la suite de 495 et scénario sous chaque exigence du rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne
 

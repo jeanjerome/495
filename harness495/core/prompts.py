@@ -134,6 +134,13 @@ create it exactly as described before implementing the behaviour it checks, and 
 observe that behaviour through the interface a caller would use, so that it would fail if the
 behaviour were absent.
 
+A verification that carries a scenario is the text of its test: the requester approved those
+steps, and the reviewers compare the test against them. The test sets up what the `given` steps
+say, does what the `when` steps say and asserts what the `then` steps say, nothing else; the
+form it takes (a `.feature` file bound to step definitions, or a test in the project's runner)
+is the one the facts state under "Behaviour scenarios". Do not reword a step; a step you cannot
+bind or observe is reported in `not_done` with what stood in the way.
+
 Run the full verification set once at the end and report the exit codes you observed. Report
 the command the specification names, not a variant you found easier to pass: running something
 else to understand what is happening is fine, but it is not the verification, and reporting it
@@ -215,7 +222,15 @@ PERSPECTIVES: dict[str, str] = {
     "test_quality": (
         "Assess the verification means: do the tests observe behaviour through public "
         "interfaces, are the assertions independent of the implementation, do they cover the "
-        "requirements, would they fail if the change were reverted?"
+        "requirements, would they fail if the change were reverted? For each verification that "
+        "carries a scenario, read the test written for it and compare three texts: the "
+        "requirement, the scenario in the specification, the test in the repository. The "
+        "scenario says what the requirement says (the same inputs, the same observable outcome, "
+        "nothing the requirement does not state); the test does what the scenario says, step "
+        'for step, in the form the facts state under "Behaviour scenarios", and asserts its '
+        "`then` steps and nothing else. A departure between the scenario and the requirement, "
+        "or between the test and the scenario, is a finding on the verification, quoting the "
+        "step and the text it departs from."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

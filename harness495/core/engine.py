@@ -29,6 +29,7 @@ from harness495.core import prompts as P
 from harness495.core import proposals as proposals_mod
 from harness495.core.context import (
     ContextPack,
+    render_behaviour_test_form,
     render_catalogue,
     render_evidence,
     render_profile,
@@ -1195,6 +1196,7 @@ class Engine:
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
         pack.add_fact("Approved specification", render_spec(run.spec))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+        pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
         scope_lines = [
             "Allowed paths: " + (", ".join(_effective_allowed(run)) or "any path"),
             "Forbidden paths: " + ", ".join(run.config.project.scope.forbidden_paths),
@@ -1803,6 +1805,7 @@ class Engine:
             )
             assert run.profile is not None
             pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+            pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
             pack.add_untrusted("git diff base..head", truncate_diff(diff_text) or "(empty diff)")
             for e in evidence:
                 if e.output_ref and e.passed is False:

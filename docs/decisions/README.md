@@ -25,3 +25,4 @@ carries the decision.
 | [0014](0014-a-verification-names-the-catalogue-role-it-measures.md) | A verification names the catalogue role it measures, and a role the project does not measure is a stated gap, never an invented tool | accepted | 2026-09-13, refined 2026-09-13 |
 | [0015](0015-a-retrospective-states-what-each-tool-showed.md) | A retrospective states what a run showed about each tool that measured a catalogue role, and the catalogue takes the row by hand with the run as its source | accepted | 2026-09-13 |
 | [0016](0016-a-test-to-create-is-specified-as-a-scenario.md) | A test to create is specified as a scenario, and its steps are the text the requester approves | accepted | 2026-09-13 |
+| [0017](0017-the-form-of-a-test-to-create-follows-the-scenario-runner.md) | The form of a test to create follows the project's scenario runner, and the reviewer compares requirement, scenario and test | accepted | 2026-09-13 |
