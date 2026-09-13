@@ -7,6 +7,12 @@
 # Frames only: the GIF and the video are assembled by record.sh, which also stages the store
 # this opens on and puts the `495` typed below on PATH. Nothing here is a mock-up — every
 # command is the real one, and the run it opens is walked by the real engine.
+#
+# The first key pressed on the surface waits for the surface to be on the screen, rather than
+# for a number of seconds. The two are not the same thing: what is typed at a shell that is
+# still busy waits in the terminal until the shell reads it, but the surface takes the terminal
+# into cbreak mode, and that discards whatever was typed before it got there. A key sent early
+# is not late, it is gone — and with it the run the rest of the tape drives.
 Output frames/
 
 Set Shell "bash"
@@ -44,7 +50,8 @@ Sleep 11s
 # ---------------------------------------------------------------- the surface, and the store
 Type "495 watch"
 Enter
-Sleep 11s
+Wait+Screen /new run/
+Sleep 8s
 
 # An intent, in prose, typed where the run will open.
 Type "c"
@@ -61,11 +68,13 @@ Down
 Sleep 4s
 Enter
 
-# It profiles the project, then the specifier writes what must hold and what checks it.
-Wait+Screen /waiting on you/
+# It profiles the project, then the specifier writes what must hold and what checks it. The
+# run this waits on is the one just created: the store's own card says "3 waiting on you", and
+# the runs staged before the recording are standing at a gate of their own.
+Wait+Screen /waiting on you +approve spec/
 Sleep 3s
 Type "n"
-Sleep 11s
+Sleep 8s
 
 # The gate: three answers, each with what it does. Nothing is produced until one is taken.
 Type "d"

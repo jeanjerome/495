@@ -486,6 +486,14 @@ SHOUT_SPEC: dict[str, Any] = {
             "description": "the check script covers --shout on its own and with a name",
             "command": "./scripts/check.sh shout",
             "to_create": True,
+            "scenario": {
+                "given": ["the greeter as the project ships it"],
+                "when": ["greeter.sh --shout is run, once with no name and once with --name Ada"],
+                "then": [
+                    "the run with no name prints HELLO, WORLD!",
+                    "the run with --name Ada prints HELLO, ADA!",
+                ],
+            },
         },
         {
             "id": "V2",
@@ -594,6 +602,14 @@ REPEAT_SPEC: dict[str, Any] = {
             "description": "the check script covers a count, and a value that must be refused",
             "command": "./scripts/check.sh repeat",
             "to_create": True,
+            "scenario": {
+                "given": ["the greeter as the project ships it"],
+                "when": ["greeter.sh --repeat 3 is run", "greeter.sh --repeat two is run"],
+                "then": [
+                    "the run with 3 prints the greeting on three lines",
+                    "the run with two exits 2 without printing a greeting",
+                ],
+            },
         },
         {
             "id": "V2",
@@ -702,6 +718,14 @@ LANG_SPEC: dict[str, Any] = {
             "description": "the check script pins each language to its expected line",
             "command": "./scripts/check.sh lang",
             "to_create": True,
+            "scenario": {
+                "given": ["the greeter as the project ships it"],
+                "when": ["greeter.sh --lang fr is run", "greeter.sh --lang es --name Ada is run"],
+                "then": [
+                    "the run in fr prints Bonjour, world !",
+                    "the run in es prints ¡Hola, Ada!",
+                ],
+            },
         },
         {
             "id": "V2",
@@ -791,6 +815,17 @@ STDIN_SPEC: dict[str, Any] = {
             "description": "the check script pipes a name in, and pipes nothing in",
             "command": "./scripts/check.sh stdin",
             "to_create": True,
+            "scenario": {
+                "given": ["the greeter as the project ships it"],
+                "when": [
+                    "greeter.sh is run with no --name and a name piped in",
+                    "greeter.sh is run with no --name and nothing piped in",
+                ],
+                "then": [
+                    "the piped name is the one greeted",
+                    "the run with nothing piped in prints the default greeting",
+                ],
+            },
         },
         {
             "id": "V2",
