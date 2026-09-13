@@ -647,7 +647,7 @@ What this README describes is what the code does today.
 ## Development
 
 ```bash
-./run.sh --version                       # creates .venv and installs the package with dev extras
+./run.sh --version                       # creates .venv and installs the package with the dev dependency group
 .venv/bin/python -m pytest -q            # unit, adapter (fake CLIs) and end-to-end (fake agents) tests
 .venv/bin/ruff check harness495 tests && .venv/bin/ruff format --check harness495 tests
 .venv/bin/mypy harness495

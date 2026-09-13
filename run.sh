@@ -30,10 +30,10 @@ bootstrap() {
     fi
     if [ ! -f "$STAMP" ] || [ "$ROOT/pyproject.toml" -nt "$STAMP" ]; then
         if command -v uv >/dev/null 2>&1; then
-            uv pip install -q --python "$VENV/bin/python" -e "$ROOT[dev]"
+            uv pip install -q --python "$VENV/bin/python" -e "$ROOT" --group "$ROOT/pyproject.toml:dev"
         else
             "$VENV/bin/python" -m pip install -q --upgrade pip
-            "$VENV/bin/python" -m pip install -q -e "$ROOT[dev]"
+            "$VENV/bin/python" -m pip install -q -e "$ROOT" --group "$ROOT/pyproject.toml:dev"
         fi
         touch "$STAMP"
     fi
