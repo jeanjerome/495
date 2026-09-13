@@ -210,7 +210,8 @@ in their context; the specifier also sees, per role, what a test of it must show
 catalogue recommends where nothing measures it, and names on each verification the role it
 measures. A verification of a role the project does not measure is reported as insufficient,
 with the recommendation: the tool comes in through a proposal you answer, not through the
-change.
+change. A proposal you declined is read when a run is profiled, shown to the specifier with
+your reason so that it does not call for the role, and the gate does not ask it again.
 
 The third table is the **gaps against the catalogue**: for each role the catalogue has an
 entry for, whether the project measures it with the recommended tool. A gap is a role nothing

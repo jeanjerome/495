@@ -17,8 +17,14 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.models import (
+    CatalogueGap,
     CatalogueRole,
+    DeclinedRole,
+    GapKind,
     ProjectProfile,
+    Proposal,
+    Proposals,
+    ProposalStatus,
     Requirement,
     RoleCoverage,
     Run,
@@ -29,6 +35,7 @@ from harness495.core.models import (
     VerificationKind,
 )
 from harness495.core.profile import ROLES_BY_TECHNOLOGY
+from harness495.core.store import RunStore
 from harness495.core.verification import assess_sufficiency
 from tests.conftest import Scenario
 
@@ -88,6 +95,20 @@ def a_profile_measuring_no_role(world: World, technology: str) -> None:
     world.profile = ProjectProfile(root=".", role_coverage=_rows(technology, {}))
 
 
+@given(
+    parsers.parse(
+        'the requester has declined the role "{role}" of "{technology}" with the reason "{reason}"'
+    )
+)
+def the_requester_has_declined_the_role(
+    world: World, role: str, technology: str, reason: str
+) -> None:
+    assert world.profile is not None
+    world.profile.declined_roles.append(
+        DeclinedRole(technology=technology, role=CatalogueRole(role), reason=reason)
+    )
+
+
 @given("a profile with no role coverage")
 def a_profile_with_no_coverage(world: World) -> None:
     world.profile = ProjectProfile(root=".")
@@ -141,6 +162,12 @@ def its_rationale_says(world: World, text: str) -> None:
     assert text in world.last_verification.rationale, world.last_verification.rationale
 
 
+@then(parsers.parse('its rationale does not say "{text}"'))
+def its_rationale_does_not_say(world: World, text: str) -> None:
+    assert world.last_verification is not None
+    assert text not in world.last_verification.rationale, world.last_verification.rationale
+
+
 @then(parsers.parse('the specification states the gap "{text}"'))
 def the_specification_states_the_gap(world: World, text: str) -> None:
     assert any(text in gap for gap in world.the_spec().gaps), world.the_spec().gaps
@@ -161,6 +188,27 @@ def the_sample_project(
     world.extra["project"] = sample_project
     world.extra["config"] = config
     world.engine = engine_factory()
+
+
+@given(
+    parsers.parse(
+        'the project\'s proposals hold a declined one on "{role}" of "{technology}" with the reason "{reason}"'
+    )
+)
+def the_proposals_hold_a_declined_one(
+    world: World, role: str, technology: str, reason: str
+) -> None:
+    gap = CatalogueGap(
+        technology=technology,
+        role=CatalogueRole(role),
+        kind=GapKind.unmeasured,
+        recommended=["hypothesis"],
+        missing=["hypothesis"],
+    )
+    proposal = Proposal(
+        id="prop-declined", gap=gap, status=ProposalStatus.declined, intent="x", reason=reason
+    )
+    RunStore(world.extra["project"] / ".495").save_proposals(Proposals(proposals=[proposal]))
 
 
 @given(parsers.parse('the scripted specifier names the role "{role}" on "{vid}"'))
@@ -193,6 +241,20 @@ def the_specifiers_prompt_says(scenario: Scenario, text: str) -> None:
 def the_specification_records_the_role(world: World, vid: str, role: str) -> None:
     v = world.the_run().spec.verification(vid)
     assert v is not None and v.role is CatalogueRole(role)
+
+
+@then(
+    parsers.parse(
+        'the run\'s profile records the role "{role}" of "{technology}" as declined with the reason "{reason}"'
+    )
+)
+def the_runs_profile_records_the_refusal(
+    world: World, role: str, technology: str, reason: str
+) -> None:
+    profile = world.the_run().profile
+    assert profile is not None
+    declined = profile.declined(technology, CatalogueRole(role))
+    assert declined is not None and declined.reason == reason
 
 
 @then(parsers.parse('the run waits at the gate with a question saying "{text}"'))

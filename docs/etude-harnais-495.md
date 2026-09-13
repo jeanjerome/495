@@ -543,8 +543,11 @@ suffisance lit ce rôle : une V d'un rôle qu'aucune ligne de couverture ne mesu
 `insufficient` quelle que soit sa commande, avec dans sa raison le contrat, la recommandation
 par technologie et le renvoi aux propositions, et l'exigence portée par elle seule est un écart
 énoncé au gate ; un rôle sans aucune ligne (technologie sans marqueurs) laisse la V jugée sur
-sa commande ; le rapport, la CLI et le TUI montrent le rôle à côté du kind
-(`tests/features/specifier.feature`, scénarios « The specifier is told … » de
+sa commande ; le rapport, la CLI et le TUI montrent le rôle à côté du kind ; une proposition
+refusée est une réponse déjà donnée : le run lit les refus au profilage et les porte sur son
+profil (`DeclinedRole`), le fait montre le rôle comme refusé avec la raison et le spécificateur
+ne l'appelle pas, et une V qui le nomme quand même cite le refus, pas une proposition à
+répondre (`tests/features/specifier.feature`, scénarios « The specifier is told … » de
 `tests/features/catalogue.feature`) ;
 (e) les rétrospectives (E44) alimentent le catalogue : un outil qui a fait ses preuves sur un
 projet hôte entre avec sa source, un outil qui a posé problème est consigné en rejeté.

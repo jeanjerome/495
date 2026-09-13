@@ -81,7 +81,8 @@ Rules for verifications:
   verification as insufficient with the catalogue's recommendation, and the requester decides
   whether to put the tool in place first; give the requirement, alongside it, the nearest
   verification the project can run today (a `test` with chosen examples where a property test
-  is not possible).
+  is not possible). A role the facts show as declined by the requester has been decided: do
+  not name it, take that nearest verification alone.
 - A verification must be able to change its outcome because of the change alone. Check that the
   command you propose reaches the code the requirement is about, and that someone who may only
   edit the paths you list in `allowed_paths` can make it report success. If making it succeed

@@ -1,7 +1,8 @@
 # 0014. A verification names the catalogue role it measures, and a role the project does not measure is a stated gap, never an invented tool
 
 - Status: accepted
-- Date: 2026-09-13
+- Date: 2026-09-13; refined 2026-09-13 (a proposal the requester declined is read at profiling and
+  never asked again)
 
 ## Context
 
@@ -37,6 +38,13 @@ profile has no row for the role at all (a technology without markers), nothing i
 the verification is judged on its command alone: an unmeasured role always states a fact about
 the project, never a gap in the profile.
 
+A proposal the requester declined is an answer already given, and the gate does not ask it
+again. When a run is profiled, the declined proposals of the project are read once and kept on
+the run's profile (`DeclinedRole`: technology, role, reason), so that the run records the
+answers it knew of. The catalogue fact shows the role as declined with the reason and tells the
+specifier not to call for it; a verification that names it anyway is insufficient with a
+rationale that cites the refusal and says the decision stands, not a proposal to answer.
+
 ## Consequences
 
 - The tool that measures a role enters a project through a proposal the requester answers
@@ -48,6 +56,11 @@ the project, never a gap in the profile.
   which contract it measures. Adding one `VerificationKind` per role was rejected: `lint` and
   `typecheck` would then duplicate `static` and `types`, and a property test would stop being a
   `test` to the runner.
+- The run reads the proposals, which 0012 had kept out of the engine, for this one purpose and
+  as a fact about the project: it never writes them, and a run created from a proposal stays an
+  ordinary run. Reading the file at specification time instead was rejected: the run would not
+  record what it knew, and a refusal given between profiling and specifying would change the
+  audit of a profile already persisted.
 - The catalogue fact goes to the specifier only. The producer and the reviewers keep the
   profile's coverage list; the role on each verification of the approved specification tells
   them the contract, and what they must do with it is a separate concern (the producer's
@@ -59,7 +72,10 @@ the project, never a gap in the profile.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `Verification.role`.
+- `harness495/core/models.py`: `Verification.role`, `DeclinedRole`,
+  `ProjectProfile.declined_roles`, `ProjectProfile.declined`.
+- `harness495/core/proposals.py::declined_roles`; `harness495/core/engine.py::_profile` reads
+  them onto the run's profile.
 - `harness495/core/schemas.py`: `CATALOGUE_ROLES`, the `role` property of `SPEC_SCHEMA`.
 - `harness495/core/catalogue.py`: `ROLE_CONTRACTS`, `unmeasured_role`.
 - `harness495/core/verification.py::assess_sufficiency` (the `profile` argument).

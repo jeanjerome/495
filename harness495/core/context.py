@@ -100,7 +100,8 @@ def render_catalogue(profile: ProjectProfile) -> str:
 
     One line per technology and role of the coverage: what a test of the role must show, the
     tool the project measures it with, and, where nothing does, the entry the catalogue
-    recommends for the technology or the absence of one. A technology the profile has no
+    recommends for the technology, the requester's refusal of it, or the absence of an entry.
+    A technology the profile has no
     markers for has no line, as it has no coverage row.
     """
     if not profile.role_coverage:
@@ -117,8 +118,15 @@ def render_catalogue(profile: ProjectProfile) -> str:
                 lines.append(head + f"measured with {', '.join(row.tools)}")
                 continue
             entry = applicable(technology, row.role, profile)
+            refusal = profile.declined(technology, row.role)
             if entry is None:
                 lines.append(head + "not measured; the catalogue has no entry")
+            elif refusal is not None:
+                reason = f": {refusal.reason}" if refusal.reason else ""
+                lines.append(
+                    head + f"not measured; the catalogue recommends {', '.join(entry.tools)}, "
+                    f"declined by the requester{reason}; do not call for this role"
+                )
             else:
                 condition = f" ({entry.condition})" if entry.condition else ""
                 lines.append(

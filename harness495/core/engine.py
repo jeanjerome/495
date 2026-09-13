@@ -26,6 +26,7 @@ from harness495.agents.registry import build_agent
 from harness495.core import budget as budget_mod
 from harness495.core import git
 from harness495.core import prompts as P
+from harness495.core import proposals as proposals_mod
 from harness495.core.context import (
     ContextPack,
     render_catalogue,
@@ -662,6 +663,7 @@ class Engine:
         self._ensure_sandbox(run)
         root = Path(run.project_root)
         profile = detect_profile(root, run.config.project)
+        profile.declined_roles = proposals_mod.declined_roles(self.store.load_proposals())
         run.profile = profile
         self.emit(
             run,

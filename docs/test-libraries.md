@@ -30,7 +30,9 @@ One recommended library per technology and per role. Binds 495's own tests and t
   as a fact (what a test of each role must show, the tool in place, the recommendation where
   nothing measures the role), and a verification names the role it measures. A role the
   project does not measure makes the verification insufficient with the recommendation in its
-  rationale, so that the tool comes in through a proposal and not through the change
+  rationale, so that the tool comes in through a proposal and not through the change; a
+  role whose proposal the requester declined is shown as such with the reason, and the
+  specifier does not call for it
   (`docs/decisions/0014-a-verification-names-the-catalogue-role-it-measures.md`).
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.

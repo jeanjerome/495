@@ -372,6 +372,19 @@ class CatalogueGap(StrictModel):
         )
 
 
+class DeclinedRole(StrictModel):
+    """A catalogue role whose conformance proposal the requester declined, with the reason.
+
+    Read from the project's proposals when a run is profiled and kept on the run's profile, so
+    that the run records the answer it knew of: the specifier is told not to call for the
+    role, and a verification that names it anyway cites the refusal, not a proposal to answer.
+    """
+
+    technology: str
+    role: CatalogueRole
+    reason: str = ""
+
+
 class ProjectProfile(StrictModel):
     root: str
     languages: list[str] = Field(default_factory=list)
@@ -379,6 +392,7 @@ class ProjectProfile(StrictModel):
     commands: list[ProjectCommand] = Field(default_factory=list)
     role_coverage: list[RoleCoverage] = Field(default_factory=list)
     catalogue_gaps: list[CatalogueGap] = Field(default_factory=list)
+    declined_roles: list[DeclinedRole] = Field(default_factory=list)
     conventions: list[str] = Field(default_factory=list)
     doc_files: list[str] = Field(default_factory=list)
     detected_from: list[str] = Field(default_factory=list)
@@ -396,6 +410,12 @@ class ProjectProfile(StrictModel):
         for r in self.role_coverage:
             if r.technology == technology and r.role is role:
                 return r
+        return None
+
+    def declined(self, technology: str, role: CatalogueRole) -> DeclinedRole | None:
+        for d in self.declined_roles:
+            if d.technology == technology and d.role is role:
+                return d
         return None
 
     @property

@@ -18,7 +18,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 
 | Phase | Who | What it establishes |
 |---|---|---|
-| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role) and the gaps against the catalogue, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
+| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
@@ -107,7 +107,7 @@ renders from the store and drives the engine through the same public methods as 
 
 A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
 `ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the `CatalogueGap`s
-against the catalogue, `ReadinessCheck`s), one
+against the catalogue, the `DeclinedRole`s read from the proposals, `ReadinessCheck`s), one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
 `non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes and,

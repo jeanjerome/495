@@ -190,18 +190,31 @@ def unmeasured_role(role: CatalogueRole, profile: ProjectProfile) -> str | None:
     if not rows or any(r.measured for r in rows):
         return None
     advice: list[str] = []
+    declined = False
     for row in rows:
         entry = applicable(row.technology, role, profile)
+        refusal = profile.declined(row.technology, role)
         if entry is None:
             advice.append(f"the catalogue has no entry for {row.technology}")
+        elif refusal is not None:
+            declined = True
+            reason = f": {refusal.reason}" if refusal.reason else ""
+            advice.append(
+                f"the requester declined {', '.join(entry.tools)} for {row.technology}{reason}"
+            )
         else:
             condition = f" ({entry.condition})" if entry.condition else ""
             advice.append(
                 f"the catalogue recommends {', '.join(entry.tools)} for {row.technology}{condition}"
             )
+    closing = (
+        "; the decision stands, take a verification the project can run"
+        if declined
+        else "; putting the tool in place is a conformance proposal for the requester "
+        "(495 proposals), not part of this change"
+    )
     return (
         f"the project does not measure the {role.value} role ({ROLE_CONTRACTS[role]}); "
         + "; ".join(advice)
-        + "; putting the tool in place is a conformance proposal for the requester "
-        "(495 proposals), not part of this change"
+        + closing
     )

@@ -3,7 +3,8 @@
 - Status: accepted
 - Date: 2026-09-13; refined 2026-09-13 (a cell may hold several recommended entries, each with
   its condition; a gap is stated only on a role whose measure can contradict the agent; a gap
-  is a proposal the requester answers once, kept under `.495/`)
+  is a proposal the requester answers once, kept under `.495/`; a run reads the declined
+  answers when it is profiled, 0014)
 
 ## Context
 
@@ -82,8 +83,11 @@ ecosystem already provides.
   first test named per role (`FIRST_TEST`); `accept`, `decline`, `defer` are the only
   transitions, and each refuses a resolved proposal. `495 proposals` lists, accepts, declines
   and defers; `accept` creates the run through `Engine.create_run` with the intent source
-  `proposal` and records the run id on the proposal. The engine does not read the proposals:
-  a run created from one is an ordinary run.
+  `proposal` and records the run id on the proposal. The engine never writes the proposals,
+  and a run created from one is an ordinary run; the one thing it reads from them, when it
+  profiles the project, is the declined answers (`declined_roles`), carried on the run's
+  profile as `DeclinedRole`s so that the specification does not call for a role the requester
+  has already refused (0014).
 - First application: `tests/test_architecture.py` runs `import-linter` contracts declared in
   `pyproject.toml` instead of parsing imports itself (0011).
 

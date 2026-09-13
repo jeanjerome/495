@@ -15,6 +15,7 @@ from __future__ import annotations
 from harness495.core.models import (
     CatalogueGap,
     CatalogueRole,
+    DeclinedRole,
     GapKind,
     ProjectProfile,
     Proposal,
@@ -192,3 +193,17 @@ def defer(proposal: Proposal, note: str = "") -> None:
     proposal.reason = note.strip()
     proposal.decided_at = now
     proposal.updated_at = now
+
+
+def declined_roles(proposals: Proposals) -> list[DeclinedRole]:
+    """The roles the requester declined, with their reasons, for a run's profile to carry.
+
+    The only thing a run reads from the proposals: an answer already given, stated as a fact
+    about the project. The run never writes the document, and a run created from a proposal
+    stays an ordinary run.
+    """
+    return [
+        DeclinedRole(technology=p.technology, role=p.role, reason=p.reason)
+        for p in proposals.proposals
+        if p.status is ProposalStatus.declined
+    ]
