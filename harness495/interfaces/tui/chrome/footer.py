@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from harness495.core.models import Run
-from harness495.interfaces.tui.widgets.text import hms
+from harness495.interfaces.tui.widgets.text import hms, plural
 
 WIDE = 140
 """Above this, every key fits; below it the row is trimmed to what acts on the current view."""
@@ -37,21 +37,41 @@ def vitals(run: Run, elapsed: float, width: int = 200) -> Text:
     return out
 
 
+def store_vitals(runs: Sequence[Run], width: int = 200) -> Text:
+    """What the store holds and what it has cost, for the two places on the listing that say it.
+
+    A total that quietly dropped what could not be priced would be the one figure on the
+    surface that reads lower than the truth, so an unpriced intervention anywhere colours it —
+    the same rule the gauges follow, where unknown never looks like zero.
+    """
+    total = sum(r.consumption.cost_usd for r in runs)
+    unpriced = sum(r.consumption.cost_unknown_interventions for r in runs)
+    out = Text(justify="right", no_wrap=True)
+    out.append(f"{len(runs)} {plural(len(runs), 'run')}", style="h.meta")
+    out.append(f"  {total:.2f} USD", style="gauge.warn" if unpriced else "h.value")
+    if unpriced and width >= 100:
+        out.append(f"  {unpriced} unpriced", style="h.meta")
+    return out
+
+
 def footer_bar(
     keys: Sequence[tuple[str, str, bool]],
     run: Run | None,
     elapsed: float,
     live: bool,
     width: int = 200,
+    store: Sequence[Run] = (),
 ) -> RenderableType:
     """The keys that act *here*, and the vitals. Stage keys live on the nav bar.
 
     Narrow terminals lose the general keys, never the ones that act on the view you are in: an
     ellipsis at the end of the row would drop exactly the wrong ones.
 
-    ``run`` is ``None`` on the listing, where no run has been opened: a spend, an iteration
-    count and a clock are facts about one run, and there is none to be had. The live mark
-    stays, because it is the display that it speaks for.
+    ``run`` is ``None`` on the listing, where the screen is about the store rather than about
+    one of its runs: a spend, an iteration count and a clock are facts about one run, and there
+    is none to be had. What the store holds goes there instead, so the corner always answers
+    "what is this costing" at whichever scale the screen is about. The live mark stays either
+    way, because it is the display that it speaks for.
     """
     room = 5 if width >= 104 else (4 if width >= 88 else 2)
     if width < WIDE and len(keys) > room:
@@ -65,7 +85,7 @@ def footer_bar(
     for key, label, active in keys:
         left.append(f" {key} ", style="key.active" if active else "h.rule")
         left.append(f"{label}  ", style="tab.name.viewed" if active else "h.meta")
-    right = vitals(run, elapsed, width) if run is not None else Text(justify="right")
+    right = vitals(run, elapsed, width) if run is not None else store_vitals(store, width)
     right.append("  ●" if live else "  ‖", style="req.satisfied" if live else "gauge.warn")
 
     grid = Table.grid(expand=True, padding=(0, 1))

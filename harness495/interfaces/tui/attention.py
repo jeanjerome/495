@@ -17,6 +17,10 @@ four answers to "what", and they are the tones every frame on the surface alread
 * ``bad`` — it stopped and cannot go on, or what was merged is not what was verified.
 * ``good`` — it is done and it holds.
 
+The same shape says what the *store* needs — :func:`store_attention` — because the listing
+asks the same question of every run at once, and an answer counted across the store cannot be
+read off any one of them.
+
 Two things deliberately do not appear here. A frozen display is a state of the *surface*, not
 of the run, and a band that announced it would hide the question the run is stopped on — the
 frame says that instead. And a key is offered only where pressing it would work: a surface
@@ -27,6 +31,7 @@ keystroke the loops would refuse.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from harness495.core.models import Capability, Run, RunStatus
@@ -34,7 +39,7 @@ from harness495.interfaces.tui.driving import Activity
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.reading import running_intervention
 from harness495.interfaces.tui.stages import STAGE_INDEX, STAGES, stage_of
-from harness495.interfaces.tui.widgets.text import clip, hms, short
+from harness495.interfaces.tui.widgets.text import clip, hms, plural, short
 
 
 @dataclass(frozen=True)
@@ -228,4 +233,155 @@ def attention(
         detail=f"nothing is advancing it — next: {HARNESS_WORK.get(run.status, 'the next phase')}",
         key="s" if ours else here.key,
         action=("continue it" if started else "start it") if ours else "see where it stands",
+    )
+
+
+def attending(runs: Sequence[Run]) -> Run | None:
+    """The run the store's attention is on, or ``None`` when nothing is asking for it.
+
+    One function for two things that must never disagree: the run the store band names, and
+    the row ``n`` puts the cursor on. Read in the order a human would: what asked a question,
+    then what is not what was verified, then what stopped, then what is standing still. What
+    is advancing needs nothing, and what is delivered and merged needs nothing either.
+    """
+    for pick in (
+        lambda r: r.pending_decision is not None,
+        lambda r: r.integration_state() == "differs",
+        lambda r: r.status in STOPPED,
+        lambda r: r.status is RunStatus.paused,
+        lambda r: not r.is_terminal() and running_intervention(r) is None,
+    ):
+        for run in runs:
+            if pick(run):
+                return run
+    return None
+
+
+def store_attention(
+    runs: Sequence[Run], advancing: Sequence[str] = (), can_create: bool = False
+) -> Attention:
+    """What the *store* needs from you, in the shape the band already draws.
+
+    The run band answers "what does this run need"; nothing on the surface answered "what does
+    any of them need", and that is the one question the listing exists to ask. Same four tones,
+    same four answers, counted across the store instead of read off one run.
+
+    The order is what needs a human first — a question, a merge that is not what was verified,
+    a run that stopped, one that was paused, one nothing is advancing — and only then what is
+    merely happening. Work is never hidden by that order: it is counted in ``about``, and the
+    glyph turns whenever something is moving, whichever headline is on the band.
+
+    ``advancing`` is what this surface is driving, which the store cannot know: between two
+    interventions a run being walked from here holds no running intervention, and without this
+    the band would call it idle for as long as the harness takes to start the next agent.
+    """
+    if not runs:
+        return Attention(
+            tone="ask",
+            glyph=ICON["idle"],
+            headline="no run yet",
+            detail="495 takes an intent and walks it to a branch you can merge",
+            key="c" if can_create else None,
+            action="write the first intent",
+        )
+    live = [r for r in runs if running_intervention(r) is not None or r.id in advancing]
+    n = len(runs)
+    about = f"{n} {plural(n, 'run')}"
+    if live:
+        about += f" · {len(live)} advancing"
+    target = attending(runs)
+    key = "n" if target is not None else None
+    action = "put the cursor on it" if target is not None else ""
+
+    def band(tone: str, glyph: str, headline: str, detail: str, working: bool = False) -> Attention:
+        return Attention(
+            tone=tone,
+            glyph=glyph,
+            headline=headline,
+            detail=clip(detail, 150),
+            about=about,
+            key=key,
+            action=action,
+            working=working,
+        )
+
+    waiting = [r for r in runs if r.pending_decision is not None]
+    if waiting:
+        asked = ", ".join(
+            f"{r.id} {r.pending_decision.kind.value.replace('_', ' ')}"
+            for r in waiting[:3]
+            if r.pending_decision is not None
+        )
+        return band(
+            "ask",
+            ICON["question"],
+            f"{len(waiting)} waiting on you",
+            f"{asked}{' …' if len(waiting) > 3 else ''}",
+        )
+    differs = [r for r in runs if r.integration_state() == "differs"]
+    if differs:
+        return band(
+            "bad",
+            ICON["stopped"],
+            f"{len(differs)} not integrated as verified",
+            f"{', '.join(r.id for r in differs)}: what is in the ref is not what was verified",
+        )
+    stopped = [r for r in runs if r.status in STOPPED]
+    if stopped:
+        first = stopped[0]
+        return band(
+            "bad",
+            ICON["stopped"],
+            f"{len(stopped)} stopped",
+            f"{first.id} {first.status.value}: "
+            f"{first.stop_reason or first.result.summary or 'nothing was delivered'}",
+        )
+    paused = [r for r in runs if r.status is RunStatus.paused]
+    if paused:
+        return band(
+            "ask",
+            ICON["paused"],
+            f"{len(paused)} paused",
+            f"{', '.join(r.id for r in paused)} — stopped between two steps, nothing is lost",
+        )
+    idle = [
+        r
+        for r in runs
+        if not r.is_terminal() and r.id not in {x.id for x in live} and r.pending_decision is None
+    ]
+    if idle:
+        return band(
+            "ask",
+            ICON["idle"],
+            f"{len(idle)} idle",
+            "nothing is advancing "
+            + plural(len(idle), "it", "them")
+            + f" — {', '.join(f'{r.id} at {stage_of(r)}' for r in idle[:3])}",
+        )
+    if live:
+        return band(
+            "live",
+            "◉",
+            f"{len(live)} advancing",
+            ", ".join(f"{r.id} at {stage_of(r)}" for r in live[:3]),
+            working=True,
+        )
+    unmerged = [
+        r
+        for r in runs
+        if r.status is RunStatus.delivered and r.integration_state() in ("unchecked", "unmerged")
+    ]
+    if unmerged:
+        return band(
+            "good",
+            ICON["delivered"],
+            f"{len(unmerged)} delivered",
+            f"{', '.join(r.id for r in unmerged[:3])} — the patches and the branches are ready; "
+            "nothing has been merged",
+        )
+    return band(
+        "good",
+        ICON["delivered"],
+        "nothing is waiting on you",
+        "every run here has been walked to the end and what was merged is what was verified",
     )

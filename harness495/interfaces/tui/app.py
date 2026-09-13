@@ -67,7 +67,8 @@ def watch(
     if still:
         console.print(shell.flow(console.width))
         if export is not None:
-            console.save_svg(str(export), title=f"495 {shell.run.id} · {shell.view}")
+            subject = shell.run.id if not shell.at_home else "the store"
+            console.save_svg(str(export), title=f"495 {subject} · {shell.view}")
             console.print(Text(f"written {export}", style="h.meta"))
         return 0
 

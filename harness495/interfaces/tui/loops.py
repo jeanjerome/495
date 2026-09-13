@@ -153,12 +153,13 @@ def open_decide(shell: Shell) -> None:
     waiting for. Recording it and then leaving the run standing would turn one decision into
     two things to remember.
     """
-    pending = shell.run.pending_decision
-    if pending is None:
+    run = shell.focus
+    pending = run.pending_decision if run is not None else None
+    if run is None or pending is None:
         return
-    run_id = shell.run.id
+    run_id = run.id
     shell.asking = Ask(
-        decision_question(shell.run, pending),
+        decision_question(run, pending),
         commit=lambda answers: _decided(shell, run_id, answers),
     )
 
@@ -170,7 +171,11 @@ def _decided(shell: Shell, run_id: str, answers: Answers) -> None:
         shell.driver.notice = f"could not record it: {exc}"
         return
     shell.source.refresh(force=True)
-    shell.view = stage_of(shell.run)
+    if not shell.at_home:
+        # Answered from inside the run: the question was asked at a stop, and the run has
+        # moved on from it. Answered from the listing, the screen stays the listing — the row
+        # says what the answer did, and walking into a run is what enter is for.
+        shell.view = stage_of(shell.run)
 
 
 def open_create(shell: Shell) -> None:
@@ -196,7 +201,9 @@ def _created(shell: Shell, answers: Answers) -> None:
 
 def open_integrate(shell: Shell) -> None:
     """Ask which ref you merged into, then have the harness recognise it — or not."""
-    run = shell.run
+    run = shell.focus
+    if run is None:
+        return
     if not run.result.report_ref:
         shell.driver.notice = "nothing has been delivered, so there is nothing to recognise"
         return
@@ -224,7 +231,9 @@ def open_merge(shell: Shell) -> None:
     here, on the keystroke: a tree that would refuse the merge says so instead of opening a
     question whose only outcome is that refusal.
     """
-    run = shell.run
+    run = shell.focus
+    if run is None:
+        return
     it = run.current_iteration
     head = (it.version.head_commit if it and it.version else "") or ""
     branch = run.result.branch or (it.version.branch if it and it.version else None)
@@ -352,9 +361,12 @@ def run_prompted(shell: Shell) -> None:
     while shell.running:
         shell.source.refresh()
         console.print(shell.flow(console.width))
-        run = shell.run
-        pending = run.pending_decision
-        if pending is not None and shell.can("decide"):
+        # A question is put to you where it was raised, which is inside the run that raised
+        # it. On the home page this session has no cursor to say which run it means, so it
+        # asks for one instead of answering for whichever happens to be first.
+        run = None if shell.at_home else shell.run
+        pending = run.pending_decision if run is not None else None
+        if run is not None and pending is not None and shell.can("decide"):
             answer = ask_decision(console, run, pending)
             if answer is None:
                 shell.running = False
@@ -368,16 +380,18 @@ def run_prompted(shell: Shell) -> None:
             _settle(shell)
             continue
         controls = shell.controls()
+        if shell.at_home:
+            # On a terminal the home page points with a cursor and its controls act on the row
+            # under it. A prompted session has no cursor, so the only controls left are the
+            # ones that act on the store rather than on one of its runs; ``o`` picks a run.
+            controls = [(key, label) for key, label in controls if key == "c"]
         offered = "".join(f"{key} {label}, " for key, label in controls)
-        if shell.opened:
+        if not shell.at_home:
             choices = [s.key for s in STAGES] + [k for k, _ in controls] + ["g", "l", "o", "?", "q"]
             question = (
                 f"{offered}stage (1-{len(STAGES)}), g log, l runs, o open a run, ? help, q quit"
             )
         else:
-            # The listing, with nothing open: a stage, a log and a control all name a run, and
-            # asking for one before a run is picked is the terminal's way of offering a key
-            # that does nothing.
             choices = [k for k, _ in controls] + ["o", "?", "q"]
             question = f"{offered}o open a run, ? help, q quit"
         key = Prompt.ask(
@@ -405,17 +419,19 @@ def run_prompted(shell: Shell) -> None:
             open_merge(shell)
             ask = shell.asking
             shell.asking = None
-            if ask is not None:
+            focus = shell.focus
+            if ask is not None and focus is not None:
                 answers = ask_in_prompt(console, ask.question)
                 if answers is not None:
-                    _merged(shell, shell.run.id, answers)
+                    _merged(shell, focus.id, answers)
                     _settle(shell)
         elif key == "i" and shell.can("integrate"):
-            it = shell.run.current_iteration
+            focus = shell.focus
+            it = focus.current_iteration if focus is not None else None
             head = (it.version.head_commit if it and it.version else "") or ""
             answers = ask_in_prompt(console, integration_question(head))
-            if answers is not None:
-                _integrated(shell, shell.run.id, answers)
+            if answers is not None and focus is not None:
+                _integrated(shell, focus.id, answers)
                 _settle(shell)
         elif key in STAGE_BY_KEY:
             shell.act(f"stage:{STAGE_BY_KEY[key]}")

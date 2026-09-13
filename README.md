@@ -260,8 +260,19 @@ Four things carry the surface:
   yourself. A control is offered only where pressing it would do something, so the keys on
   screen are the moves that exist right now.
 
+**The store has a page of its own.** `l` steps out of the run and opens it. One line says what
+any of the runs need — a question waiting, a merge that is not what was verified, a run that
+stopped, one nothing is advancing — then the store itself: every run, where it stands, how long
+since it moved and what it has spent. Beside the listing, the run under the cursor, read without
+opening it: its eight stops, what it needs, where its requirements and checks stand, its spend
+against its ceiling, the branch it delivered and whether anything carries it. Under that, how
+495 is set up for this project — which agents produce and specify, which perspectives review,
+what isolates a run, what ceilings stop it. Nothing on that page speaks for a run you are not
+pointing at: `d`, `s`, `p`, `m` and `i` act on the row under the cursor, `enter` opens it, a
+digit opens it at that stop, and `n` goes to whichever run needs you.
+
 Keys: `1`-`8` or `←` `→` walk the pipeline, `n` catches up to where the run is, `↑` `↓` move the
-cursor, `g` the event log (`f` filters it), `l` every run in the store, `space` freezes the
+cursor, `g` the event log (`f` filters it), `l` the store's own page, `space` freezes the
 display, `?` help, `q` quit — the run keeps going without the surface. Without a terminal the
 same surface prints and asks with the same vocabulary, controls included, so a piped session
 loses nothing.

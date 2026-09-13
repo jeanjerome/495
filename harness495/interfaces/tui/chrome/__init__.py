@@ -1,7 +1,7 @@
 """The four surfaces that are on screen whatever the view: identity, attention, pipeline, keys."""
 
 from harness495.interfaces.tui.chrome.band import attention_band
-from harness495.interfaces.tui.chrome.footer import footer_bar, vitals
+from harness495.interfaces.tui.chrome.footer import footer_bar, store_vitals, vitals
 from harness495.interfaces.tui.chrome.header import header, store_header
 from harness495.interfaces.tui.chrome.logo import LogoMark, still
 from harness495.interfaces.tui.chrome.nav import nav_bar
@@ -14,5 +14,6 @@ __all__ = [
     "nav_bar",
     "still",
     "store_header",
+    "store_vitals",
     "vitals",
 ]

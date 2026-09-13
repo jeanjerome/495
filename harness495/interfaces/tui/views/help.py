@@ -19,16 +19,19 @@ CONTROLS = (
     ("m", "integrate", "bring the delivered branch into the branch you are on, then check it"),
     ("i", "integrate", "check the ref you merged into against the verified version"),
 )
-"""A control appears only where it applies: the footer offers what can act on this run now."""
+"""A control appears only where it applies: the footer offers what can act on this run now.
+
+On the home page "this run" is the row under the cursor, so the same six keys act on whatever
+the listing is pointing at — which is the only run that page is about."""
 
 OTHER_KEYS = (
     ("→ ← tab", "walk", "the next or previous stage of the pipeline"),
-    ("n", "catch up", "jump to the stage the run is actually at"),
+    ("n", "catch up", "the stage the run is at — on the home page, the run that needs you"),
     ("↑ ↓ / j k", "move", "the cursor; the detail beside the list follows it"),
     ("enter", "open", "the full log of the selected check, in your pager"),
     ("g", "log", "the event stream, filtered"),
     ("f", "filter", "log: useful → all → loud"),
-    ("l", "runs", "every run in the store; enter opens one"),
+    ("l", "home", "the store, the run under the cursor, and how 495 is set up here"),
     ("space", "freeze", "stop refreshing the display; the run itself is untouched"),
     ("r", "refresh", "reload the run from the store and redraw now"),
     ("?", "help", "this"),
