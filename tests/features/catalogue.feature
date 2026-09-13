@@ -74,9 +74,21 @@ Feature: Gaps of a host project against the test-library catalogue
 
   Scenario: A technology whose section of the catalogue is empty has no gaps
     Given a shell project
+    And the catalogue has no entry for "shell"
     When the harness profiles the project
     Then the role "static" of "shell" is not measured
     And there is no gap on "static" of "shell"
+
+  Scenario: A shell project checked by shellcheck alone is told the rest of each entry
+    Given a shell project
+    And the file ".shellcheckrc" contains "disable=SC2086"
+    When the harness profiles the project
+    Then the gap on "static" of "shell" is "incomplete"
+    And that gap recommends "shellcheck, shfmt"
+    And the gap on "security" of "shell" is "incomplete"
+    And that gap recommends "shellcheck, gitleaks"
+    And the gap on "bdd" of "shell" is "unmeasured"
+    And that gap recommends "cucumber, aruba"
 
   Scenario: The profile command states the gaps to the requester
     Given a Python project
@@ -110,6 +122,7 @@ Feature: Gaps of a host project against the test-library catalogue
   Scenario: The specifier is told when the catalogue has no entry for a role the project does not measure
     Given a shell project
     And the file ".shellcheckrc" contains "disable=SC2086"
+    And the catalogue has no entry for "shell"
     When the harness profiles the project
     Then the catalogue rendered to the specifier says "static (lint, formatting, complexity, duplication): measured with shellcheck"
     And the catalogue rendered to the specifier says "bdd (behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to steps and run by the runner): not measured; the catalogue has no entry"

@@ -178,10 +178,10 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
-| runner | | | | |
-| bdd | | | | |
-| static | | | | |
-| security | | | | |
+| runner | bats | recommended | study 2026-09-13 (`docs/studies/2026-09-13-shell-test-libraries.md`) | bats-core 1.14.0, npm `bats` 1.13.0 measured; `run` captures status and output, `--formatter tap`; assertions from bats-assert and bats-support |
+| bdd | cucumber (Ruby), with aruba | recommended | study 2026-09-13 (shell) | no Gherkin runner written in shell has a user base, so the runner is the Cucumber project's own library for command-line programs: cucumber 11.1.1 and aruba 2.4.1 measured, running a command, its output and its exit status are built-in steps and the scenario carries no step code; `GEM_PATH` needs the default gems; `--publish-quiet` |
+| static | shellcheck, with shfmt | recommended | study 2026-09-13 (shell), in use in 495's profile since 2026-09-12 | 0.11.0 and 3.13.1 measured; `-S warning` chooses the failing severity, `-f json`; shfmt reads its `.editorconfig` keys and `-d` prints the diff |
+| security | shellcheck (`-S warning`), gitleaks | recommended | study 2026-09-13 (shell) | shellcheck's warnings are the analysis for injection through unquoted expansions, `rm -rf` on an expansion and `eval`; gitleaks 8.30.1 measured for committed secrets, `dir .` with `--report-format json`, allowlists the documentation example keys; shell has no dependency manifest, so no vulnerable-dependency check |
 
 ## Rejected
 
@@ -198,3 +198,9 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Python | security | bandit | same findings as ruff's `S` rules on 495, rule for rule and line for line; a second tool for the same measure | study 2026-09-13 |
 | Python | security | safety | current vulnerability database served behind a vendor account | study 2026-09-13 |
 | Python | contract | dredd | Node.js tool; its Python hooks last released 2018-04 | study 2026-09-13 |
+| Shell | runner | shellspec | last release 2021-01; a describe/it DSL of its own | study 2026-09-13 (shell) |
+| Shell | runner | shunit2 | last release 2020-03 | study 2026-09-13 (shell) |
+| Shell | runner | bashunit | active and recent, xUnit style; small user base, no advantage measured over bats | study 2026-09-13 (shell) |
+| Shell | bdd | shellkin, g4b, shellot | Gherkin runners written in shell without a user base (5, 2 and 0 stars) | study 2026-09-13 (shell) |
+| Shell | static | shellharden | rewrites quoting, a fixer rather than a checker, within shellcheck's scope | study 2026-09-13 (shell) |
+| Shell | security | trufflehog | AGPL-3.0; verifies secrets against the providers online | study 2026-09-13 (shell) |

@@ -340,16 +340,35 @@ not a second engine."""
 # -------------------------------------------------------------------------------- shell
 
 SHELL_TOOLS: ToolTable = (
-    (CatalogueRole.runner, "shellspec", (recognised("shellspec"),)),
     (CatalogueRole.runner, "bats", (recognised("bats"),)),
+    (CatalogueRole.runner, "shellspec", (recognised("shellspec"),)),
     (CatalogueRole.runner, "shunit2", (recognised("shunit2"),)),
+    (
+        CatalogueRole.runner,
+        "bashunit",
+        (config_file("bashunit"), config_file("lib/bashunit"), in_tests("function test_")),
+    ),
+    (CatalogueRole.bdd, "cucumber", (dependency("cucumber"), in_tests("aruba/cucumber"))),
+    (CatalogueRole.bdd, "aruba", (dependency("aruba"), in_tests("aruba/cucumber"))),
+    (
+        CatalogueRole.bdd,
+        "@cucumber/cucumber",
+        tuple(
+            config_file(f"cucumber.{ext}") for ext in ("js", "mjs", "cjs", "json", "yaml", "yml")
+        ),
+    ),
+    (CatalogueRole.bdd, "behave", (directory("features/steps"), config_file("behave.ini"))),
     (CatalogueRole.static, "shellcheck", (recognised("shellcheck"),)),
     (CatalogueRole.static, "shfmt", (recognised("shfmt"),)),
+    (CatalogueRole.security, "shellcheck", (recognised("shellcheck"),)),
+    (CatalogueRole.security, "gitleaks", (config_file(".gitleaks.toml"), in_ci("gitleaks"))),
 )
-"""The shell roles, measured with the tools ``_detect_shell`` already recognises.
+"""The shell markers (``docs/studies/2026-09-13-shell-test-libraries.md``).
 
-``bdd`` and ``security`` have no marker yet: shellspec's describe/it is not Gherkin, and the
-catalogue's shell section awaits its study.
+The runner and static tools are those ``_detect_shell`` recognises from configuration and
+directives; ``dependencies`` are the gems a ``Gemfile`` lists, ``tests`` the files under the
+test directories and ``features/``. shellcheck measures security as well as static: its
+warnings are the analysis there is for shell.
 """
 
 TABLES: dict[str, ToolTable] = {"python": PYTHON_TOOLS, "shell": SHELL_TOOLS}

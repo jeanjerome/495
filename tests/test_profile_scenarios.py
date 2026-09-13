@@ -127,6 +127,17 @@ def a_rust_project(project: Project) -> None:
     (project.root / "Cargo.toml").write_text('[package]\nname = "x"\n')
 
 
+@given(parsers.parse('the catalogue has no entry for "{technology}"'))
+def the_catalogue_has_no_entry_for(technology: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from harness495.core import catalogue
+
+    monkeypatch.setattr(
+        catalogue,
+        "RECOMMENDED",
+        tuple(r for r in catalogue.RECOMMENDED if r.technology != technology),
+    )
+
+
 @given(parsers.parse('its pyproject.toml lists the dependency "{name}"'))
 @when(parsers.parse('its pyproject.toml lists the dependency "{name}"'))
 def pyproject_lists_a_dependency(project: Project, name: str) -> None:
@@ -273,7 +284,7 @@ def the_role_is_not_measured(project: Project, role: str, technology: str) -> No
 
 @then(parsers.parse('that role is recognised from "{marker}"'))
 def that_role_is_recognised_from(project: Project, marker: str) -> None:
-    assert project.last_role is not None and project.last_role.markers == [marker]
+    assert project.last_role is not None and marker in project.last_role.markers
 
 
 @then(parsers.parse('every role of the catalogue for "{technology}" is listed'))

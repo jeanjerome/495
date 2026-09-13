@@ -75,6 +75,23 @@ Feature: Role coverage of a host project
     And the role "static" of "shell" is measured with "shellcheck"
     And the role "bdd" of "shell" is not measured
 
+  Scenario: Aruba scenarios measure the bdd role of a shell project
+    Given a shell project
+    And the file "Gemfile" contains "gem 'aruba'"
+    And the file "features/support/env.rb" contains "require 'aruba/cucumber'"
+    And the file "features/greet.feature" contains "Feature: Greeting"
+    When the harness profiles the project
+    Then the role "bdd" of "shell" is measured with "cucumber, aruba"
+    And that role is recognised from "Gemfile: dependency aruba"
+
+  Scenario: A secrets scan in CI measures the security role of a shell project with shellcheck
+    Given a shell project
+    And the file ".shellcheckrc" contains "disable=SC2086"
+    And the file ".github/workflows/ci.yml" contains "uses: gitleaks/gitleaks-action@v2"
+    When the harness profiles the project
+    Then the role "security" of "shell" is measured with "shellcheck, gitleaks"
+    And the role "static" of "shell" is measured with "shellcheck"
+
   Scenario: A helper script's tools are named, but do not make shell a covered technology
     Given a Python project
     And the file "scripts/deploy.sh" contains "#!/bin/sh"

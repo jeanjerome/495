@@ -151,6 +151,30 @@ def _uses_shfmt(root: Path) -> bool:
     return any(key in text for key in SHFMT_KEYS)
 
 
+GEM = re.compile(r"""^\s*gem\s+['"]([A-Za-z0-9_.-]+)['"]""", re.M)
+
+
+def _shell_tree(root: Path, tooling: list[str]) -> Tree:
+    """What the shell markers read: the tools the detector recognised, the gems a ``Gemfile``
+    lists, the test files (``.bats``, ``.sh``, ``.rb``, ``.py`` and ``.feature`` under the test
+    directories and ``features/``), the CI files."""
+    tree = Tree(root=root, recognised=frozenset(tooling))
+    gemfile = root / "Gemfile"
+    if gemfile.is_file():
+        for name in GEM.findall(_read_small(gemfile)):
+            tree.dependencies.setdefault(name, "Gemfile")
+
+    def is_test(path: Path) -> bool:
+        parts = path.relative_to(root).parts[:-1]
+        in_test_dir = any(part.lower() in TEST_DIRS for part in parts)
+        return in_test_dir and path.suffix in (".bats", ".sh", ".rb", ".py", ".feature")
+
+    for path in _walk(root, is_test):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    read_ci(tree, _read_small)
+    return tree
+
+
 def _detect_shell(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     """The stack with no manifest: what it is written in, and what keeps it honest.
 
@@ -453,8 +477,9 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     # Last: it is the one that asks what the others concluded.
     _detect_shell(root, prof, cmds)
     if "shell" in prof.languages:
-        tree = coverage.Tree(root=root, recognised=frozenset(prof.tooling))
-        prof.role_coverage.extend(coverage.rows("shell", tree, coverage.SHELL_TOOLS))
+        prof.role_coverage.extend(
+            coverage.rows("shell", _shell_tree(root, prof.tooling), coverage.SHELL_TOOLS)
+        )
     prof.commands = list(cmds.values())
     prof.conventions = list(project.conventions)
     _collect_docs(root, prof, project.docs)

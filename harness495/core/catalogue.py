@@ -115,6 +115,10 @@ RECOMMENDED: tuple[Recommendation, ...] = (
     Recommendation("python", CatalogueRole.contract, ("schemathesis",)),
     Recommendation("python", CatalogueRole.performance, ("pytest-benchmark", "pytest-memray")),
     Recommendation("python", CatalogueRole.doubles, ("pytest-mock",)),
+    Recommendation("shell", CatalogueRole.runner, ("bats",)),
+    Recommendation("shell", CatalogueRole.bdd, ("cucumber", "aruba")),
+    Recommendation("shell", CatalogueRole.static, ("shellcheck", "shfmt")),
+    Recommendation("shell", CatalogueRole.security, ("shellcheck", "gitleaks")),
 )
 """The document's ``recommended`` entries, in its order; a cell with several entries lists
 its default first. A technology whose section of the document is empty has no entry here,

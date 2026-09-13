@@ -569,8 +569,11 @@ recommande déjà l'outil (la ligne est alors une source de plus). La commande n
 `docs/test-libraries.md` : une observation sur un projet est admise par le mainteneur
 (`tests/features/retrospective.feature`). Ce que le run a appris sur les commandes, les
 conventions et le scope du projet (E44 (a)) reste à lire dans la même commande.
-Reste : un passage d'étude par technologie (Python fait le 2026-09-13 ;
-JavaScript / TypeScript, Rust, Go, Java / Kotlin et Shell restent à faire). Les kinds de
+Études par technologie : Python fait le 2026-09-13 ; Shell **fait** le 2026-09-13
+(`docs/studies/2026-09-13-shell-test-libraries.md` : bats, cucumber avec aruba faute de
+runner Gherkin écrit en shell, shellcheck avec shfmt, shellcheck et gitleaks ; marqueurs dans
+`core/coverage.py::SHELL_TOOLS`, scénarios shell de `profile.feature` et `catalogue.feature`) ;
+JavaScript / TypeScript, Rust, Go et Java / Kotlin restent à faire. Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**
