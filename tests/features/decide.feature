@@ -40,3 +40,31 @@ Feature: Deciding on a change from the evidence measured on it
     When the harness assesses the change
     Then the requirement R1 is violated
     And the outcome is reject
+
+  Scenario: A reviewer assessing a requirement as violated without a finding leaves it undetermined
+    Given V1 passed on the change
+    And V2 passed on the change
+    And a reviewer rejected the change assessing R1 as violated without any finding
+    When the harness assesses the change
+    Then the requirement R1 is undetermined
+    And the requirement R2 is satisfied
+    And the outcome is undetermined
+    And no correction request names R1
+
+  Scenario: An unsupported violated assessment weighs no more than an undetermined answer
+    Given V1 passed on the change
+    And V2 passed on the change
+    And a reviewer rejected the change assessing R1 as violated without any finding
+    And a reviewer accepted the change
+    When the harness assesses the change
+    Then the requirement R1 is satisfied
+    And the outcome is accept
+
+  Scenario: A violated assessment backed by a finding that cites an observation violates the requirement
+    Given V1 passed on the change
+    And V2 passed on the change
+    And a reviewer rejected the change assessing R1 as violated with a major finding citing "file.py:3"
+    When the harness assesses the change
+    Then the requirement R1 is violated
+    And the outcome is reject
+    And a correction request names R1

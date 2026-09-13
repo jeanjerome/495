@@ -105,6 +105,31 @@ def a_reviewer_rejected_with_a_major_finding(case: Case, rid: str, observation: 
     )
 
 
+@given(
+    parsers.re(
+        r"a reviewer rejected the change assessing (?P<rid>\w+) as violated "
+        r"(?:without any finding|with a major finding citing \"(?P<observation>.*)\")"
+    )
+)
+def a_reviewer_rejected_assessing_violated(case: Case, rid: str, observation: str | None) -> None:
+    findings = (
+        []
+        if observation is None
+        else [
+            Finding(severity=Severity.major, title="bad", requirement_id=rid, evidence=observation)
+        ]
+    )
+    case.reviews.append(
+        ReviewVerdict(
+            intervention_id=f"int-q{len(case.reviews)}",
+            perspective=f"q{len(case.reviews)}",
+            verdict=Verdict.reject,
+            findings=findings,
+            requirement_assessment={rid: RequirementStatus.violated},
+        )
+    )
+
+
 @when("the harness assesses the change")
 def the_harness_assesses_the_change(case: Case) -> None:
     case.assessment = assess(case.spec, case.evidence, case.reviews)
@@ -123,3 +148,8 @@ def the_outcome_is(case: Case, outcome: str) -> None:
 @then(parsers.parse("a correction request names {rid}"))
 def a_correction_request_names(case: Case, rid: str) -> None:
     assert any(f"[{rid}]" in c for c in case.result().correction_requests)
+
+
+@then(parsers.parse("no correction request names {rid}"))
+def no_correction_request_names(case: Case, rid: str) -> None:
+    assert not any(f"[{rid}]" in c for c in case.result().correction_requests)

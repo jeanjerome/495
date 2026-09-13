@@ -37,6 +37,12 @@ requester; the harness never resolves it alone.
 A reviewer finding of severity `blocker` with no `requirement_id` blocks acceptance when it
 cites an observation. A finding without an observation, whatever its severity, changes nothing.
 
+A reviewer's `requirement_assessment` is a claim about each requirement, not an observation.
+An entry marked `violated` weighs what the findings behind it weigh: when the same reviewer
+carries a `blocker` or `major` finding on that requirement that cites an observation, the finding
+is what violates it; when it carries none, the entry is read as `undetermined` and the reason
+records that the reviewer assessed the requirement as violated without a cited observation.
+
 ## Consequences
 
 - The producer's structured summary (`commands_run`, `not_done`, `files_changed`) is displayed
@@ -47,9 +53,10 @@ cites an observation. A finding without an observation, whatever its severity, c
 - A reviewer that returns no parsable verdict, or that altered the tree, is `undetermined` or
   `discarded`, and both count as absence of review: a run with only such verdicts ends
   `undetermined`, never `accept`.
-- Known deviation: `requirement_assessment` marked `violated` by a reviewer makes the
-  requirement `violated` without a cited observation (`docs/etude-harnais-495.md`, E01). This
-  contradicts the rule above and is to be removed, not relied on.
+- A reviewer cannot send the producer into a correction iteration by naming a requirement
+  as violated: the correction request is built from the finding's title and evidence, and
+  there is none. A run whose only reviewer answers this way ends `undetermined`, like one whose
+  reviewer answered `undetermined`.
 
 ## Where in the code
 
@@ -57,8 +64,10 @@ cites an observation. A finding without an observation, whatever its severity, c
 - `harness495/core/engine.py`: `Engine._decide` (applies the assessment to the run),
   `Engine._ask_undetermined` (the question raised on `undetermined`).
 - `harness495/core/models.py`: `RequirementStatus`, `Verdict`, `Severity`, `Finding.evidence`.
-- `tests/test_scope_decide.py`: `test_reviewer_violation_requires_evidence`,
-  `test_no_review_means_undetermined_and_discarded_ignored`,
+- `tests/features/decide.feature` (steps in `tests/test_decide_scenarios.py`): a finding that
+  cites no observation, a finding that cites one, a `violated` assessment without a finding,
+  alone and beside an accepting reviewer, and one backed by a finding.
+- `tests/test_scope_decide.py`: `test_no_review_means_undetermined_and_discarded_ignored`,
   `test_unattached_blocker_and_scope_block_acceptance`.
 - `tests/test_engine.py`: `test_undetermined_refuses_to_conclude`,
   `test_reviewer_tampering_discards_verdict`.

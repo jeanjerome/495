@@ -189,7 +189,8 @@ Review the change from the perspective: **{perspective}**.
 For each requirement listed in the facts, decide from what you can observe whether it is
 `satisfied`, `violated` or `undetermined`. Report `undetermined` whenever you lack evidence:
 never guess. A `violated` assessment must be backed by a finding whose `evidence` field cites
-the file and line, the command output, or the diff hunk that shows the violation.
+the file and line, the command output, or the diff hunk that shows the violation; a `violated`
+assessment with no such finding is read as `undetermined`.
 
 A finding about the change names the requirement it concerns in `requirement_id`. A finding
 about how something is measured — a command that cannot report what it is meant to report —

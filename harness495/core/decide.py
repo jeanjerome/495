@@ -136,20 +136,29 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 set_aside.append(
                     f"{r.id}: {persp} reviewer's '{f.title}' rests on {', '.join(sorted(blind))}"
                 )
-        review_says_violated = [
+        # A reviewer's per-requirement assessment is a claim; only its findings carry an
+        # observation. An assessment of `violated` therefore weighs exactly what the findings
+        # behind it weigh: with an admissible finding on the requirement, the finding is what
+        # violates it; with none, the reviewer has said "violated" without showing anything,
+        # and that is read as "undetermined".
+        observed_by = {persp for persp, _ in violations}
+        unsupported = [
             rv.perspective
             for rv in active_reviews
             if rv.requirement_assessment.get(r.id) is RequirementStatus.violated
-            and not any(
-                rests_on_a_blind_instrument(f) for f in rv.findings if f.requirement_id == r.id
-            )
+            and rv.perspective not in observed_by
         ]
+        for persp in unsupported:
+            set_aside.append(
+                f"{r.id}: {persp} reviewer assessed {r.id} as violated without a cited observation"
+            )
         review_undetermined = [
             rv.perspective
             for rv in active_reviews
             if rv.requirement_assessment.get(r.id) is RequirementStatus.undetermined
+            or rv.perspective in unsupported
         ]
-        if failed or violations or review_says_violated:
+        if failed or violations:
             statuses[r.id] = RequirementStatus.violated
             why = []
             if failed:
@@ -161,9 +170,6 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 # itself instead of applying someone else's conclusion.
                 observed = f.evidence.strip().replace("\n", " ")[:400]
                 corrections.append(f"[{r.id}] {f.title} — observed: {observed}")
-            for persp in review_says_violated:
-                if persp not in [p for p, _ in violations]:
-                    why.append(f"{persp} reviewer assessed {r.id} as violated")
             why.extend(_set_aside_for(r.id, set_aside))
             reasons[r.id] = "; ".join(why)
         elif not r.verification_ids or not_run or insufficient_only or not passed:
@@ -188,11 +194,18 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
             and active_reviews
         ):
             statuses[r.id] = RequirementStatus.undetermined
-            reasons[r.id] = "all reviewers undetermined despite passing verifications"
+            reasons[r.id] = "; ".join(
+                [
+                    "all reviewers undetermined despite passing verifications",
+                    *_set_aside_for(r.id, set_aside),
+                ]
+            )
             undetermined.append(f"{r.id}: {reasons[r.id]}")
         else:
             statuses[r.id] = RequirementStatus.satisfied
-            reasons[r.id] = "verifications passed: " + ", ".join(passed)
+            reasons[r.id] = "; ".join(
+                ["verifications passed: " + ", ".join(passed), *_set_aside_for(r.id, set_aside)]
+            )
 
     # Stated once per distinct observation, ahead of the reviewers' claims: these are the
     # harness's own measurements, and the requirements they carry are named together rather

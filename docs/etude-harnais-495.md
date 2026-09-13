@@ -142,8 +142,12 @@ Dans `assess`, la liste `review_says_violated` retient tout réviseur dont
 `test_reviewer_violation_requires_evidence` ne couvre que le chemin des findings (son verdict
 n'a pas d'`assessment`). Une revue « je pense que R1 est violée » sans observation contredit le
 principe *evidence-required* et déclenche une itération de correction avec un message vide.
-Piste : n'admettre `review_says_violated` que si le même réviseur porte au moins un finding
-étayé sur cette exigence, sinon le compter comme `undetermined` ; ajouter le test manquant.
+Fait le 2026-09-13 : dans `assess`, une évaluation `violated` ne pèse que ce que pèsent les
+findings du même réviseur sur l'exigence (un finding `blocker` ou `major` citant une
+observation, hors instrument aveugle) ; sans finding, elle est lue comme `undetermined` et la
+raison note que le réviseur a évalué l'exigence violée sans observation citée. Trois scénarios
+dans `tests/features/decide.feature` ; la déviation connue est retirée de l'ADR 0001 ; le
+brief du réviseur énonce la règle. E01 est clos.
 
 **E02 · Aucune détection du non-déterminisme des vérifications.** Priorité haute · effort M.
 Chaque commande est exécutée une seule fois par version. Un test instable (ordre, horloge,
@@ -780,7 +784,7 @@ semaine ou plus).
 
 | Id | Écart | Axe | Effort | Effet attendu |
 |---|---|---|---|---|
-| E01 | `requirement_assessment: violated` sans finding étayé rend l'exigence violée | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
+| E01 | `requirement_assessment: violated` sans finding étayé rendait l'exigence violée ; lue comme `undetermined` depuis le 2026-09-13 (fait) | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
 | E03 · E32 | le producteur écrit ses tests ; un échec sur base par erreur d'import vaut discrimination | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, puis rôle test designer |
 | E33 | la suite existante peut être affaiblie (suppression, skip) sans détection | tests hôtes | M | comptage des tests base/changement, protection des tests existants |
 | E30 · E31 | force de la suite non mesurée : ni couverture du diff ni mutation ciblée | tests hôtes | M à L | dit *où* la spécification ne regarde pas ; sort du « satisfied = passe et ne passait pas » |
