@@ -208,7 +208,7 @@ skips the specification gate when the specification has no verification gap.
 ```
 
 ```text
-integrated as fast-forward: 495/run-15ebe4f8ec is in 1c371dc44b58, and it carries what was verified
+integrated as fast-forward: main carries what was verified, at 1c371dc44b58
 ```
 
 `merge` is the only command that writes to your checkout. It brings the delivered branch into
@@ -493,10 +493,19 @@ commit and adds nothing; `rebase` copies the run's commits on top of yours; `squ
 everything into one commit, whose message says which commit was verified and by which run;
 `merge` keeps the verified commit as an ancestor under a merge commit.
 
+`rebase` names the shape of the result, not the command: it is run as a `cherry-pick` of the
+run's range onto your branch. A `git rebase` would move the delivered branch rather than copy
+from it — which git refuses outright while that branch is checked out in the run's worktree,
+and which would put the verified commit out of reach of the name the check looks it up by.
+
 `rebase` and `squash` copy the change rather than move it, so the delivered commit is then
 absent from your branch and only the file contents say the right thing landed — which is why
 the check reads both. An unclean tree, a branch that already carries the change, and a conflict
 are each refused, and each leaves the repository exactly as it was found.
+
+The ref is recorded under the name it has in your repository: asking about `HEAD` records
+the branch you were standing on, so the check says which branch carries the change rather than
+where you happened to be.
 
 `check-integration` answers one of four words: `unchecked` (nothing has been asked),
 `unmerged` (the ref is still where the run started — not a failure), `landed` (it carries the

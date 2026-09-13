@@ -249,16 +249,26 @@ def _deliver(run: Run) -> Text:
         return Text("Nothing is delivered yet; the run has not reached a verdict.", style="h.meta")
     out = Text()
     out.append(f"Delivered: {res.summary or 'the change is ready to integrate'}.", "req.satisfied")
-    out.append(
-        f" Patch at {res.patch_ref}, branch {res.branch}. Nothing is merged until you say so.",
-        style="h.value",
-    )
-    if res.integration is not None:
-        ok = res.integration.contains_commit and res.integration.files_identical
+    out.append(f" Patch at {res.patch_ref}, branch {res.branch}.", style="h.value")
+    # Read off the same four states the eighth stop reads, never off the two booleans: a
+    # rebase and a squash leave the delivered commit out of your branch on purpose, and a
+    # stage that called that "not confirmed" was calling the requested outcome a failure —
+    # while the stop that owns the question, three keys away, called the same run integrated.
+    g = res.integration
+    state = run.integration_state()
+    if g is None or state in ("unchecked", "unmerged"):
+        out.append(" Nothing is merged until you say so.", style="h.value")
+    elif state == "landed":
         out.append(
-            f" Integration into {res.integration.target_ref}: "
-            + ("confirmed." if ok else "not confirmed."),
-            style="req.satisfied" if ok else "req.violated",
+            f" {g.target_ref} carries it"
+            + (f", as a {res.integrated_as}" if res.integrated_as else "")
+            + "; stop 8 holds the evidence.",
+            style="req.satisfied",
+        )
+    else:
+        out.append(
+            f" What is in {g.target_ref} is not what was verified — stop 8 says what differs.",
+            style="req.violated",
         )
     return out
 
@@ -300,8 +310,10 @@ def _integration(run: Run) -> Text:
             style="attn.you",
         )
     else:
+        detail = clip(g.detail, 120)
         out.append(
-            f"What is in {g.target_ref} is not what was verified: {clip(g.detail, 120)}",
+            f"What is in {g.target_ref} is not what was verified: {detail}"
+            + ("" if detail.endswith(("…", ".")) else "."),
             style="req.violated",
         )
     if g.verifications_rerun:

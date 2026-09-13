@@ -711,8 +711,8 @@ def merge(
         _emit_json({**ic.model_dump(mode="json"), "state": state})
     else:
         console.print(
-            f"[green]integrated[/] as {how}: {run.result.branch} is in {ic.target_commit[:12]}, "
-            "and it carries what was verified"
+            f"[green]integrated[/] as {how}: {ic.target_ref} carries what was verified, at "
+            f"{ic.target_commit[:12]}"
             if state == "landed"
             else f"[red]integrated, but the tree does not match[/]: {ic.detail}"
         )

@@ -2207,6 +2207,13 @@ class Engine:
         root = Path(run.project_root)
         head = it.version.head_commit
         target = git.rev_parse(root, target_ref)
+        # "HEAD" is where you happen to be standing, not a name anyone can act on, and the one
+        # question this stop answers is which branch carries the change. So the ref is recorded
+        # under the name it has there: a check that says "HEAD" reads the same whichever branch
+        # it was run on, and the one fact worth keeping is the one it drops. A detached head has
+        # no name to take and keeps the one it was given.
+        if target_ref == "HEAD":
+            target_ref = git.current_branch(root) or target_ref
         contains = git.is_ancestor(root, head, target)
         identical = True
         diffs: list[str] = []

@@ -305,8 +305,10 @@ class Shell:
         if self.can("integrate"):
             # Not only on the eighth stop. It is the one thing left to do on a delivered run,
             # and a control that appears only once you have found the stop it belongs to is a
-            # control you find by accident.
-            out.append(("i", "check a ref"))
+            # control you find by accident. Once something has landed it is no longer that one
+            # thing, so it stops being named like it: what is left is asking again later.
+            landed = self.run.integration_state() == "landed"
+            out.append(("i", "check it again" if landed else "check a ref"))
         if self.can("create"):
             out.append(("c", "new run"))
         return out

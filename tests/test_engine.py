@@ -394,6 +394,40 @@ def test_each_way_of_integrating_leaves_the_history_it_promises(
     assert (sample_project / "NOTES.md").exists(), "what the branch had of its own is still there"
 
 
+def test_the_check_records_the_name_the_ref_has_rather_than_where_you_stood(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """The one question this stop answers is which branch carries the change.
+
+    ``HEAD`` answers a different one — where you happened to be standing — and answers it the
+    same way on every branch, so a record that keeps it has dropped the only part worth
+    reading back.
+    """
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+
+    run = engine_factory().merge_delivery(run.id)
+
+    ic = run.result.integration
+    assert ic is not None
+    assert ic.target_ref == "main", "the branch it landed in, not where the check was run"
+    assert ic.target_commit == _git_out(sample_project, "rev-parse", "main")
+
+
+def test_a_detached_head_keeps_the_name_it_was_given(
+    sample_project: Path, config: Any, engine_factory: Any
+) -> None:
+    """Nothing to resolve to, so nothing is invented."""
+    engine = engine_factory()
+    run = engine.run(_create(engine, sample_project, config).id)
+    _git_out(sample_project, "checkout", "-q", "--detach", "HEAD")
+
+    run = engine_factory().check_integration(run.id, "HEAD")
+
+    ic = run.result.integration
+    assert ic is not None and ic.target_ref == "HEAD"
+
+
 def test_a_squash_says_where_the_evidence_for_it_is(
     sample_project: Path, config: Any, engine_factory: Any
 ) -> None:

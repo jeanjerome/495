@@ -74,27 +74,50 @@ def build_deliver(ctx: ViewContext) -> StageContent:
         ],
         width=10,
     )
-    acts = commands(
-        (f"git -C {project} merge --no-ff {res.branch}", "take the branch as it is"),
-        (f"git -C {project} am {res.patch_ref}", "or replay the patch on your own base"),
+    # What to do with it depends on whether it has been done. The two ways of taking the
+    # change are the whole point of this panel while nothing carries it, and a standing
+    # invitation to merge it a second time once something does.
+    state = run.integration_state()
+    g = res.integration
+    taken = state == "landed"
+    read_and_drop = (
         (f"495 report {run.id} --format md", "read what was observed, requirement by requirement"),
         (f"495 cleanup {run.id}", "drop the worktree once you are done"),
     )
+    acts = commands(
+        *(
+            ()
+            if taken
+            else (
+                (f"git -C {project} merge --no-ff {res.branch}", "take the branch as it is"),
+                (f"git -C {project} am {res.patch_ref}", "or replay the patch on your own base"),
+            )
+        ),
+        *read_and_drop,
+    )
+    if taken and g is not None:
+        lead = Text(
+            f"{g.target_ref} carries it"
+            + (f", as a {res.integrated_as}" if res.integrated_as else "")
+            + " — there is nothing left to take",
+            style="attn.done",
+        )
+        tail = "stop 8 holds what the check found, and the branch is still there to drop"
+    elif state == "differs" and g is not None:
+        lead = Text(
+            f"what is in {g.target_ref} is not what was verified",
+            style="req.violated",
+        )
+        tail = "stop 8 says what differs"
+    else:
+        lead = Text("nothing has been merged; that is your call", style="attn.done")
+        tail = "once you have merged it, stop 8 asks whether what landed is what was verified"
     body = [
         panel(
-            Group(
-                Text("nothing has been merged; that is your call", style="attn.done"),
-                Text(),
-                acts,
-                Text(),
-                Text(
-                    "once you have merged it, stop 8 asks whether what landed is what was verified",
-                    style="attn.hint",
-                ),
-            ),
+            Group(lead, Text(), acts, Text(), Text(tail, style="attn.hint")),
             ICON["deliver"],
             "what to do with it",
-            tone="good",
+            tone="bad" if state == "differs" else "good",
         ),
         panel(artefacts, ICON["artefacts"], "what the run produced"),
     ]

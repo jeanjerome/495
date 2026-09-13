@@ -246,6 +246,17 @@ def integrate_branch(path: Path, branch: str, how: str, message: str, base: str)
     follows: the delivered commit is not in the branch afterwards, and it is the content of the
     changed files, byte for byte, that says the right thing landed.
 
+    ``rebase`` is the shape of the result, not the command that produces it: it is a
+    ``cherry-pick`` of the run's own range onto the branch you are standing on. A ``git rebase``
+    cannot be what runs here. The delivered branch is checked out in the run's worktree, and git
+    refuses to move a branch checked out elsewhere; even where it did not, a rebase moves that
+    ref rather than copying from it, which would leave the verified commit reachable only
+    through the reflog — and that commit is what the integration check looks up, what the branch
+    name resolves to, and what the message of a squash cites. Standing on your branch, a rebase
+    would also replay the wrong side: *your* commits onto the run's, rewriting the history the
+    integration is supposed to leave alone. The cherry-pick moves nothing but ``HEAD``, which is
+    also what makes the rollback below able to promise that nothing was changed.
+
     Whatever fails, the branch goes back where it was. An uncommitted change to a tracked file
     was refused before this ran, so resetting to the commit it started from restores exactly
     what was there — untracked files included, which a reset does not touch.

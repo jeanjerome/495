@@ -311,6 +311,64 @@ def test_pressing_the_key_merges_and_the_run_says_so_afterwards(
     assert shell.run.integration_state() == "landed"
 
 
+def test_the_two_last_stops_say_the_same_thing_about_a_copied_change(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """A rebase leaves the delivered commit out of your branch on purpose.
+
+    Read off the two booleans, that is indistinguishable from a merge that went wrong — which
+    is how the seventh stop came to call a run "not confirmed" while the eighth, three keys
+    away, called the same run integrated. Both read the state now, so they cannot disagree.
+    """
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    _git(sample_project, "commit", "--allow-empty", "-m", "your branch went somewhere of its own")
+
+    pilot.merge(run_id, "rebase", False)
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+
+    check = shell.run.result.integration
+    assert check is not None and not check.contains_commit and check.files_identical
+    assert shell.run.integration_state() == "landed"
+    deliver = render(shell, "deliver")
+    assert "not confirmed" not in deliver
+    assert "main carries it, as a rebase" in deliver
+    assert "nothing has been merged" not in deliver, "it has been"
+    assert "merge --no-ff" not in deliver, "offering it again would merge it twice"
+
+
+def test_a_stop_with_nothing_left_to_do_says_so_and_offers_no_work(
+    store: RunStore, pilot: StoreDriver, sample_project: Path
+) -> None:
+    """The last screen of a run has to answer "am I done", in those words.
+
+    A green border and a breakdown of three rows are evidence, not an answer, and a control
+    offered in the same shape as before the merge is a fourth row of evidence that there is
+    something still owed.
+    """
+    run_id = pilot.create("add subtract to calc")
+    settle(pilot)
+    shell = surface(store, pilot)
+    shell.select(run_id)
+
+    before = render(shell, "integration")
+    assert "Nothing has been merged" in before
+    assert "is the next move" in before, "one of the two keys is the one to press"
+
+    pilot.merge(run_id, "fast-forward", False)
+    settle(pilot)
+    shell.source.refresh(force=True)
+
+    after = render(shell, "integration")
+    assert "main carries the verified change" in after
+    assert "Nothing is left to do here" in after
+    assert "is being looked for" not in after, "the breakdown below is the answer to that"
+    assert "bring 495/" not in after, "there is nothing left to bring"
+    assert ("i", "check it again") in shell.controls()
+
+
 def test_a_tree_with_uncommitted_work_is_told_so_before_the_question_opens(
     store: RunStore, pilot: StoreDriver, sample_project: Path
 ) -> None:
