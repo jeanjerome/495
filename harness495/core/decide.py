@@ -85,6 +85,17 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
 
     set_aside: list[str] = []
 
+    # The existing suite is the instrument of a non-regression requirement, and the harness
+    # has read what the change did to it. A command that passes on a suite smaller than the
+    # base's (a test deleted, skipped, deselected) shows that what is left still passes, not
+    # that what was there still holds: it credits nothing, and the requirement waits for the
+    # requester to rule on what the reviewers say about the missing tests.
+    weakened_suite: dict[str, list[str]] = {}
+    for e in evidence:
+        if e.kind is EvidenceKind.suite_check and e.passed is False:
+            for rid in e.requirement_ids:
+                weakened_suite.setdefault(rid, []).append(e.summary)
+
     for r in spec.requirements:
         failed: list[str] = []
         passed: list[str] = []
@@ -200,6 +211,20 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 why.append("reviewers undetermined: " + ", ".join(review_undetermined))
             reasons[r.id] = "; ".join(why) or "no passing evidence"
             undetermined.append(f"{r.id}: {reasons[r.id]}")
+        elif r.id in weakened_suite:
+            statuses[r.id] = RequirementStatus.undetermined
+            observed = "; ".join(dict.fromkeys(weakened_suite[r.id]))
+            reasons[r.id] = "; ".join(
+                [
+                    "verifications passed: "
+                    + ", ".join(passed)
+                    + ", on a suite weaker than the base's: "
+                    + observed,
+                    *_set_aside_for(r.id, set_aside),
+                ]
+            )
+            uncredited.append(f"{r.id}: {', '.join(passed)} ran a suite weaker than the base's")
+            undetermined.append(f"{r.id}: {reasons[r.id]}")
         elif (
             review_undetermined
             and len(review_undetermined) == len(active_reviews)
@@ -232,11 +257,18 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
     instrument_faults = [f"{vid}: {why}" for vid, why in faulty_instruments.items()]
 
     # A scope violation is a defect of the change; a broken review integrity is not.
+    unattached_weakening = False
     for e in evidence:
         if e.kind is EvidenceKind.scope_check and e.passed is False:
             corrections.append(f"[scope] {e.summary}")
         elif e.kind is EvidenceKind.integrity and e.passed is False:
             undetermined.append(f"review integrity: {e.summary}")
+        elif e.kind is EvidenceKind.suite_check and e.passed is False and not e.requirement_ids:
+            # No requirement names the suite, so no status can carry the observation; the
+            # outcome carries it instead, since a change that shrank the suite is not accepted
+            # on the word of the commands that ran what was left.
+            undetermined.append(f"suite check: {e.summary}")
+            unattached_weakening = True
 
     # Blocking findings not tied to a requirement still block acceptance.
     unattached_blockers = [
@@ -252,7 +284,9 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
     if any(s is RequirementStatus.violated for s in statuses.values()) or corrections:
         outcome = Verdict.reject
     elif (
-        any(s is RequirementStatus.undetermined for s in statuses.values()) or not spec.requirements
+        any(s is RequirementStatus.undetermined for s in statuses.values())
+        or not spec.requirements
+        or unattached_weakening
     ):
         outcome = Verdict.undetermined
         if not spec.requirements:

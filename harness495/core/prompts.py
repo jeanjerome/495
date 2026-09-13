@@ -181,6 +181,14 @@ wrong (it asserts something the requirement does not say, it cannot be made to p
 correct implementation) is reported in `not_done`, quoting the assertion and what you observed,
 and left as it is.
 
+The tests that exist before your change are part of what the harness measures: it reads the
+diff over them and the tally the runner prints on both versions, and a test file deleted, a
+test removed, skipped or deselected, or a smaller tally, leaves the non-regression requirements
+undetermined until the requester rules on it. Do not remove or skip an existing test to get
+the suite to pass. A test a requirement makes obsolete (it asserts the behaviour the
+requirement replaces) may be changed; say so in your summary, naming the test and the
+requirement.
+
 When no such fact is present, create each verification marked `to_create` yourself, exactly as
 described, before implementing the behaviour it checks, and write it to observe that behaviour
 through the interface a caller would use, so that it would fail if the behaviour were absent.
@@ -258,7 +266,13 @@ PERSPECTIVES: dict[str, str] = {
     "spec_compliance": (
         "Compare the diff against the requirements, one by one. Report requirements that are "
         "missing or partially implemented, behaviour that was not asked for (scope creep), and "
-        "requirements whose implementation looks wrong. Quote the requirement id in each finding."
+        "requirements whose implementation looks wrong. Quote the requirement id in each finding. "
+        'When the facts list files under "Existing tests modified by the change", the harness '
+        "has measured what the change did to the suite that passed on the base: account for "
+        "each line. A test removed, skipped or deselected that no requirement makes obsolete is "
+        "a major finding on the non-regression requirement, quoting the diff hunk; one a "
+        "requirement calls for is named with that requirement in your summary, so that the "
+        "requester reads why it went."
     ),
     "correctness": (
         "Look for defects: wrong logic, unhandled edge cases, error paths, concurrency or state "
@@ -291,7 +305,11 @@ PERSPECTIVES: dict[str, str] = {
         "are the tests to compare for the verifications to create, written by an agent that "
         "never saw the implementation; a test the diff adds for one of those verifications "
         "elsewhere was written by the producer for its own change, and is a finding on the "
-        "verification."
+        'verification. When the facts list files under "Existing tests modified by the '
+        'change", read each modified test against the requirement it covered: an assertion '
+        "loosened, a case dropped, an expected value moved to what the implementation now "
+        "returns, is a finding on the non-regression requirement, quoting the hunk, unless a "
+        "requirement states the new behaviour."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

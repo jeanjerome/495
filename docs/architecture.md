@@ -24,7 +24,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | design tests | test designer agent, write | once per approved specification with a test to create: the tests, written from their scenarios' steps as a feature file where the project measures `bdd` and in the project's runner otherwise, on a tree where the behaviour does not exist; the harness keeps the test files, puts every other file back, commits them (`Run.test_design`) and protects them from the change |
 | produce | producer agent, write | the change, in the run's worktree, with the designed tests as read-only files (without a designer the producer writes the tests to create itself); the harness commits the work so the evaluated version is one commit |
-| verify | harness | scope check (allowed paths, and no designed test modified), then every verification on that commit; each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited |
+| verify | harness | scope check (allowed paths, and no designed test modified), then every verification on that commit, then the suite check (the diff over the test files that existed on the base, and the runners' tallies on both versions: a test deleted, removed or skipped, or a smaller tally, fails it); each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited |
 | review | reviewer agents, read-only, one per perspective | structured verdicts with findings that cite an observation; `test_quality`, called whenever a test is to be created, holds each scenario against its requirement and its test and reads an unconfirmed test's assertions; a reviewer that alters the tree is discarded |
 | decide | harness | each requirement `satisfied`, `violated` or `undetermined`; violations become correction requests and a new iteration; `undetermined` stops and asks |
 | deliver | harness | patch, branch `495/<run-id>`, Markdown report; nothing merged |
@@ -76,6 +76,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
 | `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
 | `scope` | which files a change may touch |
+| `suite` | what the change did to the test suite that passed on the base: `read_suite_changes()` reads the diff over the test files that existed there (deleted, renamed out of the runner's reach, tests removed, skips added), `count_tests()` reads the tally a runner prints, `compare_counts()` pairs the base's with the change's |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the four roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
@@ -122,7 +123,8 @@ when it measures a catalogue role, that `CatalogueRole`, and when it is a test, 
 that holds them, the protected files, the paths put back, and what the designer reported. An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
-`command_result`, `scope_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A
+`command_result`, `scope_check`, `suite_check`, `review_verdict`, `instrument_check`, `baseline`,
+`integrity`. A
 `PendingDecision` is a question with `DecisionOption`s, each stating its consequence; a
 `Decision` records who answered and what. `RunResult` holds the delivered branch, patch, report
 and the `IntegrationCheck`. Outside any run, a `Proposals` document holds one `Proposal` per

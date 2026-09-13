@@ -486,6 +486,24 @@ nombre baisse ou si des `skip` apparaissent dans les fichiers de test modifiés 
 fichiers de test **existants** comme protégés : toute modification autre qu'un ajout de fonction
 de test devient un finding déterministe à confirmer par le réviseur `spec_compliance` ; (c) au
 minimum, injecter dans le contexte du réviseur la liste des tests existants modifiés ou supprimés.
+Fait le 2026-09-14 : `core/suite.py` lit le diff du changement sur les fichiers de test qui
+existaient sur la base (fichier supprimé, renommé hors de la convention du runner, fonction de
+test retirée, marqueur `skip`/`only`/`ignore`/`Disabled` ajouté, pour Python, Node, Go, Rust,
+JVM, shell, Gherkin) et le décompte imprimé par le runner sur la base (évidence `baseline` de
+la même commande) et sur le changement (pytest, unittest, jest, mocha, `go test -v`, cargo,
+shellspec/rspec, JUnit, Gradle, behave, cucumber) ; une évidence `suite_check` par itération
+porte les exigences `non_regression` (piste (a)). Une V qui passe sur une suite affaiblie ne
+crédite pas l'exigence : `assess` la met en `undetermined` avec l'observation, le demandeur
+tranche au gate `undetermined` avec l'avis des réviseurs sous les yeux, et un finding du
+réviseur citant le hunk la rend `violated` (piste (b), sans protection totale des tests
+existants : une exigence qui remplace un comportement rend son test obsolète, et le diff ne
+distingue pas une correction d'un affaiblissement). Chaque réviseur reçoit le fait « Existing
+tests modified by the change » listant tout fichier de test existant touché, affaibli ou
+seulement modifié, et les décomptes ; `spec_compliance` doit rendre compte de chaque ligne,
+`test_quality` relire chaque test modifié contre l'exigence qu'il couvrait (piste (c)). Un test
+renommé est lu comme retiré ; une désélection par fichier de configuration est vue par le
+décompte, sauf masquée par autant de tests ajoutés (ADR 0021, `tests/features/suite.feature`).
+E33 est clos.
 
 **E34 · La détection de profil ignore les outils des contrats Domaine, Architecture, Tests et
 Sécurité.** Priorité moyenne · effort M. Le profil signale `pre-commit` mais ni Hypothesis, ni
@@ -806,7 +824,7 @@ semaine ou plus).
 |---|---|---|---|---|
 | E01 | `requirement_assessment: violated` sans finding étayé rendait l'exigence violée ; lue comme `undetermined` depuis le 2026-09-13 (fait) | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
 | E03 · E32 | le producteur écrivait ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise. Depuis le 2026-09-14 : la V est `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer ; les tests à créer sont écrits par le rôle `test_designer` avant le producteur, qui ne peut plus les modifier (faits) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, rôle test designer |
-| E33 | la suite existante peut être affaiblie (suppression, skip) sans détection | tests hôtes | M | comptage des tests base/changement, protection des tests existants |
+| E33 | la suite existante pouvait être affaiblie (suppression, skip) sans détection ; depuis le 2026-09-14 le diff sur les tests existants et le décompte du runner sur les deux versions donnent une évidence `suite_check`, une suite affaiblie laisse la non-régression `undetermined` jusqu'à l'arbitrage du demandeur, et les réviseurs reçoivent la liste des tests existants touchés (fait) | tests hôtes | M | comptage des tests base/changement, lecture du diff des tests existants, liste aux réviseurs |
 | E30 · E31 | force de la suite non mesurée : ni couverture du diff ni mutation ciblée | tests hôtes | M à L | dit *où* la spécification ne regarde pas ; sort du « satisfied = passe et ne passait pas » |
 | E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |

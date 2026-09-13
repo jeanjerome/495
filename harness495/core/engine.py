@@ -35,6 +35,7 @@ from harness495.core.context import (
     render_profile,
     render_reviews,
     render_spec,
+    render_suite_reading,
     render_test_design,
     render_version,
     trim_output,
@@ -97,6 +98,12 @@ from harness495.core.schemas import (
 )
 from harness495.core.scope import check_scope
 from harness495.core.store import RunStore
+from harness495.core.suite import (
+    CountComparison,
+    SuiteReading,
+    compare_counts,
+    read_suite_changes,
+)
 from harness495.core.verification import (
     VersionMismatch,
     assess_sufficiency,
@@ -1638,6 +1645,7 @@ class Engine:
             )
             if ev.summary == "interrupted":
                 raise KeyboardInterrupt
+        evidence.append(self._check_suite(run, it, evidence))
         it.instrument_faults = []
         calibration, proposals = self._calibrate(run, it, evidence)
         evidence.extend(calibration)
@@ -1654,6 +1662,77 @@ class Engine:
                 run, self._instrument_decision(run, it, proposals), RunStatus.verified
             )
         return run
+
+    def _suite_reading(self, run: Run, it: Iteration, evidence: list[Evidence]) -> SuiteReading:
+        """What the change did to the suite that passed on the base: the diff over the test
+        files that existed there, and the runner's tally on both versions for each command a
+        non-regression requirement leans on (the base's from the baseline run of the same
+        command, the change's from this iteration)."""
+        assert it.version is not None and it.version.head_commit
+        wt = self._worktree(run)
+        changes = read_suite_changes(git.diff(wt, it.version.base_commit, it.version.head_commit))
+        baseline_by_command = {
+            e.command: e
+            for e in run.evidence
+            if e.kind is EvidenceKind.baseline and e.command and e.output_ref
+        }
+        counts: list[CountComparison] = []
+        for vid in _non_regression_verifications(run.spec):
+            v = run.spec.verification(vid)
+            result = next(
+                (
+                    e
+                    for e in reversed(evidence)
+                    if e.kind is EvidenceKind.command_result
+                    and e.verification_id == vid
+                    and e.output_ref
+                ),
+                None,
+            )
+            base = baseline_by_command.get(v.command or "") if v else None
+            if v is None or result is None or base is None:
+                continue
+            comparison = compare_counts(
+                vid,
+                self.store.read_text(run.id, base.output_ref or ""),
+                self.store.read_text(run.id, result.output_ref or ""),
+            )
+            if comparison is not None:
+                counts.append(comparison)
+        return SuiteReading(changes=changes, counts=counts)
+
+    def _check_suite(self, run: Run, it: Iteration, evidence: list[Evidence]) -> Evidence:
+        """One evidence saying whether the existing suite is, on the change, the suite the base
+        passed. It names the non-regression requirements that lean on a test command, since
+        those are the ones a passing command would otherwise credit."""
+        assert it.version is not None
+        reading = self._suite_reading(run, it, evidence)
+        named = [
+            r.id
+            for r in run.spec.requirements
+            if r.kind is RequirementKind.non_regression
+            and any(
+                v.command and v.kind is VerificationKind.test
+                for v in map(run.spec.verification, r.verification_ids)
+                if v is not None
+            )
+        ]
+        ev = Evidence(
+            id=new_id("ev"),
+            kind=EvidenceKind.suite_check,
+            iteration=it.n,
+            subject_version=it.version.head_commit,
+            requirement_ids=named,
+            passed=not reading.weakened,
+            summary=reading.summary(),
+        )
+        self.emit(
+            run,
+            "evidence",
+            f"suite: {'ok' if ev.passed else 'WEAKENED'} - {ev.summary}",
+            {"id": ev.id},
+        )
+        return ev
 
     def _recalibrate(self, run: Run, note: str) -> None:
         """Point a verification at another command, keeping the requirement it carries.
@@ -1985,6 +2064,7 @@ class Engine:
         self._set_status(run, RunStatus.reviewing)
         diff_text = git.diff(wt, it.version.base_commit, it.version.head_commit)
         evidence = [e for e in (run.evidence_by_id(x) for x in it.evidence_ids) if e]
+        suite_reading = self._suite_reading(run, it, evidence)
         for reviewer in run.config.roles.reviewers_for(run.spec):
             if any(
                 r.perspective == reviewer.perspective
@@ -2006,6 +2086,11 @@ class Engine:
             if run.test_design is not None and run.test_design.files:
                 pack.add_fact(
                     "Tests written by the test designer", render_test_design(run.test_design)
+                )
+            if suite_reading.changes or suite_reading.counts:
+                pack.add_fact(
+                    "Existing tests modified by the change",
+                    render_suite_reading(suite_reading),
                 )
             pack.add_untrusted("git diff base..head", truncate_diff(diff_text) or "(empty diff)")
             for e in evidence:
@@ -2660,6 +2745,18 @@ def _normalise_spec(spec: Spec) -> None:
     known = {v.id for v in spec.verifications}
     for r in spec.requirements:
         r.verification_ids = [v for v in r.verification_ids if v in known]
+
+
+def _non_regression_verifications(spec: Spec) -> list[str]:
+    """The verifications a non-regression requirement leans on, in specification order."""
+    return list(
+        dict.fromkeys(
+            vid
+            for r in spec.requirements
+            if r.kind is RequirementKind.non_regression
+            for vid in r.verification_ids
+        )
+    )
 
 
 def _undetermined_reasons(run: Run) -> list[str]:

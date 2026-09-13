@@ -19,6 +19,7 @@ from harness495.core.models import (
     TestDesign,
     Version,
 )
+from harness495.core.suite import SuiteReading
 
 MAX_DIFF_CHARS = 120_000
 MAX_EVIDENCE_OUTPUT = 3_000
@@ -222,6 +223,24 @@ def render_test_design(design: TestDesign) -> str:
     if design.reported:
         lines.append("The test designer reported:")
         lines.extend(f"- {t.verification_id}: {t.file}" for t in design.reported)
+    return "\n".join(lines)
+
+
+def render_suite_reading(reading: SuiteReading) -> str:
+    """What the change did to the test files that existed on the base, as the reviewers read it.
+
+    Measured by the harness from the diff and from the runners' tallies; the reviewer is asked
+    to account for each line, not to discover it.
+    """
+    lines = [
+        "Measured by the harness on the diff over the test files that existed on the base "
+        "version, and on the tally each runner printed on both versions. A test file deleted, "
+        "a test removed or skipped, or a smaller tally, leaves the non-regression requirements "
+        "undetermined until the requester rules; each line below is to be accounted for by a "
+        "requirement that calls for it, or reported as a finding on the requirement it weakens, "
+        "quoting the diff hunk.",
+        reading.render(),
+    ]
     return "\n".join(lines)
 
 

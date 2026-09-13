@@ -43,6 +43,11 @@ Keep these true in every change; each has a test or a record that names it.
   the evidence (`0002`, `0003`); one that fails on the base by an execution error and not by
   an assertion is `unconfirmed`, still credited, and the `test_quality` reviewer, called
   whenever a test is to be created, is told to read it (`0019`).
+- The suite that passed on the base is measured on the change: `core/suite.py` reads the diff
+  over the test files that existed there and the runners' tallies on both versions, a test
+  deleted, removed or skipped, or a smaller tally, is a failed `suite_check`, and a passing
+  command on such a suite credits no `non_regression` requirement (`undetermined` until the
+  requester rules); every existing test the change touched is listed to the reviewers (`0021`).
 - A correction request carries the requirement, the claim and the observation. Reviewer
   explanations and remedies stay out of the producer's context; the producer's transcript stays
   out of every reviewer's context (`0004`, `0005`).

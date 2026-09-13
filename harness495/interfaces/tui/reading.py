@@ -112,3 +112,7 @@ def kept_findings(run: Run) -> list[tuple[ReviewVerdict, Finding]]:
 
 def scope_checks(run: Run) -> list[Evidence]:
     return [e for e in run.evidence if e.kind is EvidenceKind.scope_check]
+
+
+def suite_checks(run: Run) -> list[Evidence]:
+    return [e for e in run.evidence if e.kind is EvidenceKind.suite_check]

@@ -15,6 +15,7 @@ from harness495.interfaces.tui.reading import (
     instrument_faults,
     latest_results,
     scope_checks,
+    suite_checks,
     verification_state,
 )
 from harness495.interfaces.tui.views.base import StageContent, ViewContext
@@ -92,6 +93,17 @@ def build_checks(ctx: ViewContext) -> StageContent:
                 Text(
                     scope[-1].summary,
                     style="req.satisfied" if scope[-1].passed else "req.violated",
+                ),
+            )
+        )
+    suite = suite_checks(run)
+    if suite:
+        notes.append(
+            (
+                "suite check",
+                Text(
+                    suite[-1].summary,
+                    style="req.satisfied" if suite[-1].passed else "req.undetermined",
                 ),
             )
         )

@@ -798,6 +798,9 @@ class EvidenceKind(StrEnum):
     """Control run of a failing verification on the base version, to tell instrument from defect."""
     baseline = "baseline"
     """Readiness run of a project command on the base version, before any change exists."""
+    suite_check = "suite_check"
+    """Whether the existing test suite is, on the change, the suite that passed on the base:
+    no test file deleted, no test removed or skipped, no smaller tally printed by the runner."""
 
 
 class Evidence(StrictModel):

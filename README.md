@@ -409,7 +409,7 @@ flowchart TD
 | gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
 | design tests | write the tests the specification says to create, from their approved scenarios, on a tree where the behaviour does not exist; the harness keeps the test files, puts any other file back, and commits them. Once per approved specification | test designer agent (write) |
 | produce | implement the change in the worktree, with the designed tests as read-only files; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
-| verify | scope check (only allowed paths touched, no designed test modified), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called. A command that fails without the change by an execution error (an import that fails, a name that does not exist) rather than by an assertion is `unconfirmed`: it still counts, and the `test_quality` reviewer is told to read its assertions | harness |
+| verify | scope check (only allowed paths touched, no designed test modified), then every verification command on that commit, output and hashes kept as evidence, then the suite check: the diff over the test files that existed on the base, and the tally each runner printed on the base and on the change; a test file deleted, a test removed or skipped, or a smaller tally, fails it. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called. A command that fails without the change by an execution error (an import that fails, a name that does not exist) rather than by an assertion is `unconfirmed`: it still counts, and the `test_quality` reviewer is told to read its assertions | harness |
 | review | independent reviewers, one per perspective (spec compliance, correctness, security, ...) with read-only access, structured verdicts; `test_quality` is called whenever a test is to be created, configured or not; a reviewer that alters the tree has its verdict discarded | reviewer agents |
 | decide | each requirement becomes `satisfied`, `violated` or `undetermined` from the evidence; violations produce correction requests and a new iteration; insufficient evidence stops the run and asks you | harness / you |
 | deliver | patch, branch and Markdown report; nothing is merged | harness |
@@ -431,6 +431,7 @@ A requirement is never decided by the agent that implemented it.
 | --- | --- | --- |
 | `command_result` | a verification command, run by the harness on the evaluated commit | whether the requirements that command carries hold |
 | `scope_check` | the harness, from the diff | whether the change stayed inside the allowed paths |
+| `suite_check` | the harness, from the diff over the test files that existed on the base and from the runners' tallies on both versions | whether the suite that passed on the change is the suite that passed on the base; a weaker one leaves the non-regression requirements undetermined |
 | `review_verdict` | a read-only reviewer, one per perspective | a violation, with the observation that supports it |
 | `instrument_check` | the harness, running a command on the base version carrying the change's test files | whether the command observes the change at all |
 | `integrity` | the harness, fingerprinting the tree around an intervention | whether the evidence can be trusted |
@@ -445,7 +446,10 @@ What a passing command is allowed to credit depends on what the requirement clai
 requirement of kind `behaviour` says the change makes something true, and a command that
 reported success on the base version as well cannot show it. A requirement of kind
 `non_regression` says something went on holding, and a command reporting success on both
-versions is exactly what that means.
+versions is exactly what that means, provided the suite it ran is the suite the base passed:
+a change that removes, skips or deselects an existing test is measured by the suite check,
+and the command then credits nothing until you rule on it, with what the reviewers say about
+the missing tests in front of you.
 
 > `satisfied` means the named command passed on the evaluated commit, and reported something
 > else on the version without the change. It does not prove that the command measures *this*
