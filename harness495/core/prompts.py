@@ -66,6 +66,22 @@ Rules for verifications:
   runs in the same environment.
 - Use kind "review" only for properties that truly cannot be automated (e.g. readability); such
   verifications are considered insufficient on their own and will be flagged.
+- The facts list the roles of the test-library catalogue against the project: what a test of
+  each role must show, the tool the project measures it with, and what the catalogue
+  recommends where nothing does. When a requirement is best shown by one of those roles (an
+  invariant over inputs the implementer does not choose: `property`; a parser or input boundary
+  that must not crash: `fuzzing`; the suite's ability to detect an alteration: `mutation`; the
+  changed lines the suite reaches: `coverage`; a dependency rule, a lint rule, a type contract,
+  a vulnerability, an API description: `architecture`, `static`, `types`, `security`,
+  `contract`; a behaviour the requester reads as a scenario: `bdd`), set the verification's
+  `role` to it and use the tool the project measures it with, through the command the project
+  runs it with. Leave `role` null for a plain command or a review.
+- When the role a requirement calls for is not measured in the project, still set `role`: do
+  not invent the tool, do not ask for it as part of the change. The harness reports the
+  verification as insufficient with the catalogue's recommendation, and the requester decides
+  whether to put the tool in place first; give the requirement, alongside it, the nearest
+  verification the project can run today (a `test` with chosen examples where a property test
+  is not possible).
 - A verification must be able to change its outcome because of the change alone. Check that the
   command you propose reaches the code the requirement is about, and that someone who may only
   edit the paths you list in `allowed_paths` can make it report success. If making it succeed

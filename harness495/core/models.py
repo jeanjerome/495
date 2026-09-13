@@ -486,6 +486,11 @@ class Verification(StrictModel):
     expected_exit_code: int = 0
     to_create: bool = False
     """The verification (typically a test) must be created as part of the change."""
+    role: CatalogueRole | None = None
+    """The catalogue role the verification measures, when it is one (a property-based test, a
+    mutation run, a coverage report); None for a plain command, a review or a manual check.
+    A role the project does not measure makes the verification insufficient: the tool is the
+    requester's to put in place, through a conformance proposal, not the producer's."""
     sufficiency: Sufficiency = Sufficiency.sufficient
     rationale: str = ""
     discriminates: bool | None = None

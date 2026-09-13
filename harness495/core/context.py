@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from harness495.core.catalogue import ROLE_CONTRACTS, applicable
 from harness495.core.models import (
     NON_DISCRIMINATING,
     Evidence,
@@ -94,6 +95,39 @@ def render_profile(profile: ProjectProfile, working_dir: str | None = None) -> s
     return "\n".join(lines)
 
 
+def render_catalogue(profile: ProjectProfile) -> str:
+    """The catalogue's roles against the project, for the specifier.
+
+    One line per technology and role of the coverage: what a test of the role must show, the
+    tool the project measures it with, and, where nothing does, the entry the catalogue
+    recommends for the technology or the absence of one. A technology the profile has no
+    markers for has no line, as it has no coverage row.
+    """
+    if not profile.role_coverage:
+        return (
+            "(no role coverage: the profile has no markers for the project's technologies, so "
+            "nothing is known about the roles it measures)"
+        )
+    lines: list[str] = []
+    for technology in dict.fromkeys(r.technology for r in profile.role_coverage):
+        lines.append(f"- {technology}:")
+        for row in (r for r in profile.role_coverage if r.technology == technology):
+            head = f"  - {row.role.value} ({ROLE_CONTRACTS[row.role]}): "
+            if row.measured:
+                lines.append(head + f"measured with {', '.join(row.tools)}")
+                continue
+            entry = applicable(technology, row.role, profile)
+            if entry is None:
+                lines.append(head + "not measured; the catalogue has no entry")
+            else:
+                condition = f" ({entry.condition})" if entry.condition else ""
+                lines.append(
+                    head + f"not measured; the catalogue recommends {', '.join(entry.tools)}"
+                    f"{condition}, which the requester puts in place through a proposal"
+                )
+    return "\n".join(lines)
+
+
 def render_spec(spec: Spec, include_status: bool = False) -> str:
     lines = ["Requirements:"]
     for r in spec.requirements:
@@ -107,8 +141,9 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
     lines.append("Verifications:")
     for v in spec.verifications:
         flag = " (to create as part of the change)" if v.to_create else ""
+        role = f", role {v.role.value}" if v.role else ""
         cmd = f" command: `{v.command}`" if v.command else ""
-        lines.append(f"- {v.id} ({v.kind.value}{flag}): {v.description}{cmd}")
+        lines.append(f"- {v.id} ({v.kind.value}{role}{flag}): {v.description}{cmd}")
         if v.sufficiency in NON_DISCRIMINATING:
             lines.append(f"  reports the same with and without the change: {v.rationale}")
     if spec.out_of_scope:

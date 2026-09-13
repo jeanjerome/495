@@ -19,7 +19,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | Phase | Who | What it establishes |
 |---|---|---|
 | profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role) and the gaps against the catalogue, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
-| specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm`, out of scope, assumptions, allowed paths; the harness then audits sufficiency |
+| specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
 | verify | harness | scope check, then every verification on that commit; each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence |
@@ -68,7 +68,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `decide` | `assess()`: the pure acceptance decision over spec, evidence and reviews |
 | `verification` | running one command on the exact commit, the control run on the base version, the failure signature, sufficiency, test-file recognition |
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; role coverage against the catalogue's roles, from markers per technology (`ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`) |
-| `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), and `compare()`: the profile's gaps against them |
+| `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), what a test of each role must show (`ROLE_CONTRACTS`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), `compare()`: the profile's gaps against them, and `unmeasured_role()`: why a verification of a role cannot run in the project |
 | `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
@@ -110,7 +110,8 @@ A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooli
 against the catalogue, `ReadinessCheck`s), one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
-`non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes). An
+`non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes and,
+when it measures a catalogue role, that `CatalogueRole`). An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
 `command_result`, `scope_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A

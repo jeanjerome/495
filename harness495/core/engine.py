@@ -28,6 +28,7 @@ from harness495.core import git
 from harness495.core import prompts as P
 from harness495.core.context import (
     ContextPack,
+    render_catalogue,
     render_evidence,
     render_profile,
     render_reviews,
@@ -41,6 +42,7 @@ from harness495.core.models import (
     NON_DISCRIMINATING,
     AgentIdentity,
     Capability,
+    CatalogueRole,
     Cost,
     CostBasis,
     Decision,
@@ -885,7 +887,7 @@ class Engine:
         }
         if run.spec.source == "user" and run.spec.requirements:
             _normalise_spec(run.spec)
-            assess_sufficiency(run.spec, executable, passing_on_base)
+            assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
             self.emit(
                 run,
                 "spec.provided",
@@ -897,6 +899,10 @@ class Engine:
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
         wt = self._worktree(run)
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+        pack.add_fact(
+            "Test-library catalogue and the project's role coverage",
+            render_catalogue(run.profile),
+        )
         listing = git.top_level_listing(wt)
         pack.add_fact("Tracked files (first 200)", "\n".join(listing) or "(none)")
         if run.mode is RunMode.evaluate:
@@ -946,7 +952,7 @@ class Engine:
         if not spec.allowed_paths and run.config.project.scope.allowed_paths:
             spec.allowed_paths = list(run.config.project.scope.allowed_paths)
         run.spec = spec
-        assess_sufficiency(run.spec, executable, passing_on_base)
+        assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
         # Written before the gate, not after it: the specification is what the requester is
         # asked to approve, so it has to be readable at the moment the question is put.
         run.spec.artifact_ref = self.store.write_json(
@@ -2355,6 +2361,7 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
         kind = str(v.get("kind", "command"))
         if kind not in VerificationKind.__members__:
             kind = "command"
+        role = str(v.get("role") or "")
         verifications.append(
             Verification(
                 id=str(v.get("id") or f"V{i}"),
@@ -2362,6 +2369,7 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
                 description=str(v.get("description", "")).strip() or "(no description)",
                 command=(str(v["command"]).strip() or None) if v.get("command") else None,
                 to_create=bool(v.get("to_create", False)),
+                role=CatalogueRole(role) if role in CatalogueRole.__members__ else None,
             )
         )
     requirements: list[Requirement] = []

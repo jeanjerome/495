@@ -26,6 +26,12 @@ One recommended library per technology and per role. Binds 495's own tests and t
   declines with a reason, or defers through `495 proposals`; an accepted one becomes a change
   run that puts the entry in place with a first test of the role, a declined one is not
   proposed again.
+- Specifying a change: the specifier receives this catalogue against the project's coverage
+  as a fact (what a test of each role must show, the tool in place, the recommendation where
+  nothing measures the role), and a verification names the role it measures. A role the
+  project does not measure makes the verification insufficient with the recommendation in its
+  rationale, so that the tool comes in through a proposal and not through the change
+  (`docs/decisions/0014-a-verification-names-the-catalogue-role-it-measures.md`).
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
 

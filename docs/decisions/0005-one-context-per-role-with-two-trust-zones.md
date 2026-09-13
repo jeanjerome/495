@@ -1,7 +1,8 @@
 # 0005. Each intervention gets a context of its own, split into facts and untrusted content
 
 - Status: accepted
-- Date: 2026-09-11
+- Date: 2026-09-11; refined 2026-09-13 (the specifier also receives the catalogue against the
+  project's role coverage, 0014)
 
 ## Context
 
@@ -28,7 +29,7 @@ Contexts are role-specific:
 
 | Role | Receives | Withheld |
 |---|---|---|
-| specifier | intent, profile, tracked files, document excerpts (untrusted); on revision, the previous spec (untrusted) and the revision notes (fact) | nothing produced yet |
+| specifier | intent, profile, the test-library catalogue against the project's role coverage (0014), tracked files, document excerpts (untrusted); on revision, the previous spec (untrusted) and the revision notes (fact) | nothing produced yet |
 | producer | intent, approved spec, profile, scope, version; in correction, requests and previous evidence (facts), failed outputs and reviewer observations (untrusted) | reviewer explanations and summaries (0004) |
 | reviewer | intent, spec, version, harness evidence, profile (facts); diff and failed outputs (untrusted) | the producer's transcript and summary; the other reviewers' verdicts (the evidence list is fixed before the review loop) |
 
@@ -48,8 +49,9 @@ tracked files. The rendered prompt is stored as `prompt.md` and its section size
 
 ## Where in the code
 
-- `harness495/core/context.py`: `ContextPack`, `render_profile`, `render_spec`,
-  `render_version`, `render_evidence`, `render_reviews`, `truncate_diff`, `trim_output`.
+- `harness495/core/context.py`: `ContextPack`, `render_profile`, `render_catalogue`,
+  `render_spec`, `render_version`, `render_evidence`, `render_reviews`, `truncate_diff`,
+  `trim_output`.
 - `harness495/core/prompts.py`: `COMMON_RULES`, role system prompts.
 - `harness495/core/engine.py`: `_specify`, `_produce`, `_review` (pack construction),
   `_intervene` (persists `prompt.md` and `context.json`).

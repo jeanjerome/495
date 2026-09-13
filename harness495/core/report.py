@@ -85,8 +85,9 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
         for ver in run.spec.verifications:
             cmd = _cell("`" + ver.command + "`") if ver.command else ""
             flag = " (to create)" if ver.to_create else ""
+            role = f" / {ver.role.value}" if ver.role else ""
             lines.append(
-                f"| {ver.id} | {ver.kind.value}{flag} | {ver.sufficiency.value} | {cmd} | "
+                f"| {ver.id} | {ver.kind.value}{role}{flag} | {ver.sufficiency.value} | {cmd} | "
                 f"{_cell(ver.description)} |"
             )
         lines.append("")

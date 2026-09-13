@@ -94,3 +94,27 @@ Feature: Gaps of a host project against the test-library catalogue
     Given a Python project
     When the requester runs "495 --json profile"
     Then the JSON output lists a gap on "fuzzing" of "python"
+
+  Scenario: The specifier is told what each role must show, the tool in place and the recommendation
+    Given a Python project
+    And its pyproject.toml lists the dependency "hypothesis"
+    When the harness profiles the project
+    Then the catalogue rendered to the specifier says "property (no counter-example to a stated invariant over a generated input range): measured with hypothesis"
+    And the catalogue rendered to the specifier says "fuzzing (no crash, hang or unbounded consumption on malformed input): not measured; the catalogue recommends atheris"
+
+  Scenario: The specifier is told the condition under which a recommendation applies
+    Given a Python project
+    When the harness profiles the project
+    Then the catalogue rendered to the specifier says "not measured; the catalogue recommends behave (the project has no pytest suite, or keeps its scenarios in a standalone features/ tree)"
+
+  Scenario: The specifier is told when the catalogue has no entry for a role the project does not measure
+    Given a shell project
+    And the file ".shellcheckrc" contains "disable=SC2086"
+    When the harness profiles the project
+    Then the catalogue rendered to the specifier says "static (lint, formatting, complexity, duplication): measured with shellcheck"
+    And the catalogue rendered to the specifier says "bdd (behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to steps and run by the runner): not measured; the catalogue has no entry"
+
+  Scenario: The specifier is told when nothing is known about the roles of the project
+    Given a Rust project
+    When the harness profiles the project
+    Then the catalogue rendered to the specifier says "no role coverage"

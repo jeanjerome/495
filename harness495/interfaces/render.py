@@ -86,8 +86,9 @@ def print_spec(spec: Spec) -> None:
     for v in spec.verifications:
         colour = "green" if v.sufficiency.value == "sufficient" else "yellow"
         flag = ", to create" if v.to_create else ""
+        role = f", {v.role.value}" if v.role else ""
         console.print(
-            f"  [bold]{v.id}[/] ({v.kind.value}{flag}) [{colour}]{v.sufficiency.value}[/]"
+            f"  [bold]{v.id}[/] ({v.kind.value}{role}{flag}) [{colour}]{v.sufficiency.value}[/]"
             + (f" — {v.rationale}" if v.rationale else "")
         )
         console.print(f"    [cyan]{v.command}[/]" if v.command else "    [red]no command[/]")

@@ -18,7 +18,7 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
-from harness495.core.context import render_profile
+from harness495.core.context import render_catalogue, render_profile
 from harness495.core.models import (
     CatalogueGap,
     CatalogueRole,
@@ -294,6 +294,11 @@ def the_tooling_names(project: Project, tool: str) -> None:
 @then(parsers.parse('the profile rendered to the agents says "{line}"'))
 def the_rendered_profile_says(project: Project, line: str) -> None:
     assert line in render_profile(project.profiled())
+
+
+@then(parsers.parse('the catalogue rendered to the specifier says "{line}"'))
+def the_rendered_catalogue_says(project: Project, line: str) -> None:
+    assert line in render_catalogue(project.profiled()), render_catalogue(project.profiled())
 
 
 @then(parsers.parse('the gap on "{role}" of "{technology}" is "{kind}"'))

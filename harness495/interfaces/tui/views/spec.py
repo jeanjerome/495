@@ -80,7 +80,8 @@ def build_spec(ctx: ViewContext) -> StageContent:
             flags.append("  to create", style="gauge.warn")
         if v.sufficiency is not Sufficiency.sufficient:
             flags.append(f"  {v.sufficiency.value}", style=f"suf.{v.sufficiency.value}")
-        node = tree.add(Text.assemble((v.id, "h.ref"), "  ", (v.kind.value, "h.meta")) + flags)
+        kind = v.kind.value + (f" / {v.role.value}" if v.role else "")
+        node = tree.add(Text.assemble((v.id, "h.ref"), "  ", (kind, "h.meta")) + flags)
         if v.command:
             node.add(shell_block(v.command))
         if v.description:

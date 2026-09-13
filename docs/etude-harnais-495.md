@@ -466,8 +466,9 @@ minimum, injecter dans le contexte du réviseur la liste des tests existants mod
 **E34 · La détection de profil ignore les outils des contrats Domaine, Architecture, Tests et
 Sécurité.** Priorité moyenne · effort M. Le profil signale `pre-commit` mais ni Hypothesis, ni
 import-linter, ni bandit, ni mutmut, ni leurs équivalents JS/Go/Rust/Java (pour Python et shell,
-la couverture de rôles de E50 (a) les signale désormais ; les `VerificationKind` et la proposition
-du spécificateur restent à faire). Or leur présence dans
+la couverture de rôles de E50 (a) les signale désormais, et le spécificateur propose une V
+portant le rôle correspondant quand l'outil est en place, E50 (d) ; les `VerificationKind` par
+rôle ne sont plus nécessaires, le champ `role` de la V tient ce rôle). Or leur présence dans
 un projet est le signal le plus fiable que le projet *veut* ces contrôles. Piste : étendre
 `_detect_*` à ces familles, ajouter les `VerificationKind` `property`, `architecture`,
 `security`, `mutation`, et faire proposer par le spécificateur une V du kind correspondant quand
@@ -531,13 +532,25 @@ pour tout run ; une proposition refusée est enregistrée avec sa raison, affich
 au `profile` suivant et n'est plus reproposée, même si l'écart change ou disparaît ; une
 proposition différée reste listée ; une proposition dont l'écart n'est plus énoncé est résolue
 et se rouvre si l'écart revient (`tests/features/proposals.feature`) ;
-(d) le spécificateur reçoit le catalogue et la couverture de rôles comme faits, afin de proposer
-des V du bon kind avec le bon outil quand il existe, et de signaler un gap quand il n'existe pas ;
+(d) **fait** (`docs/decisions/0014-a-verification-names-the-catalogue-role-it-measures.md`) :
+le spécificateur reçoit comme fait le catalogue contre la couverture du projet
+(`core/context.py::render_catalogue` : par technologie et rôle, ce qu'un test du rôle doit
+montrer, l'outil en place, la recommandation du catalogue et sa condition là où rien ne mesure
+le rôle, ou l'absence d'entrée), et sa consigne dit quel type d'exigence appelle quel rôle ;
+une `Verification` porte un `role` optionnel (`CatalogueRole`, dans le schéma de sortie du
+spécificateur), le kind gardant son sens (comment le harnais exécute et juge la V) ; l'audit de
+suffisance lit ce rôle : une V d'un rôle qu'aucune ligne de couverture ne mesure est
+`insufficient` quelle que soit sa commande, avec dans sa raison le contrat, la recommandation
+par technologie et le renvoi aux propositions, et l'exigence portée par elle seule est un écart
+énoncé au gate ; un rôle sans aucune ligne (technologie sans marqueurs) laisse la V jugée sur
+sa commande ; le rapport, la CLI et le TUI montrent le rôle à côté du kind
+(`tests/features/specifier.feature`, scénarios « The specifier is told … » de
+`tests/features/catalogue.feature`) ;
 (e) les rétrospectives (E44) alimentent le catalogue : un outil qui a fait ses preuves sur un
 projet hôte entre avec sa source, un outil qui a posé problème est consigné en rejeté.
-Prérequis : les kinds de vérification `property`, `architecture`, `security`, `mutation`,
-`coverage` (E34) et un passage d'étude par technologie (Python fait le 2026-09-13 ; JavaScript /
-TypeScript, Rust, Go, Java / Kotlin et Shell restent à faire).
+Prérequis pour (e) : un passage d'étude par technologie (Python fait le 2026-09-13 ;
+JavaScript / TypeScript, Rust, Go, Java / Kotlin et Shell restent à faire). Les kinds de
+vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**
 Priorité haute · effort M (495) puis L (projets hôtes).
@@ -708,7 +721,7 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles et écarts au catalogue énoncés à `init`/`profile` (faits, pour les rôles qui peuvent contredire l'agent), proposition de mise en conformité persistée (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait) ; reste l'alimentation par les rétrospectives et les études des autres technologies | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne

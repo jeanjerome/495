@@ -1,11 +1,14 @@
 """The catalogue's recommendations (``docs/test-libraries.md``) and a project's gaps against them.
 
 ``RECOMMENDED`` mirrors the ``recommended`` entries of the document, per technology and role,
-in the document's order; ``tests/test_catalogue.py`` keeps the two equal. ``compare`` reads a
+in the document's order, and ``ROLE_CONTRACTS`` what its Roles table says a test of each role
+must show; ``tests/test_catalogue.py`` keeps them equal to the document. ``compare`` reads a
 profile's role coverage and states, for each role whose measure can contradict the agent's
 implementation (``CONTRADICTING_ROLES``), whether the project measures it with the entry that
-applies to it. The document stays the source: an entry is added here only once it is in the
-document with its source (``docs/decisions/0012-tests-use-proven-libraries-from-a-catalogue.md``).
+applies to it; ``unmeasured_role`` says, for a verification that names a role, whether the
+project can run it at all. The document stays the source: an entry is added here only once it
+is in the document with its source
+(``docs/decisions/0012-tests-use-proven-libraries-from-a-catalogue.md``).
 """
 
 from __future__ import annotations
@@ -45,6 +48,29 @@ discipline, a performance bound is the project's to set; those three stay in the
 for 495's own tests and are never a gap. The column "Proposed to a host project" of the
 document's Roles table says the same, and ``tests/test_catalogue.py`` keeps them equal.
 """
+
+ROLE_CONTRACTS: dict[CatalogueRole, str] = {
+    CatalogueRole.runner: "planned cases hold, through public interfaces",
+    CatalogueRole.bdd: (
+        "behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to "
+        "steps and run by the runner"
+    ),
+    CatalogueRole.property: (
+        "no counter-example to a stated invariant over a generated input range"
+    ),
+    CatalogueRole.fuzzing: "no crash, hang or unbounded consumption on malformed input",
+    CatalogueRole.mutation: "the suite detects a deliberate alteration of the code it covers",
+    CatalogueRole.coverage: "which changed lines the suite executes",
+    CatalogueRole.architecture: "forbidden dependencies and layer crossings fail the build",
+    CatalogueRole.static: "lint, formatting, complexity, duplication",
+    CatalogueRole.types: "type contracts hold",
+    CatalogueRole.security: "SAST findings, secrets, vulnerable dependencies",
+    CatalogueRole.contract: "schemas and API descriptions match the implementation",
+    CatalogueRole.performance: "latency, memory, throughput against a bound",
+    CatalogueRole.doubles: "test doubles and fixtures with a known discipline",
+}
+"""What a test of each role must show: the column of that name in the document's Roles table.
+Rendered to the specifier so that it picks the role by the contract a requirement needs."""
 
 
 def _no_pytest_suite_or_standalone_features(profile: ProjectProfile) -> bool:
@@ -149,3 +175,33 @@ def compare(profile: ProjectProfile) -> list[CatalogueGap]:
         if gap is not None:
             gaps.append(gap)
     return gaps
+
+
+def unmeasured_role(role: CatalogueRole, profile: ProjectProfile) -> str | None:
+    """Why a verification of ``role`` cannot run in the project, or None when it can.
+
+    A role is measured when a coverage row of any technology names a tool for it. When every
+    row of the role is empty, the sentence names the tool the catalogue recommends for each
+    such technology, or says that the catalogue has no entry. When the profile has no row for
+    the role at all (no technology with markers), nothing is known and None is returned: an
+    unmeasured role always states a fact about the project, never a gap in the profile.
+    """
+    rows = [r for r in profile.role_coverage if r.role is role]
+    if not rows or any(r.measured for r in rows):
+        return None
+    advice: list[str] = []
+    for row in rows:
+        entry = applicable(row.technology, role, profile)
+        if entry is None:
+            advice.append(f"the catalogue has no entry for {row.technology}")
+        else:
+            condition = f" ({entry.condition})" if entry.condition else ""
+            advice.append(
+                f"the catalogue recommends {', '.join(entry.tools)} for {row.technology}{condition}"
+            )
+    return (
+        f"the project does not measure the {role.value} role ({ROLE_CONTRACTS[role]}); "
+        + "; ".join(advice)
+        + "; putting the tool in place is a conformance proposal for the requester "
+        "(495 proposals), not part of this change"
+    )

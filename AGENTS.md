@@ -46,6 +46,10 @@ Keep these true in every change; each has a test or a record that names it.
   out of every reviewer's context (`0004`, `0005`).
 - Build every prompt with `ContextPack`: harness-measured material under facts, agent- or
   repository-produced material under untrusted (`0005`).
+- A verification names the catalogue role it measures (`Verification.role`); a role no
+  coverage row of the profile measures makes it `insufficient`, with the catalogue's
+  recommendation as rationale, and the tool enters the project through a proposal, never
+  through the change (`0014`).
 - Runs work in a git worktree under `~/.cache/495/worktrees/`; the harness makes the commits;
   the user's checkout is written by `495 merge` only (`0006`, `0010`).
 - Cost is `reported`, `estimated` or `unknown` (`0008`).

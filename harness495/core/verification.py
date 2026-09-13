@@ -8,9 +8,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from harness495.core import git
+from harness495.core.catalogue import unmeasured_role
 from harness495.core.models import (
     Evidence,
     EvidenceKind,
+    ProjectProfile,
     RequirementKind,
     Spec,
     Sufficiency,
@@ -97,6 +99,7 @@ def assess_sufficiency(
     spec: Spec,
     executable_commands: set[str] | None = None,
     passing_on_base: set[str] | None = None,
+    profile: ProjectProfile | None = None,
 ) -> list[str]:
     """Flag verifications that are missing or insufficient. Mutates ``spec`` and returns the gaps.
 
@@ -104,6 +107,11 @@ def assess_sufficiency(
     success. A requirement that states new behaviour cannot be carried by one of those alone: it
     already reports success on a tree where the behaviour is absent, so whatever it reports
     afterwards is the same and shows nothing.
+
+    ``profile`` carries the role coverage: a verification that names a catalogue role the
+    project does not measure is insufficient whatever its command, because the tool that
+    measures the role is not in place and is the requester's to bring in, not the producer's;
+    the rationale names what the catalogue recommends (``catalogue.unmeasured_role``).
     """
     gaps: list[str] = []
     interpreters = project_interpreters(executable_commands or set())
@@ -113,7 +121,13 @@ def assess_sufficiency(
             v.command, note = normalise_command(v.command, interpreters)
             if note:
                 v.rationale = note
-        if v.kind in (VerificationKind.manual, VerificationKind.review):
+        missing_role = (
+            unmeasured_role(v.role, profile) if v.role is not None and profile is not None else None
+        )
+        if missing_role is not None:
+            v.sufficiency = Sufficiency.insufficient
+            v.rationale = missing_role
+        elif v.kind in (VerificationKind.manual, VerificationKind.review):
             v.sufficiency = Sufficiency.insufficient
             v.rationale = v.rationale or "not automated: relies on human or reviewer judgement only"
         elif not v.command:

@@ -206,7 +206,11 @@ with, and what that tool was recognised from: a dependency in `pyproject.toml` o
 role nothing measures is listed as such. The rows exist for the technologies whose tools the
 profile has markers for, Python and shell today; a technology without markers gets no rows
 rather than rows that would read as findings about the project. The agents see the same list
-in their context.
+in their context; the specifier also sees, per role, what a test of it must show and what the
+catalogue recommends where nothing measures it, and names on each verification the role it
+measures. A verification of a role the project does not measure is reported as insufficient,
+with the recommendation: the tool comes in through a proposal you answer, not through the
+change.
 
 The third table is the **gaps against the catalogue**: for each role the catalogue has an
 entry for, whether the project measures it with the recommended tool. A gap is a role nothing
@@ -391,7 +395,7 @@ flowchart TD
 | phase | what happens | who |
 |---|---|---|
 | profile | detect languages, tooling, verification commands and conventions; run every command once on the base version to prove it is executable and record what it printed (**readiness**) | harness |
-| specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`; flag missing or insufficient verifications and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
+| specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`, each verification naming the catalogue role it measures when it is one (`property`, `mutation`, `coverage`...); flag missing or insufficient verifications, among them a verification of a role the project does not measure, and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
 | gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
 | produce | implement the change in the worktree; the harness commits the result so the evaluated version is one exact commit | producer agent (write) |
 | verify | scope check (only allowed paths touched), then every verification command on that commit, output and hashes kept as evidence. Each command a behaviour requirement leans on is then run again on the base version carrying the change's test files, and one that reports the same thing there as on the change is marked as not observing it — `broken` when it fails both times, `vacuous` when it passes both times. Either way the run stops and asks before a reviewer is called | harness |

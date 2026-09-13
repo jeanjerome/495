@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from harness495.core.catalogue import CONTRADICTING_ROLES, RECOMMENDED
+from harness495.core.catalogue import CONTRADICTING_ROLES, RECOMMENDED, ROLE_CONTRACTS
 from harness495.core.models import CatalogueRole
 from harness495.core.profile import ROLES_BY_TECHNOLOGY
 
@@ -100,3 +100,13 @@ def test_the_roles_proposed_to_a_host_project_are_those_the_catalogue_marks() ->
     marked = {role for role, *_, proposed in rows if proposed.split(":")[0].strip() == "yes"}
     # Then they are exactly the roles the comparison covers
     assert marked == {role.value for role in CONTRADICTING_ROLES}
+
+
+def test_what_a_test_of_each_role_must_show_is_what_the_catalogue_says() -> None:
+    # Given the Roles table of the catalogue, with its "What the test must show" column
+    sections = _sections(CATALOGUE.read_text(encoding="utf-8"))
+    rows = _rows(sections["Roles"])
+    # When that column is read per role
+    documented = {role: shows for role, _contract, shows, *_ in rows}
+    # Then it is what the code renders to the specifier for each role
+    assert documented == {role.value: text for role, text in ROLE_CONTRACTS.items()}

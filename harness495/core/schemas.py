@@ -13,6 +13,23 @@ from __future__ import annotations
 from typing import Any
 
 VERIFICATION_KINDS = ["command", "test", "lint", "build", "typecheck", "review", "manual"]
+CATALOGUE_ROLES = [
+    "runner",
+    "bdd",
+    "property",
+    "fuzzing",
+    "mutation",
+    "coverage",
+    "architecture",
+    "static",
+    "types",
+    "security",
+    "contract",
+    "performance",
+    "doubles",
+]
+"""The roles of ``docs/test-libraries.md``, as ``CatalogueRole`` lists them; a verification
+names the one it measures, or null."""
 REQUIREMENT_KINDS = ["behaviour", "non_regression"]
 
 
@@ -48,6 +65,7 @@ SPEC_SCHEMA: dict[str, Any] = _obj(
                     "description": {"type": "string"},
                     "command": {"type": ["string", "null"]},
                     "to_create": {"type": "boolean"},
+                    "role": {"type": ["string", "null"], "enum": [*CATALOGUE_ROLES, None]},
                 }
             ),
         },
