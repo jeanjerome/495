@@ -141,6 +141,23 @@ Feature: Role coverage of a host project
     Then the role "fuzzing" of "rust" is measured with "cargo-fuzz"
     And that role is recognised from "fuzz/Cargo.toml: dependency libfuzzer-sys"
 
+  Scenario: A Go module's go.mod and test functions name the tools of its roles
+    Given a Go project
+    And its go.mod requires "pgregory.net/rapid"
+    And the file "mathx/mathx_test.go" contains "func FuzzParsePair(f *testing.F) {}\nfunc BenchmarkClamp(b *testing.B) {}"
+    And the file ".golangci.yml" contains "linters:\n  enable: [gosec, depguard]"
+    When the harness profiles the project
+    Then the role "runner" of "go" is measured with "go test"
+    And the role "property" of "go" is measured with "rapid"
+    And that role is recognised from "go.mod: dependency pgregory.net/rapid"
+    And the role "fuzzing" of "go" is measured with "go test -fuzz"
+    And that role is recognised from "mathx/mathx_test.go: func Fuzz"
+    And the role "performance" of "go" is measured with "go test -bench"
+    And the role "static" of "go" is measured with "golangci-lint"
+    And the role "security" of "go" is measured with "gosec"
+    And the role "architecture" of "go" is measured with "depguard"
+    And the role "mutation" of "go" is not measured
+
   Scenario: A technology without markers has no coverage rows
     Given a Ruby project
     When the harness profiles the project

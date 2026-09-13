@@ -45,12 +45,19 @@ class Project:
     node_dev_dependencies: dict[str, str] = field(default_factory=dict)
     node_scripts: dict[str, str] = field(default_factory=dict)
     cargo_dev_dependencies: list[str] = field(default_factory=list)
+    go_requires: list[str] = field(default_factory=list)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
     last_proposal: Proposal | None = None
     output: str = ""
     exit_code: int = 0
+
+    def write_go_mod(self) -> None:
+        requires = "".join(f"\t{m} v1.0.0\n" for m in self.go_requires)
+        (self.root / "go.mod").write_text(
+            f"module example.com/x\n\ngo 1.27\n\nrequire (\n{requires})\n"
+        )
 
     def write_cargo_toml(self) -> None:
         deps = "".join(f'{d} = "*"\n' for d in self.cargo_dev_dependencies)
@@ -173,6 +180,17 @@ def a_rust_project(project: Project) -> None:
 def cargo_toml_lists_a_dev_dependency(project: Project, name: str) -> None:
     project.cargo_dev_dependencies.append(name)
     project.write_cargo_toml()
+
+
+@given("a Go project")
+def a_go_project(project: Project) -> None:
+    project.write_go_mod()
+
+
+@given(parsers.parse('its go.mod requires "{module}"'))
+def go_mod_requires(project: Project, module: str) -> None:
+    project.go_requires.append(module)
+    project.write_go_mod()
 
 
 @given("a Ruby project")

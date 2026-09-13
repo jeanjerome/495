@@ -490,6 +490,24 @@ def _rust_tree(root: Path) -> Tree:
     return tree
 
 
+GO_REQUIRE = re.compile(r"^\s*(?:require\s+)?([A-Za-z0-9][A-Za-z0-9._~/-]*)\s+v[0-9]", re.M)
+
+
+def _go_tree(root: Path) -> Tree:
+    """What the Go markers read: the module paths ``go.mod`` requires, the ``_test.go`` and
+    ``.feature`` files, the golangci-lint configuration, the CI files."""
+    tree = Tree(root=root)
+    for name in GO_REQUIRE.findall(_read_small(root / "go.mod")):
+        tree.dependencies.setdefault(name, "go.mod")
+    for name in (".golangci.yml", ".golangci.yaml", ".golangci.toml"):
+        if (root / name).is_file():
+            tree.manifests[name] = _read_small(root / name)
+    for path in _walk(root, lambda p: p.name.endswith("_test.go") or p.suffix == ".feature"):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    read_ci(tree, _read_small)
+    return tree
+
+
 def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     if (root / "Cargo.toml").exists():
         prof.languages.append("rust")
@@ -503,6 +521,7 @@ def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComm
     if (root / "go.mod").exists():
         prof.languages.append("go")
         prof.detected_from.append("go.mod")
+        prof.role_coverage.extend(coverage.rows("go", _go_tree(root), coverage.GO_TOOLS))
         cmds.setdefault("test", _cmd("test", "go test ./...", VerificationKind.test, "detected"))
         cmds.setdefault(
             "build", _cmd("build", "go build ./...", VerificationKind.build, "detected")

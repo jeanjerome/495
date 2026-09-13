@@ -157,6 +157,23 @@ Feature: Gaps of a host project against the test-library catalogue
     And that gap recommends "cargo-deny"
     And that gap states no condition
 
+  Scenario: A Go project on golangci-lint is told depguard for its layers, with the condition
+    Given a Go project
+    And the file ".golangci.yml" contains "linters:\n  enable: [gosec]"
+    When the harness profiles the project
+    Then the gap on "architecture" of "go" is "unmeasured"
+    And that gap recommends "depguard"
+    And that gap states the condition "the project already runs golangci-lint"
+    And the gap on "security" of "go" is "incomplete"
+    And that gap recommends "gosec, govulncheck"
+
+  Scenario: A Go project without golangci-lint is told go-arch-lint, the default of the cell
+    Given a Go project
+    When the harness profiles the project
+    Then the gap on "architecture" of "go" is "unmeasured"
+    And that gap recommends "go-arch-lint"
+    And that gap states no condition
+
   Scenario: The specifier is told when nothing is known about the roles of the project
     Given a Ruby project
     When the harness profiles the project

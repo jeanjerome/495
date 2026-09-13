@@ -47,6 +47,18 @@ ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
         CatalogueRole.security,
         CatalogueRole.performance,
     ),
+    "go": (
+        CatalogueRole.runner,
+        CatalogueRole.bdd,
+        CatalogueRole.property,
+        CatalogueRole.fuzzing,
+        CatalogueRole.mutation,
+        CatalogueRole.coverage,
+        CatalogueRole.architecture,
+        CatalogueRole.static,
+        CatalogueRole.security,
+        CatalogueRole.performance,
+    ),
 }
 """The roles the catalogue (``docs/test-libraries.md``) has a table for, per technology."""
 
@@ -610,10 +622,69 @@ workspace, per target), of the workspace members one level down and of ``fuzz/Ca
 is the toolchain's.
 """
 
+# ----------------------------------------------------------------------------------- go
+
+GO_TOOLS: ToolTable = (
+    (CatalogueRole.runner, "go test", (config_file("go.mod"),)),
+    (CatalogueRole.runner, "ginkgo", (dependency("github.com/onsi/ginkgo/v2"),)),
+    (
+        CatalogueRole.bdd,
+        "godog",
+        (dependency("github.com/cucumber/godog"), _test_file((".feature",))),
+    ),
+    (CatalogueRole.property, "rapid", (dependency("pgregory.net/rapid"),)),
+    (CatalogueRole.property, "gopter", (dependency("github.com/leanovate/gopter"),)),
+    (CatalogueRole.property, "testing/quick", (in_tests('"testing/quick"'),)),
+    (
+        CatalogueRole.fuzzing,
+        "go test -fuzz",
+        (in_tests("func Fuzz"), directory("testdata/fuzz")),
+    ),
+    (
+        CatalogueRole.mutation,
+        "gremlins",
+        (config_file(".gremlins.yaml"), config_file(".gremlins.yml"), in_ci("gremlins")),
+    ),
+    (CatalogueRole.mutation, "go-mutesting", (in_ci("go-mutesting"),)),
+    (CatalogueRole.coverage, "go test -cover", (in_ci("-coverprofile"), in_ci("-cover"))),
+    (CatalogueRole.coverage, "gocover-cobertura", (in_ci("gocover-cobertura"),)),
+    (CatalogueRole.architecture, "go-arch-lint", (config_file(".go-arch-lint.yml"),)),
+    (CatalogueRole.architecture, "depguard", (in_manifest("depguard"),)),
+    (CatalogueRole.architecture, "arch-go", (config_file("arch-go.yml"),)),
+    (
+        CatalogueRole.static,
+        "golangci-lint",
+        (
+            config_file(".golangci.yml"),
+            config_file(".golangci.yaml"),
+            config_file(".golangci.toml"),
+            in_ci("golangci-lint"),
+        ),
+    ),
+    (
+        CatalogueRole.static,
+        "staticcheck",
+        (config_file("staticcheck.conf"), in_ci("staticcheck")),
+    ),
+    (CatalogueRole.static, "revive", (config_file("revive.toml"), in_ci("revive"))),
+    (CatalogueRole.security, "gosec", (in_manifest("gosec"), in_ci("gosec"))),
+    (CatalogueRole.security, "govulncheck", (in_ci("govulncheck"),)),
+    (CatalogueRole.performance, "go test -bench", (in_tests("func Benchmark"),)),
+    (CatalogueRole.performance, "benchstat", (in_ci("benchstat"),)),
+)
+"""The Go markers (``docs/studies/2026-09-13-go-test-libraries.md``).
+
+``dependencies`` are the module paths ``go.mod`` requires, ``tests`` the ``_test.go`` and
+``.feature`` files, ``manifests`` the golangci-lint configuration (for the linters it
+enables), ``ci`` the CI files and Makefile. Every module measures the runner: ``go test`` is
+the toolchain's; its ``-fuzz`` and ``-bench`` modes are recognised from the test functions.
+"""
+
 TABLES: dict[str, ToolTable] = {
     "python": PYTHON_TOOLS,
     "shell": SHELL_TOOLS,
     "javascript/typescript": NODE_TOOLS,
     "rust": RUST_TOOLS,
+    "go": GO_TOOLS,
 }
 """The marker table of each technology that has coverage rows."""

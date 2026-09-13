@@ -183,6 +183,23 @@ RECOMMENDED: tuple[Recommendation, ...] = (
         _measures_with("rust", CatalogueRole.security, "cargo-audit"),
     ),
     Recommendation("rust", CatalogueRole.performance, ("criterion",)),
+    Recommendation("go", CatalogueRole.runner, ("go test",)),
+    Recommendation("go", CatalogueRole.bdd, ("godog",)),
+    Recommendation("go", CatalogueRole.property, ("rapid",)),
+    Recommendation("go", CatalogueRole.fuzzing, ("go test -fuzz",)),
+    Recommendation("go", CatalogueRole.mutation, ("gremlins",)),
+    Recommendation("go", CatalogueRole.coverage, ("go test -cover", "gocover-cobertura")),
+    Recommendation("go", CatalogueRole.architecture, ("go-arch-lint",)),
+    Recommendation(
+        "go",
+        CatalogueRole.architecture,
+        ("depguard",),
+        "the project already runs golangci-lint",
+        _measures_with("go", CatalogueRole.static, "golangci-lint"),
+    ),
+    Recommendation("go", CatalogueRole.static, ("golangci-lint",)),
+    Recommendation("go", CatalogueRole.security, ("gosec", "govulncheck")),
+    Recommendation("go", CatalogueRole.performance, ("go test -bench", "benchstat")),
 )
 """The document's ``recommended`` entries, in its order; a cell with several entries lists
 its default first. A technology whose section of the document is empty has no entry here,

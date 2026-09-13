@@ -149,16 +149,17 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
-| runner | | | | |
-| bdd | | | | |
-| property | | | | |
-| fuzzing | | | | |
-| mutation | | | | |
-| coverage | | | | |
-| architecture | | | | |
-| static | | | | |
-| security | | | | |
-| performance | | | | |
+| runner | go test | recommended | study 2026-09-13 (`docs/studies/2026-09-13-go-test-libraries.md`), in use in 495's profile since 2026-09-12 | Go 1.27.1 measured; `-json` for a machine reader; testify 1.12.1 for the assertions |
+| bdd | godog | recommended | study 2026-09-13 (go) | 0.16.0 measured; a `godog.TestSuite` with `TestingT: t` runs the `.feature` files under `go test` |
+| property | rapid | recommended | study 2026-09-13 (go) | 1.3.0 measured; `rapid.Check`, generators typed by the value drawn, shrinking |
+| fuzzing | go test -fuzz | recommended | study 2026-09-13 (go) | native since Go 1.18, measured on 1.27.1; `-run=^$ -fuzz=<name> -fuzztime=10s`; a crashing input is written under `testdata/fuzz/` and fails the plain `go test` until the code is fixed |
+| mutation | gremlins | recommended | study 2026-09-13 (go) | 0.5.1 measured; the default timeout marks every mutant of a fast suite as timed out, `--timeout-coefficient 20` gave 3 killed and 1 lived on the sample; `.gremlins.yaml` |
+| coverage | go test -cover, with gocover-cobertura | recommended | study 2026-09-13 (go) | 1.27.1 and 1.5.0 measured; `-coverprofile=cover.out`, converted to Cobertura with per-line hits, which `diff-cover --compare-branch` reads for the changed lines |
+| architecture | go-arch-lint | recommended | study 2026-09-13 (go) | 1.19.0 measured; `.go-arch-lint.yml` version 3, components and `deps`, a crossing reported with file and line; a component under `deps` needs `mayDependOn`, `canUse` or a flag |
+| architecture | depguard | recommended | study 2026-09-13 (go) | when the project already runs golangci-lint: 2.2.1 measured through golangci-lint 2.13.2, import deny lists per path in `.golangci.yml` |
+| static | golangci-lint | recommended | study 2026-09-13 (go) | 2.13.2 measured; runs staticcheck, gofmt, revive, gocognit and the rest under `.golangci.yml` version 2 |
+| security | gosec, govulncheck | recommended | study 2026-09-13 (go) | 2.29.0 and 1.8.0 measured; gosec reports CWE-tagged findings (G204, G401, G501 on the sample), also as a golangci-lint linter; govulncheck reads the Go vulnerability database and reports reachable calls only, no account |
+| performance | go test -bench, with benchstat | recommended | study 2026-09-13 (go) | 1.27.1 measured with benchstat of 2026-09-08; `-bench=. -count=4` at least for benchstat to detect a difference, 6 for a confidence interval |
 
 ### Java / Kotlin
 
@@ -227,3 +228,11 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Rust | security | cargo-geiger | counts `unsafe`, no verdict | study 2026-09-13 (rust) |
 | Rust | performance | divan | no baseline comparison between runs | study 2026-09-13 (rust) |
 | Rust | performance | iai-callgrind | instruction counts under valgrind, Linux | study 2026-09-13 (rust) |
+| Go | runner | ginkgo | a describe/it runner of its own | study 2026-09-13 (go) |
+| Go | property | gopter | last release 2024-04; a heavier API than rapid's | study 2026-09-13 (go) |
+| Go | property | testing/quick | frozen by the Go team; no shrinking | study 2026-09-13 (go) |
+| Go | fuzzing | go-fuzz | the pre-1.18 tool, pseudo-versions only | study 2026-09-13 (go) |
+| Go | fuzzing | gofuzz | last release 2020-08; random filling without guidance | study 2026-09-13 (go) |
+| Go | mutation | go-mutesting | no tagged release; the upstream's last commit is 2021-06 | study 2026-09-13 (go) |
+| Go | coverage | gocov | last release 2024-10; a JSON converter for the same profile | study 2026-09-13 (go) |
+| Go | architecture | arch-go | last release 2025-02; not run | study 2026-09-13 (go) |

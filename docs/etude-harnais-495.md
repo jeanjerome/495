@@ -583,7 +583,12 @@ le 2026-09-13 (`docs/studies/2026-09-13-rust-test-libraries.md` : cargo test, cu
 proptest, cargo-fuzz (nightly), cargo-mutants, cargo-llvm-cov, cargo-deny pour les couches
 entre crates (`[bans]` avec `wrappers`) et pour les avis (cargo-audit si déjà en place),
 clippy avec rustfmt, criterion ; `core/coverage.py::RUST_TOOLS`, arbre lu dans `Cargo.toml`,
-`fuzz/Cargo.toml` et `deny.toml`) ; Go et Java / Kotlin restent à faire. Les kinds de
+`fuzz/Cargo.toml` et `deny.toml`) ; Go **fait** le 2026-09-13
+(`docs/studies/2026-09-13-go-test-libraries.md` : go test, godog, rapid, `go test -fuzz`,
+gremlins (`--timeout-coefficient` obligatoire sur une suite rapide), `go test -cover` avec
+gocover-cobertura, go-arch-lint ou depguard sous golangci-lint, golangci-lint, gosec et
+govulncheck, `go test -bench` avec benchstat ; `core/coverage.py::GO_TOOLS`, arbre lu dans
+`go.mod`, les `_test.go` et `.golangci.yml`) ; Java / Kotlin reste à faire. Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**
