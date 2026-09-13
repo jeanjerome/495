@@ -63,6 +63,7 @@ dev = [
     "pytest>=8",
     "ruff>=0.5",
     "mypy>=1.10",
+    "import-linter>=2.15,<3",
 ]
 
 [tool.setuptools.packages.find]
@@ -95,4 +96,51 @@ testpaths = ["tests"]
 addopts = "-q -m 'not live'"
 markers = [
     "live: tests that call real agent CLIs or network (deselected by default)",
+]
+
+[tool.importlinter]
+root_package = "harness495"
+# Package boundaries: docs/decisions/0011-package-boundaries.md. Run with `lint-imports`;
+# tests/test_architecture.py runs the same contracts under pytest.
+
+[[tool.importlinter.contracts]]
+name = "interfaces is the outermost layer: nothing else imports it"
+type = "forbidden"
+source_modules = ["harness495.core", "harness495.agents", "harness495.sandbox"]
+forbidden_modules = ["harness495.interfaces"]
+
+[[tool.importlinter.contracts]]
+name = "sandbox imports nothing of 495 but core.models"
+type = "forbidden"
+source_modules = ["harness495.sandbox"]
+forbidden_modules = ["harness495.core", "harness495.agents"]
+ignore_imports = [
+    "harness495.sandbox -> harness495.core.models",
+    "harness495.sandbox.** -> harness495.core.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "agents import only sandbox, core.models and core.pricing"
+type = "forbidden"
+source_modules = ["harness495.agents"]
+forbidden_modules = ["harness495.core"]
+ignore_imports = [
+    "harness495.agents.** -> harness495.core.models",
+    "harness495.agents.** -> harness495.core.pricing",
+    # sandbox's own permitted import, otherwise reported here as an indirect chain
+    "harness495.sandbox -> harness495.core.models",
+    "harness495.sandbox.** -> harness495.core.models",
+]
+
+[[tool.importlinter.contracts]]
+name = "inside core, only engine reaches agents and only engine and verification reach sandbox"
+type = "forbidden"
+source_modules = ["harness495.core"]
+forbidden_modules = ["harness495.agents", "harness495.sandbox"]
+ignore_imports = [
+    "harness495.core.engine -> harness495.agents.**",
+    "harness495.core.engine -> harness495.sandbox",
+    "harness495.core.engine -> harness495.sandbox.**",
+    "harness495.core.verification -> harness495.sandbox",
+    "harness495.core.verification -> harness495.sandbox.**",
 ]

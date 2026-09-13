@@ -652,6 +652,11 @@ What this README describes is what the code does today.
 
 | Document | Purpose |
 | --- | --- |
+| `AGENTS.md` | The map of the repository for agents and contributors: pointers, invariants, conventions |
+| `docs/architecture.md` | The workflow, the packages and their boundaries, the data model, the state on disk |
+| `docs/decisions/` | One record per design decision, with what a change to the code it names must preserve |
+| `docs/test-libraries.md` | The recommended test library per technology and role, for 495 and for host projects |
+| `docs/etude-harnais-495.md` | The gap study against the harness-engineering recommendations, prioritised |
 | `495 schema run` | The shape of a run document: requirements, interventions, evidence, decisions, result |
 | `495 report <id>` | The Markdown restitution of one run: what was asked, what was produced, what was observed, what was concluded |
 | `harness495/interfaces/tui/__init__.py` | How the run surface is laid out, and the two rules that hold it together |
@@ -663,9 +668,11 @@ What this README describes is what the code does today.
 .venv/bin/python -m pytest -q            # unit, adapter (fake CLIs) and end-to-end (fake agents) tests
 .venv/bin/ruff check harness495 tests && .venv/bin/ruff format --check harness495 tests
 .venv/bin/mypy harness495
+.venv/bin/lint-imports                   # package boundaries, the contracts in pyproject.toml
 ```
 
 `pytest -m live` runs the tests that call real agent CLIs; they are deselected by default.
+Tests use the libraries listed in `docs/test-libraries.md` for their role.
 
 The images and the recording above are rebuilt from a store the engine walked, with the three
 agent roles answering from a script so that neither costs a call:
