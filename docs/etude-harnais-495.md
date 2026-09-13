@@ -578,8 +578,12 @@ JavaScript / TypeScript **fait** le 2026-09-13
 fast-check, Jazzer.js, Stryker (vitest 4 : le runner ne tue rien sous vitest 5, issue 6210),
 @vitest/coverage-v8, dependency-cruiser, eslint avec prettier, typescript, eslint-plugin-security
 et npm audit, prism en proxy ou express-openapi-validator sous Express, tinybench, `vi` avec msw ;
-marqueurs dans `core/coverage.py::NODE_TOOLS`, arbre lu dans `package.json`) ; Rust, Go et
-Java / Kotlin restent à faire. Les kinds de
+marqueurs dans `core/coverage.py::NODE_TOOLS`, arbre lu dans `package.json`) ; Rust **fait**
+le 2026-09-13 (`docs/studies/2026-09-13-rust-test-libraries.md` : cargo test, cucumber,
+proptest, cargo-fuzz (nightly), cargo-mutants, cargo-llvm-cov, cargo-deny pour les couches
+entre crates (`[bans]` avec `wrappers`) et pour les avis (cargo-audit si déjà en place),
+clippy avec rustfmt, criterion ; `core/coverage.py::RUST_TOOLS`, arbre lu dans `Cargo.toml`,
+`fuzz/Cargo.toml` et `deny.toml`) ; Go et Java / Kotlin restent à faire. Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**

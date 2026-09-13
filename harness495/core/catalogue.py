@@ -94,6 +94,16 @@ def _lists_dependency(package_json: Path, name: str) -> bool:
     return any(name in data.get(key, {}) for key in ("dependencies", "devDependencies"))
 
 
+def _measures_with(
+    technology: str, role: CatalogueRole, tool: str
+) -> Callable[[ProjectProfile], bool]:
+    def holds(profile: ProjectProfile) -> bool:
+        row = profile.coverage(technology, role)
+        return row is not None and tool in row.tools
+
+    return holds
+
+
 @dataclass(frozen=True)
 class Recommendation:
     """One ``recommended`` entry of the catalogue: the tools of the cell, and when it applies.
@@ -156,6 +166,23 @@ RECOMMENDED: tuple[Recommendation, ...] = (
     ),
     Recommendation("javascript/typescript", CatalogueRole.performance, ("tinybench",)),
     Recommendation("javascript/typescript", CatalogueRole.doubles, ("vi", "msw")),
+    Recommendation("rust", CatalogueRole.runner, ("cargo test",)),
+    Recommendation("rust", CatalogueRole.bdd, ("cucumber",)),
+    Recommendation("rust", CatalogueRole.property, ("proptest",)),
+    Recommendation("rust", CatalogueRole.fuzzing, ("cargo-fuzz",)),
+    Recommendation("rust", CatalogueRole.mutation, ("cargo-mutants",)),
+    Recommendation("rust", CatalogueRole.coverage, ("cargo-llvm-cov",)),
+    Recommendation("rust", CatalogueRole.architecture, ("cargo-deny",)),
+    Recommendation("rust", CatalogueRole.static, ("clippy", "rustfmt")),
+    Recommendation("rust", CatalogueRole.security, ("cargo-deny",)),
+    Recommendation(
+        "rust",
+        CatalogueRole.security,
+        ("cargo-audit",),
+        "the project already runs cargo audit",
+        _measures_with("rust", CatalogueRole.security, "cargo-audit"),
+    ),
+    Recommendation("rust", CatalogueRole.performance, ("criterion",)),
 )
 """The document's ``recommended`` entries, in its order; a cell with several entries lists
 its default first. A technology whose section of the document is empty has no entry here,

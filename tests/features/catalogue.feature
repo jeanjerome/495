@@ -113,7 +113,7 @@ Feature: Gaps of a host project against the test-library catalogue
     And the output shows "another tool than the catalogue's"
 
   Scenario: The profile command says when there is nothing to state
-    Given a Rust project
+    Given a Ruby project
     When the requester runs "495 profile"
     Then the output shows "catalogue: no gap"
 
@@ -142,7 +142,22 @@ Feature: Gaps of a host project against the test-library catalogue
     Then the catalogue rendered to the specifier says "static (lint, formatting, complexity, duplication): measured with shellcheck"
     And the catalogue rendered to the specifier says "bdd (behaviour scenarios in Gherkin (Given/When/Then), readable by the requester, bound to steps and run by the runner): not measured; the catalogue has no entry"
 
-  Scenario: The specifier is told when nothing is known about the roles of the project
+  Scenario: A Rust project running cargo audit keeps it and is told cargo-deny for its layers
     Given a Rust project
+    And the file ".github/workflows/ci.yml" contains "run: cargo audit"
+    When the harness profiles the project
+    Then there is no gap on "security" of "rust"
+    And the gap on "architecture" of "rust" is "unmeasured"
+    And that gap recommends "cargo-deny"
+
+  Scenario: A Rust project without an advisory check is told cargo-deny, the default of the cell
+    Given a Rust project
+    When the harness profiles the project
+    Then the gap on "security" of "rust" is "unmeasured"
+    And that gap recommends "cargo-deny"
+    And that gap states no condition
+
+  Scenario: The specifier is told when nothing is known about the roles of the project
+    Given a Ruby project
     When the harness profiles the project
     Then the catalogue rendered to the specifier says "no role coverage"

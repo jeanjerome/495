@@ -441,10 +441,60 @@ def _detect_node(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComman
         )
 
 
+def _cargo_dependencies(text: str) -> list[str]:
+    """The names of every dependency table of a Cargo manifest: regular, dev, build, workspace,
+    per target."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return []
+    tables = [
+        data.get("dependencies", {}),
+        data.get("dev-dependencies", {}),
+        data.get("build-dependencies", {}),
+        data.get("workspace", {}).get("dependencies", {}),
+        *(t.get("dependencies", {}) for t in data.get("target", {}).values()),
+        *(t.get("dev-dependencies", {}) for t in data.get("target", {}).values()),
+    ]
+    names: list[str] = []
+    for table in tables:
+        for name, spec in table.items():
+            names.append(spec.get("package", name) if isinstance(spec, dict) else name)
+    return names
+
+
+def _rust_tree(root: Path) -> Tree:
+    """What the Rust markers read: the dependencies of ``Cargo.toml``, of the workspace members
+    one level down and of ``fuzz/Cargo.toml``; the text of ``Cargo.toml`` and ``deny.toml``;
+    the files under ``tests/``, ``benches/`` and ``features/``; the CI files."""
+    tree = Tree(root=root)
+    manifests = [root / "Cargo.toml", *sorted(root.glob("*/Cargo.toml"))]
+    for manifest in manifests:
+        if not manifest.is_file() or any(p in NOT_THE_PROJECT for p in manifest.parts):
+            continue
+        text = _read_small(manifest)
+        tree.manifests[tree.rel(manifest)] = text
+        for name in _cargo_dependencies(text):
+            tree.dependencies.setdefault(name, tree.rel(manifest))
+    deny = root / "deny.toml"
+    if deny.is_file():
+        tree.manifests["deny.toml"] = _read_small(deny)
+
+    def is_test(path: Path) -> bool:
+        parts = path.relative_to(root).parts[:-1]
+        return bool(parts) and parts[0] in ("tests", "benches", "features")
+
+    for path in _walk(root, is_test):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    read_ci(tree, _read_small)
+    return tree
+
+
 def _detect_others(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     if (root / "Cargo.toml").exists():
         prof.languages.append("rust")
         prof.detected_from.append("Cargo.toml")
+        prof.role_coverage.extend(coverage.rows("rust", _rust_tree(root), coverage.RUST_TOOLS))
         cmds.setdefault("test", _cmd("test", "cargo test", VerificationKind.test, "detected"))
         cmds.setdefault(
             "lint", _cmd("lint", "cargo clippy -- -D warnings", VerificationKind.lint, "detected")

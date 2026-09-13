@@ -133,16 +133,17 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
-| runner | | | | |
-| bdd | | | | |
-| property | | | | |
-| fuzzing | | | | |
-| mutation | | | | |
-| coverage | | | | |
-| architecture | | | | |
-| static | | | | |
-| security | | | | |
-| performance | | | | |
+| runner | cargo test | recommended | study 2026-09-13 (`docs/studies/2026-09-13-rust-test-libraries.md`) | 1.98.0 measured; runs the property, bdd and doubles entries as test targets; cargo-nextest runs one process per test but cannot list a `harness = false` target, so the cucumber target is excluded by expression |
+| bdd | cucumber | recommended | study 2026-09-13 (rust) | 0.23.0 measured (MSRV 1.88); `.feature` files, steps as attributed functions, a `harness = false` test target run under an executor |
+| property | proptest | recommended | study 2026-09-13 (rust) | 1.11.0 measured; strategies with shrinking, failing cases kept in `proptest-regressions/` |
+| fuzzing | cargo-fuzz | recommended | study 2026-09-13 (rust) | 0.13.2 measured; libFuzzer through `libfuzzer-sys`, `cargo fuzz init` writes `fuzz/`; builds on a nightly toolchain only (`-Zsanitizer`), measured on stable |
+| mutation | cargo-mutants | recommended | study 2026-09-13 (rust) | 27.1.0 measured (MSRV 1.88); 26 mutants in 63 s on the sample, `mutants.out/` with `caught.txt` and `missed.txt`, to be ignored by git; `--in-place` excludes `--jobs` |
+| coverage | cargo-llvm-cov | recommended | study 2026-09-13 (rust) | 0.9.1 measured; `--json` and `--lcov` list the executed lines per file; needs `llvm-tools-preview` of the compiling toolchain, or `LLVM_COV` and `LLVM_PROFDATA` from the LLVM release rustc was built with (Homebrew rustc 1.98 with `llvm@22`) |
+| architecture | cargo-deny (`[bans]` with `wrappers`) | recommended | study 2026-09-13 (rust) | 0.20.2 measured; a crate banned except through named wrapper crates is a layer rule between the crates of a workspace, `cargo deny check bans` fails on it; module-level rules inside one crate have no tool |
+| static | clippy, with rustfmt | recommended | study 2026-09-13 (rust), in use in 495's profile since 2026-09-12 | 1.98 measured; `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check` |
+| security | cargo-deny | recommended | study 2026-09-13 (rust) | 0.20.2 measured; `check advisories` reads the RustSec database, `check licenses` fails on an allowed licence the tree does not use and on a crate without a `license` field; the same `deny.toml` as the architecture entry |
+| security | cargo-audit | recommended | study 2026-09-13 (rust) | when the project already runs cargo audit: 0.22.2 measured, 1243 advisories of the same RustSec database, `Cargo.lock` scanned |
+| performance | criterion | recommended | study 2026-09-13 (rust) | 0.8.2 measured; statistics per benchmark, `target/criterion/<name>/new/estimates.json`, the previous run kept as the baseline |
 
 ### Go
 
@@ -217,3 +218,12 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | JavaScript / TypeScript | performance | benchmark | last release 2017-03 | study 2026-09-13 (js) |
 | JavaScript / TypeScript | performance | mitata | last release 2025-02; no statistics on the sample count | study 2026-09-13 (js) |
 | JavaScript / TypeScript | doubles | testdouble | last release 2024-03 | study 2026-09-13 (js) |
+| Rust | property | quickcheck | works; generation from `Arbitrary` without proptest's strategies, no advantage measured | study 2026-09-13 (rust) |
+| Rust | fuzzing | afl, bolero | not run; afl needs an AFL++ build, bolero fronts the same engines and needs nightly for libfuzzer too | study 2026-09-13 (rust) |
+| Rust | mutation | mutagen | last release 2018-10 | study 2026-09-13 (rust) |
+| Rust | coverage | cargo-tarpaulin | not run; a second engine for the measure cargo-llvm-cov takes from rustc's instrumentation | study 2026-09-13 (rust) |
+| Rust | architecture | cargo-modules | MPL-2.0; draws the module graph and checks cycles, no rules | study 2026-09-13 (rust) |
+| Rust | architecture | cargo-arch | last release 2022-05 | study 2026-09-13 (rust) |
+| Rust | security | cargo-geiger | counts `unsafe`, no verdict | study 2026-09-13 (rust) |
+| Rust | performance | divan | no baseline comparison between runs | study 2026-09-13 (rust) |
+| Rust | performance | iai-callgrind | instruction counts under valgrind, Linux | study 2026-09-13 (rust) |

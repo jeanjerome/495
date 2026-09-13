@@ -44,12 +44,18 @@ class Project:
     node_dependencies: dict[str, str] = field(default_factory=dict)
     node_dev_dependencies: dict[str, str] = field(default_factory=dict)
     node_scripts: dict[str, str] = field(default_factory=dict)
+    cargo_dev_dependencies: list[str] = field(default_factory=list)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
     last_proposal: Proposal | None = None
     output: str = ""
     exit_code: int = 0
+
+    def write_cargo_toml(self) -> None:
+        deps = "".join(f'{d} = "*"\n' for d in self.cargo_dev_dependencies)
+        text = f'[package]\nname = "x"\nversion = "0.1.0"\n\n[dev-dependencies]\n{deps}'
+        (self.root / "Cargo.toml").write_text(text)
 
     def write_package_json(self) -> None:
         data = {
@@ -160,7 +166,18 @@ def package_json_has_a_script(project: Project, name: str, command: str) -> None
 
 @given("a Rust project")
 def a_rust_project(project: Project) -> None:
-    (project.root / "Cargo.toml").write_text('[package]\nname = "x"\n')
+    project.write_cargo_toml()
+
+
+@given(parsers.parse('its Cargo.toml lists the dev-dependency "{name}"'))
+def cargo_toml_lists_a_dev_dependency(project: Project, name: str) -> None:
+    project.cargo_dev_dependencies.append(name)
+    project.write_cargo_toml()
+
+
+@given("a Ruby project")
+def a_ruby_project(project: Project) -> None:
+    (project.root / "Gemfile").write_text("source 'https://rubygems.org'\ngem 'rake'\n")
 
 
 @given(parsers.parse('the catalogue has no entry for "{technology}"'))
@@ -197,7 +214,7 @@ def pyproject_selects_ruff_rules(project: Project, rules: str) -> None:
 def a_file_contains(project: Project, path: str, text: str) -> None:
     target = project.root / path
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text + "\n")
+    target.write_text(text.replace("\\n", "\n") + "\n")  # "\n" in a scenario is a line break
 
 
 @when("the harness profiles the project")

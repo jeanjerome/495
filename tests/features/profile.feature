@@ -120,7 +120,28 @@ Feature: Role coverage of a host project
     Then the tooling names "shellcheck"
     And no role coverage is listed for "shell"
 
-  Scenario: A technology without markers has no coverage rows
+  Scenario: A Rust crate's manifests name the tools of its roles
     Given a Rust project
+    And its Cargo.toml lists the dev-dependency "proptest"
+    And the file "deny.toml" contains "[advisories]\n[bans]\ndeny = []"
+    And the file "tests/props.rs" contains "use proptest::prelude::*;"
     When the harness profiles the project
-    Then no role coverage is listed for "rust"
+    Then the role "runner" of "rust" is measured with "cargo test"
+    And the role "property" of "rust" is measured with "proptest"
+    And that role is recognised from "Cargo.toml: dependency proptest"
+    And the role "architecture" of "rust" is measured with "cargo-deny"
+    And that role is recognised from "deny.toml: [bans]"
+    And the role "security" of "rust" is measured with "cargo-deny"
+    And the role "fuzzing" of "rust" is not measured
+
+  Scenario: A fuzz crate measures the fuzzing role of a Rust project
+    Given a Rust project
+    And the file "fuzz/Cargo.toml" contains "[dependencies]\nlibfuzzer-sys = '0.4'"
+    When the harness profiles the project
+    Then the role "fuzzing" of "rust" is measured with "cargo-fuzz"
+    And that role is recognised from "fuzz/Cargo.toml: dependency libfuzzer-sys"
+
+  Scenario: A technology without markers has no coverage rows
+    Given a Ruby project
+    When the harness profiles the project
+    Then no role coverage is listed for "ruby"

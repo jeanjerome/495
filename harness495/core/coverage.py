@@ -35,6 +35,18 @@ ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
         CatalogueRole.security,
     ),
     "javascript/typescript": tuple(CatalogueRole),
+    "rust": (
+        CatalogueRole.runner,
+        CatalogueRole.bdd,
+        CatalogueRole.property,
+        CatalogueRole.fuzzing,
+        CatalogueRole.mutation,
+        CatalogueRole.coverage,
+        CatalogueRole.architecture,
+        CatalogueRole.static,
+        CatalogueRole.security,
+        CatalogueRole.performance,
+    ),
 }
 """The roles the catalogue (``docs/test-libraries.md``) has a table for, per technology."""
 
@@ -519,9 +531,89 @@ NODE_TOOLS: ToolTable = (
 the same runner, with istanbul's instrumentation.
 """
 
+# --------------------------------------------------------------------------------- rust
+
+RUST_TOOLS: ToolTable = (
+    (CatalogueRole.runner, "cargo test", (config_file("Cargo.toml"),)),
+    (
+        CatalogueRole.runner,
+        "cargo-nextest",
+        (config_file(".config/nextest.toml"), in_ci("cargo nextest")),
+    ),
+    (CatalogueRole.bdd, "cucumber", (dependency("cucumber"), _test_file((".feature",)))),
+    (
+        CatalogueRole.property,
+        "proptest",
+        (dependency("proptest"), directory("proptest-regressions")),
+    ),
+    (CatalogueRole.property, "quickcheck", (dependency("quickcheck"),)),
+    (
+        CatalogueRole.fuzzing,
+        "cargo-fuzz",
+        (
+            dependency("libfuzzer-sys"),
+            directory("fuzz/fuzz_targets"),
+            config_file("fuzz/Cargo.toml"),
+        ),
+    ),
+    (CatalogueRole.fuzzing, "afl", (dependency("afl"),)),
+    (CatalogueRole.fuzzing, "bolero", (dependency("bolero"),)),
+    (
+        CatalogueRole.mutation,
+        "cargo-mutants",
+        (config_file(".cargo/mutants.toml"), directory("mutants.out"), in_ci("cargo mutants")),
+    ),
+    (
+        CatalogueRole.coverage,
+        "cargo-llvm-cov",
+        (in_ci("cargo llvm-cov"), in_ci("cargo-llvm-cov")),
+    ),
+    (
+        CatalogueRole.coverage,
+        "cargo-tarpaulin",
+        (config_file("tarpaulin.toml"), config_file(".tarpaulin.toml"), in_ci("cargo tarpaulin")),
+    ),
+    (CatalogueRole.architecture, "cargo-deny", (in_manifest("[bans]"),)),
+    (
+        CatalogueRole.static,
+        "clippy",
+        (
+            config_file("clippy.toml"),
+            config_file(".clippy.toml"),
+            in_manifest("[lints.clippy]"),
+            in_manifest("[workspace.lints.clippy]"),
+            in_ci("cargo clippy"),
+        ),
+    ),
+    (
+        CatalogueRole.static,
+        "rustfmt",
+        (config_file("rustfmt.toml"), config_file(".rustfmt.toml"), in_ci("cargo fmt")),
+    ),
+    (CatalogueRole.security, "cargo-deny", (in_manifest("[advisories]"), in_ci("cargo deny"))),
+    (
+        CatalogueRole.security,
+        "cargo-audit",
+        (config_file(".cargo/audit.toml"), in_ci("cargo audit"), in_ci("rustsec/audit-check")),
+    ),
+    (CatalogueRole.security, "cargo-geiger", (in_ci("cargo geiger"),)),
+    (CatalogueRole.performance, "criterion", (dependency("criterion"), directory("benches"))),
+    (CatalogueRole.performance, "divan", (dependency("divan"),)),
+    (CatalogueRole.performance, "iai-callgrind", (dependency("iai-callgrind"),)),
+)
+"""The Rust markers (``docs/studies/2026-09-13-rust-test-libraries.md``).
+
+``dependencies`` are every dependency table of ``Cargo.toml`` (regular, dev, build,
+workspace, per target), of the workspace members one level down and of ``fuzz/Cargo.toml``;
+``manifests`` the text of ``Cargo.toml`` and ``deny.toml``; ``tests`` the files under
+``tests/``, ``benches/`` and ``features/``. Every crate measures the runner: ``cargo test``
+is the toolchain's.
+"""
+
 TABLES: dict[str, ToolTable] = {
     "python": PYTHON_TOOLS,
     "shell": SHELL_TOOLS,
     "javascript/typescript": NODE_TOOLS,
+    "rust": RUST_TOOLS,
 }
 """The marker table of each technology that has coverage rows."""
