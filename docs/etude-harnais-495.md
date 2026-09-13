@@ -571,8 +571,10 @@ recommande déjà l'outil (la ligne est alors une source de plus). La commande n
 (`tests/features/retrospective.feature`). Ce que le run a appris sur les commandes, les
 conventions et le scope du projet (E44 (a)) reste à lire dans la même commande.
 Études par technologie : Python fait le 2026-09-13 ; Shell **fait** le 2026-09-13
-(`docs/studies/2026-09-13-shell-test-libraries.md` : bats, cucumber avec aruba faute de
-runner Gherkin écrit en shell, shellcheck avec shfmt, shellcheck et gitleaks ; marqueurs dans
+(`docs/studies/2026-09-13-shell-test-libraries.md` : bats, et shellspec quand le projet y
+garde ses specs ou mesure la couverture ; cucumber avec aruba faute de runner Gherkin écrit en
+shell ; kcov par `shellspec --kcov` pour la couverture, seul moteur mesuré qui rende les
+lignes exécutées d'une suite ; shellcheck avec shfmt, shellcheck et gitleaks ; marqueurs dans
 `core/coverage.py::SHELL_TOOLS`, scénarios shell de `profile.feature` et `catalogue.feature`) ;
 JavaScript / TypeScript **fait** le 2026-09-13
 (`docs/studies/2026-09-13-javascript-typescript-test-libraries.md` : vitest, cucumber-js,

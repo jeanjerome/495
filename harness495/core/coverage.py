@@ -31,6 +31,7 @@ ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
     "shell": (
         CatalogueRole.runner,
         CatalogueRole.bdd,
+        CatalogueRole.coverage,
         CatalogueRole.static,
         CatalogueRole.security,
     ),
@@ -118,6 +119,18 @@ def tool_table(name: str) -> Marker:
 
 def config_file(name: str) -> Marker:
     return lambda t: name if (t.root / name).is_file() else None
+
+
+def in_file(name: str, text: str) -> Marker:
+    """A configuration file at the root that carries an option: ``--kcov`` in ``.shellspec``."""
+
+    def found(t: Tree) -> str | None:
+        path = t.root / name
+        if path.is_file() and text in path.read_text(encoding="utf-8", errors="ignore"):
+            return f"{name}: {text}"
+        return None
+
+    return found
 
 
 def config_glob(pattern: str) -> Marker:
@@ -396,6 +409,8 @@ SHELL_TOOLS: ToolTable = (
         ),
     ),
     (CatalogueRole.bdd, "behave", (directory("features/steps"), config_file("behave.ini"))),
+    (CatalogueRole.coverage, "kcov", (in_file(".shellspec", "--kcov"), in_ci("kcov"))),
+    (CatalogueRole.coverage, "bashcov", (dependency("bashcov"), in_ci("bashcov"))),
     (CatalogueRole.static, "shellcheck", (recognised("shellcheck"),)),
     (CatalogueRole.static, "shfmt", (recognised("shfmt"),)),
     (CatalogueRole.security, "shellcheck", (recognised("shellcheck"),)),
@@ -406,7 +421,9 @@ SHELL_TOOLS: ToolTable = (
 The runner and static tools are those ``_detect_shell`` recognises from configuration and
 directives; ``dependencies`` are the gems a ``Gemfile`` lists, ``tests`` the files under the
 test directories and ``features/``. shellcheck measures security as well as static: its
-warnings are the analysis there is for shell.
+warnings are the analysis there is for shell. Coverage is kcov, run through ``shellspec
+--kcov`` (the option in ``.shellspec`` or in a CI file or Makefile), or bashcov named in the
+``Gemfile`` or a CI file.
 """
 
 # --------------------------------------------------------------------- javascript/typescript

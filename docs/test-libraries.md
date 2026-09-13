@@ -187,7 +187,9 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
 | runner | bats | recommended | study 2026-09-13 (`docs/studies/2026-09-13-shell-test-libraries.md`) | bats-core 1.14.0, npm `bats` 1.13.0 measured; `run` captures status and output, `--formatter tap`; assertions from bats-assert and bats-support |
+| runner | shellspec | recommended | study 2026-09-13 (shell) | when the project keeps its specs in shellspec (`.shellspec`, `spec/*_spec.sh`), or measures coverage, which goes through it: 0.28.1 measured (released 2021-01, the repository last moved 2024-09), runs under any POSIX shell; `When run source` runs the script in the shell kcov traces, `When run script` forks one it does not; a Describe/It DSL of its own, not Gherkin, so it holds no bdd row |
 | bdd | cucumber (Ruby), with aruba | recommended | study 2026-09-13 (shell) | no Gherkin runner written in shell has a user base, so the runner is the Cucumber project's own library for command-line programs: cucumber 11.1.1 and aruba 2.4.1 measured, running a command, its output and its exit status are built-in steps and the scenario carries no step code; `GEM_PATH` needs the default gems; `--publish-quiet` |
+| coverage | kcov (`shellspec --kcov`) | recommended | study 2026-09-13 (shell) | kcov 43 measured under shellspec 0.28.1: `coverage/*/cobertura.xml` with per-line hits, which `diff-cover --compare-branch` reads for the changed lines, plus `coverage.json` and `sonarqube.xml`; the lines are reached from `When run source` and `When call` only, `When run script` reports none; `ulimit -n 1024` before the run on macOS (kcov puts the trace descriptor in a `select()` set, so a descriptor above 1023 fails the exchange); `--kcov-options --include-path=<scripts dir>` keeps the report to the project's scripts, `--exclude-region=KCOV_EXCL_START:KCOV_EXCL_STOP` for an embedded program; bats under kcov did not finish |
 | static | shellcheck, with shfmt | recommended | study 2026-09-13 (shell), in use in 495's profile since 2026-09-12 | 0.11.0 and 3.13.1 measured; `-S warning` chooses the failing severity, `-f json`; shfmt reads its `.editorconfig` keys and `-d` prints the diff |
 | security | shellcheck (`-S warning`), gitleaks | recommended | study 2026-09-13 (shell) | shellcheck's warnings are the analysis for injection through unquoted expansions, `rm -rf` on an expansion and `eval`; gitleaks 8.30.1 measured for committed secrets, `dir .` with `--report-format json`, allowlists the documentation example keys; shell has no dependency manifest, so no vulnerable-dependency check |
 
@@ -206,12 +208,12 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Python | security | bandit | same findings as ruff's `S` rules on 495, rule for rule and line for line; a second tool for the same measure | study 2026-09-13 |
 | Python | security | safety | current vulnerability database served behind a vendor account | study 2026-09-13 |
 | Python | contract | dredd | Node.js tool; its Python hooks last released 2018-04 | study 2026-09-13 |
-| Shell | runner | shellspec | last release 2021-01; a describe/it DSL of its own | study 2026-09-13 (shell) |
 | Shell | runner | shunit2 | last release 2020-03 | study 2026-09-13 (shell) |
 | Shell | runner | bashunit | active and recent, xUnit style; small user base, no advantage measured over bats | study 2026-09-13 (shell) |
 | Shell | bdd | shellkin, g4b, shellot | Gherkin runners written in shell without a user base (5, 2 and 0 stars) | study 2026-09-13 (shell) |
 | Shell | static | shellharden | rewrites quoting, a fixer rather than a checker, within shellcheck's scope | study 2026-09-13 (shell) |
 | Shell | security | trufflehog | AGPL-3.0; verifies secrets against the providers online | study 2026-09-13 (shell) |
+| Shell | coverage | bashcov | 4.0.0 measured: the script's lines reported in 4 runs out of 8 over bats and in none over shellspec or a `bash -c` wrapper, the trace descriptor being lost to the child shells | study 2026-09-13 (shell) |
 | JavaScript / TypeScript | bdd | jest-cucumber | last release 2024-07; jest only | study 2026-09-13 (js) |
 | JavaScript / TypeScript | fuzzing | jsfuzz | last release 2021-01 | study 2026-09-13 (js) |
 | JavaScript / TypeScript | coverage | nyc | instruments the source for the measure V8 gives through @vitest/coverage-v8 or c8 | study 2026-09-13 (js) |

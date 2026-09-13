@@ -84,6 +84,23 @@ Feature: Role coverage of a host project
     Then the role "bdd" of "shell" is measured with "cucumber, aruba"
     And that role is recognised from "Gemfile: dependency aruba"
 
+  Scenario: A shellspec project run under kcov measures its runner and its coverage
+    Given a shell project
+    And the file ".shellspec" contains "--require spec_helper\n--kcov"
+    And the file "spec/deploy_spec.sh" contains "Describe 'deploy.sh'"
+    When the harness profiles the project
+    Then the role "runner" of "shell" is measured with "shellspec"
+    And the role "coverage" of "shell" is measured with "kcov"
+    And that role is recognised from ".shellspec: --kcov"
+
+  Scenario: bashcov named in a Gemfile measures the coverage of a shell project with another tool
+    Given a shell project
+    And the file "Gemfile" contains "gem 'bashcov'"
+    And the file "tests/deploy.bats" contains "@test 'it runs' { true; }"
+    When the harness profiles the project
+    Then the role "coverage" of "shell" is measured with "bashcov"
+    And that role is recognised from "Gemfile: dependency bashcov"
+
   Scenario: A secrets scan in CI measures the security role of a shell project with shellcheck
     Given a shell project
     And the file ".shellcheckrc" contains "disable=SC2086"

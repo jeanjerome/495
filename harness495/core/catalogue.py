@@ -80,6 +80,15 @@ def _no_pytest_suite_or_standalone_features(profile: ProjectProfile) -> bool:
     return not has_pytest or (Path(profile.root) / "features" / "steps").is_dir()
 
 
+def _specs_in_shellspec_or_coverage_measured(profile: ProjectProfile) -> bool:
+    """shellspec is the runner when the project already keeps its specs in it, or measures
+    coverage: kcov traces the shell shellspec runs the script in (``When run source``), and
+    bats under kcov did not finish (``docs/studies/2026-09-13-shell-test-libraries.md``)."""
+    return _measures_with("shell", CatalogueRole.runner, "shellspec")(profile) or _measures_with(
+        "shell", CatalogueRole.coverage, "kcov"
+    )(profile)
+
+
 def _uses_express(profile: ProjectProfile) -> bool:
     return (Path(profile.root) / "node_modules" / "express").is_dir() or _lists_dependency(
         Path(profile.root) / "package.json", "express"
@@ -166,7 +175,15 @@ RECOMMENDED: tuple[Recommendation, ...] = (
     Recommendation("python", CatalogueRole.performance, ("pytest-benchmark", "pytest-memray")),
     Recommendation("python", CatalogueRole.doubles, ("pytest-mock",)),
     Recommendation("shell", CatalogueRole.runner, ("bats",)),
+    Recommendation(
+        "shell",
+        CatalogueRole.runner,
+        ("shellspec",),
+        "the project keeps its specs in shellspec, or measures coverage, which goes through it",
+        _specs_in_shellspec_or_coverage_measured,
+    ),
     Recommendation("shell", CatalogueRole.bdd, ("cucumber", "aruba")),
+    Recommendation("shell", CatalogueRole.coverage, ("kcov",)),
     Recommendation("shell", CatalogueRole.static, ("shellcheck", "shfmt")),
     Recommendation("shell", CatalogueRole.security, ("shellcheck", "gitleaks")),
     Recommendation("javascript/typescript", CatalogueRole.runner, ("vitest",)),

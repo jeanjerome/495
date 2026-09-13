@@ -90,6 +90,27 @@ Feature: Gaps of a host project against the test-library catalogue
     And the gap on "bdd" of "shell" is "unmeasured"
     And that gap recommends "cucumber, aruba"
 
+  Scenario: A shell project is told kcov for its coverage, which runs through shellspec
+    Given a shell project
+    And the file "tests/deploy.bats" contains "@test 'it runs' { true; }"
+    When the harness profiles the project
+    Then the gap on "coverage" of "shell" is "unmeasured"
+    And that gap recommends "kcov"
+    And that gap states no condition
+    And there is no gap on "runner" of "shell"
+
+  Scenario: A shell project measuring coverage is told shellspec as its runner, with the condition
+    Given a shell project
+    And the file ".github/workflows/ci.yml" contains "run: ulimit -n 1024 && shellspec --kcov"
+    When the harness profiles the project
+    Then the role "coverage" of "shell" is measured with "kcov"
+    And the catalogue rendered to the specifier says "runner (planned cases hold, through public interfaces): not measured; the catalogue recommends shellspec (the project keeps its specs in shellspec, or measures coverage, which goes through it)"
+
+  Scenario: A shell project without specs is told bats as its runner, the default of the cell
+    Given a shell project
+    When the harness profiles the project
+    Then the catalogue rendered to the specifier says "runner (planned cases hold, through public interfaces): not measured; the catalogue recommends bats, which the requester puts in place through a proposal"
+
   Scenario: A JavaScript project on Express is told the in-process contract entry
     Given a JavaScript project
     And its package.json lists the dependency "express"
