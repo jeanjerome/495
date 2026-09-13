@@ -11,9 +11,12 @@ One recommended library per technology and per role. Binds 495's own tests and t
 - A test of a behaviour is a Gherkin scenario run by the `bdd` entry; the other roles keep the
   Given/When/Then shape in their tests' names and bodies
   (`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`).
-- Profiling a host project: a role with no test, or a test using another library than the
-  recommended one, is a conformance proposal to the requester (mechanism: E50 in
-  `docs/etude-harnais-495.md`).
+- Profiling a host project: the profile reports, per technology and per role of the table
+  below, the tool the project measures it with and what it was recognised from (the role
+  coverage, `harness495/core/profile.py`; the markers are those of the studies' "What a profile
+  can detect" sections; a technology whose study is not done has no rows). A role with no
+  tool, or a tool other than the recommended one, is a conformance proposal to the requester
+  (mechanism: E50 in `docs/etude-harnais-495.md`).
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
 
@@ -52,7 +55,8 @@ run in the suite for at least one change; it is still listed, not assumed.
 ## Entries
 
 Technologies are those the profile detects (`harness495/core/profile.py`). An empty cell means:
-no entry yet; bring one in before writing that kind of test.
+no entry yet; bring one in before writing that kind of test. The roles of a technology's table
+are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal).
 
 ### Python
 

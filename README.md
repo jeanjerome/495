@@ -150,8 +150,8 @@ will be selected. It calls no agent and consumes no quota.
 `.git/info/exclude`, and prints what it detected:
 
 ```text
-languages: python, shell; tooling: pytest, ruff, mypy
-base commit: 2f60d62c92c536d23a93e6ddc2abe1434fcd37bd; docs: README.md
+languages: python; tooling: pytest, ruff, mypy, pytest-bdd, hypothesis
+base commit: de61b9f447a58b9bfbec47d001ce565b776954c7; docs: README.md
               Project profile: /path/to/project
 ┏━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
 ┃ name      ┃ kind      ┃ command                ┃ source   ┃
@@ -160,11 +160,39 @@ base commit: 2f60d62c92c536d23a93e6ddc2abe1434fcd37bd; docs: README.md
 │ lint      │ lint      │ python -m ruff check . │ detected │
 │ typecheck │ typecheck │ python -m mypy .       │ detected │
 └───────────┴───────────┴────────────────────────┴──────────┘
+                   Test roles measured (docs/test-libraries.md)
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ technology ┃ role         ┃ tool       ┃ recognised from                       ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ python     │ runner       │ pytest     │ pyproject.toml: dependency pytest     │
+│ python     │ bdd          │ pytest-bdd │ pyproject.toml: dependency pytest-bdd │
+│ python     │ property     │ hypothesis │ pyproject.toml: dependency hypothesis │
+│ python     │ fuzzing      │ —          │ nothing measures it                   │
+│ python     │ mutation     │ —          │ nothing measures it                   │
+│ python     │ coverage     │ —          │ nothing measures it                   │
+│ python     │ architecture │ —          │ nothing measures it                   │
+│ python     │ static       │ ruff       │ pyproject.toml: dependency ruff       │
+│ python     │ types        │ mypy       │ pyproject.toml: [tool.mypy]           │
+│ python     │ security     │ —          │ nothing measures it                   │
+│ python     │ contract     │ —          │ nothing measures it                   │
+│ python     │ performance  │ —          │ nothing measures it                   │
+│ python     │ doubles      │ —          │ nothing measures it                   │
+└────────────┴──────────────┴────────────┴───────────────────────────────────────┘
 ```
 
 Commands are detected from `pyproject.toml`, `package.json`, `Makefile`, `Cargo.toml`,
 `go.mod` and the like. Declaring one in `project.toml` under the same name overrides the
 detected command; any other name adds one. `495 profile` re-runs the detection alone.
+
+The second table is the **role coverage**: for each role of the test-library catalogue
+(`docs/test-libraries.md`: runner, bdd, property, fuzzing, mutation, coverage, architecture,
+static, types, security, contract, performance, doubles), the tool the project measures it
+with, and what that tool was recognised from: a dependency in `pyproject.toml` or a
+`requirements*.txt`, a configuration section or file, an import in a test file, a CI step. A
+role nothing measures is listed as such. The rows exist for the technologies whose tools the
+profile has markers for, Python and shell today; a technology without markers gets no rows
+rather than rows that would read as findings about the project. The agents see the same list
+in their context.
 
 Detection is not a contract. Every command is run once on the base version at the start of a
 run — that is the **readiness** check — and a command that cannot run there, or that already

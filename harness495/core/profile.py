@@ -10,12 +10,20 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from harness495.core import git
-from harness495.core.models import ProjectCommand, ProjectConfig, ProjectProfile, VerificationKind
+from harness495.core.models import (
+    CatalogueRole,
+    ProjectCommand,
+    ProjectConfig,
+    ProjectProfile,
+    RoleCoverage,
+    VerificationKind,
+)
 
 DOC_CANDIDATES = [
     "CLAUDE.md",
@@ -69,20 +77,17 @@ class _ShellTree:
         return bool(self.scripts or self.bats or self.shunit2)
 
 
-def _walk_shell(root: Path, max_depth: int = 3, limit: int = 200) -> _ShellTree:
-    """Look for what a shell project is made of, wherever it keeps it.
+def _walk(
+    root: Path, keep: Callable[[Path], bool], max_depth: int = 3, limit: int = 400
+) -> list[Path]:
+    """The files ``keep`` selects, down to ``max_depth`` levels, outside what is not the project.
 
-    Every other stack here is recognised by a manifest — ``pyproject.toml``, ``package.json``,
-    ``Cargo.toml``, ``go.mod``. Shell has none, so the files are the only evidence there is,
-    and looking at the root alone finds nothing in the ordinary layout: scripts live in
-    ``scripts/``, ``bin/`` or ``tools/``, and tests in ``test/`` or ``tests/``. Three levels
-    reaches those without walking a monorepo to the bottom.
+    Three levels reaches ``scripts/``, ``tests/unit/`` and ``src/pkg/tests/`` without walking a
+    monorepo to the bottom; ``limit`` bounds what a pathological tree costs.
     """
-    scripts: list[Path] = []
-    bats: list[Path] = []
-    shunit2 = False
+    kept: list[Path] = []
     edge = [(root, 0)]
-    while edge:
+    while edge and len(kept) < limit:
         here, depth = edge.pop()
         try:
             entries = sorted(here.iterdir())
@@ -96,13 +101,33 @@ def _walk_shell(root: Path, max_depth: int = 3, limit: int = 200) -> _ShellTree:
                     and not entry.name.startswith(".")
                 ):
                     edge.append((entry, depth + 1))
-            elif entry.suffix == ".sh" and len(scripts) < limit:
-                scripts.append(entry)
-            elif entry.suffix == ".bats" and len(bats) < limit:
-                bats.append(entry)
-            elif entry.name == "shunit2":
-                shunit2 = True
-    return _ShellTree(tuple(scripts), tuple(bats), shunit2)
+            elif keep(entry) and len(kept) < limit:
+                kept.append(entry)
+    return kept
+
+
+def _read_small(path: Path, max_bytes: int = 256_000) -> str:
+    """The text of a file, or nothing when it is unreadable or too large to be a source."""
+    try:
+        if path.stat().st_size > max_bytes:
+            return ""
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def _walk_shell(root: Path) -> _ShellTree:
+    """Look for what a shell project is made of, wherever it keeps it.
+
+    Every other stack here is recognised by a manifest — ``pyproject.toml``, ``package.json``,
+    ``Cargo.toml``, ``go.mod``. Shell has none, so the files are the only evidence there is,
+    and looking at the root alone finds nothing in the ordinary layout: scripts live in
+    ``scripts/``, ``bin/`` or ``tools/``, and tests in ``test/`` or ``tests/``.
+    """
+    found = _walk(root, lambda p: p.suffix in (".sh", ".bats") or p.name == "shunit2")
+    scripts = tuple(p for p in found if p.suffix == ".sh")
+    bats = tuple(p for p in found if p.suffix == ".bats")
+    return _ShellTree(scripts, bats, any(p.name == "shunit2" for p in found))
 
 
 def _uses_shellcheck(root: Path, scripts: tuple[Path, ...], sample: int = 40) -> bool:
@@ -114,15 +139,7 @@ def _uses_shellcheck(root: Path, scripts: tuple[Path, ...], sample: int = 40) ->
     """
     if (root / ".shellcheckrc").exists():
         return True
-    for script in scripts[:sample]:
-        try:
-            if script.stat().st_size > 256_000:
-                continue
-            if "# shellcheck" in script.read_text(encoding="utf-8", errors="ignore"):
-                return True
-        except OSError:
-            continue
-    return False
+    return any("# shellcheck" in _read_small(script) for script in scripts[:sample])
 
 
 def _uses_shfmt(root: Path) -> bool:
@@ -182,6 +199,389 @@ def _detect_shell(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComma
         prof.tooling.append("shunit2")
 
 
+# --------------------------------------------------------------------------- role coverage
+
+ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
+    "python": tuple(CatalogueRole),
+    "shell": (
+        CatalogueRole.runner,
+        CatalogueRole.bdd,
+        CatalogueRole.static,
+        CatalogueRole.security,
+    ),
+}
+"""The roles the catalogue (``docs/test-libraries.md``) has a table for, per technology.
+
+Only the technologies whose tools the profile has markers for are listed. A technology absent
+here gets no coverage rows at all, rather than a row per role saying "not measured": the
+latter would read as a finding about the project when it is a gap in the profile. A
+technology enters with the study that fills its section of the catalogue; the markers come
+from that study (``docs/studies/``). ``tests/test_catalogue.py`` keeps this in step with the
+document.
+"""
+
+TEST_DIRS = frozenset({"test", "tests", "spec", "specs", "testing", "features"})
+DEPENDENCY_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _dependency_name(spec: str) -> str | None:
+    """The distribution name of a requirement, normalised the way PyPI compares names."""
+    m = DEPENDENCY_NAME.match(spec.strip())
+    if m is None:
+        return None
+    return re.sub(r"[._]+", "-", m.group(0)).lower()
+
+
+def _names_in(specs: Iterable[Any]) -> list[str]:
+    out: list[str] = []
+    for spec in specs:
+        if isinstance(spec, str):
+            name = _dependency_name(spec)
+            if name:
+                out.append(name)
+    return out
+
+
+@dataclass
+class _PythonTree:
+    """Everything the Python markers read, gathered once.
+
+    ``dependencies`` maps a normalised distribution name to the file that lists it, from
+    ``pyproject.toml`` (PEP 621 and 735 tables, poetry, pdm, uv) and from ``requirements*.txt``
+    at the root or under ``requirements/``. ``tool`` is the ``[tool]`` table. ``tests`` and
+    ``ci`` map a path relative to the root to the file's text.
+    """
+
+    root: Path
+    dependencies: dict[str, str] = field(default_factory=dict)
+    tool: Mapping[str, Any] = field(default_factory=dict)
+    tests: dict[str, str] = field(default_factory=dict)
+    ci: dict[str, str] = field(default_factory=dict)
+
+    def rel(self, path: Path) -> str:
+        return path.relative_to(self.root).as_posix()
+
+
+def _python_tree(root: Path, data: Mapping[str, Any]) -> _PythonTree:
+    tree = _PythonTree(root=root, tool=data.get("tool", {}))
+
+    def add(names: Iterable[str], source: str) -> None:
+        for name in names:
+            tree.dependencies.setdefault(name, source)
+
+    project = data.get("project", {})
+    tool = tree.tool
+    add(_names_in(project.get("dependencies", [])), "pyproject.toml")
+    for specs in project.get("optional-dependencies", {}).values():
+        add(_names_in(specs), "pyproject.toml")
+    for specs in data.get("dependency-groups", {}).values():
+        add(_names_in(specs), "pyproject.toml")
+    poetry = tool.get("poetry", {})
+    add(_names_in(poetry.get("dependencies", {})), "pyproject.toml")
+    add(_names_in(poetry.get("dev-dependencies", {})), "pyproject.toml")
+    for group in poetry.get("group", {}).values():
+        add(_names_in(group.get("dependencies", {})), "pyproject.toml")
+    for specs in tool.get("pdm", {}).get("dev-dependencies", {}).values():
+        add(_names_in(specs), "pyproject.toml")
+    add(_names_in(tool.get("uv", {}).get("dev-dependencies", [])), "pyproject.toml")
+    for req in sorted([*root.glob("requirements*.txt"), *root.glob("requirements/*.txt")]):
+        lines = [
+            line
+            for line in _read_small(req).splitlines()
+            if line.strip() and line.lstrip()[0] not in "#-"
+        ]
+        add(_names_in(lines), tree.rel(req))
+
+    def is_test(path: Path) -> bool:
+        parts = path.relative_to(root).parts[:-1]
+        in_test_dir = any(part.lower() in TEST_DIRS for part in parts)
+        if path.suffix == ".py":
+            return in_test_dir or path.name.startswith("test_") or path.name.endswith("_test.py")
+        return path.suffix == ".feature"
+
+    for path in _walk(root, is_test):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    ci_files = [
+        *sorted((root / ".github" / "workflows").glob("*.yml")),
+        *sorted((root / ".github" / "workflows").glob("*.yaml")),
+        root / ".gitlab-ci.yml",
+        root / ".pre-commit-config.yaml",
+        root / "tox.ini",
+        root / "noxfile.py",
+        root / "Makefile",
+    ]
+    for path in ci_files:
+        if path.is_file():
+            tree.ci[tree.rel(path)] = _read_small(path)
+    return tree
+
+
+Marker = Callable[[_PythonTree], str | None]
+"""What one tool is recognised from: the description of the evidence, or None when absent."""
+
+
+def dependency(name: str) -> Marker:
+    return lambda t: (
+        f"{t.dependencies[name]}: dependency {name}" if name in t.dependencies else None
+    )
+
+
+def tool_table(name: str) -> Marker:
+    return lambda t: f"pyproject.toml: [tool.{name}]" if name in t.tool else None
+
+
+def config_file(name: str) -> Marker:
+    return lambda t: name if (t.root / name).is_file() else None
+
+
+def directory(name: str) -> Marker:
+    return lambda t: f"{name}/ directory" if (t.root / name).is_dir() else None
+
+
+def in_tests(text: str) -> Marker:
+    def found(t: _PythonTree) -> str | None:
+        for rel, source in t.tests.items():
+            if text in source:
+                return f"{rel}: {text}"
+        return None
+
+    return found
+
+
+def in_ci(text: str) -> Marker:
+    def found(t: _PythonTree) -> str | None:
+        for rel, source in t.ci.items():
+            if text in source:
+                return f"{rel}: {text}"
+        return None
+
+    return found
+
+
+def _ruff_selects_s(t: _PythonTree) -> str | None:
+    """ruff's ``S`` rules are the port of bandit's; selecting them is a security measure."""
+
+    def selected(table: Mapping[str, Any]) -> list[str]:
+        return [str(x) for x in [*table.get("select", []), *table.get("extend-select", [])]]
+
+    def has_s(rules: list[str]) -> bool:
+        return any(r == "ALL" or r == "S" or re.fullmatch(r"S\d+", r) for r in rules)
+
+    ruff = t.tool.get("ruff", {})
+    if has_s(selected(ruff.get("lint", {}))) or has_s(selected(ruff)):
+        return "pyproject.toml: [tool.ruff.lint] select includes S"
+    for name in ("ruff.toml", ".ruff.toml"):
+        path = t.root / name
+        if not path.is_file():
+            continue
+        try:
+            data = tomllib.loads(_read_small(path))
+        except tomllib.TOMLDecodeError:
+            continue
+        if has_s(selected(data.get("lint", {}))) or has_s(selected(data)):
+            return f"{name}: select includes S"
+    return None
+
+
+def _setup_cfg_section(name: str) -> Marker:
+    return lambda t: (
+        f"setup.cfg: [{name}]" if f"[{name}]" in _read_small(t.root / "setup.cfg") else None
+    )
+
+
+PYTHON_TOOLS: tuple[tuple[CatalogueRole, str, tuple[Marker, ...]], ...] = (
+    (
+        CatalogueRole.runner,
+        "pytest",
+        (
+            dependency("pytest"),
+            tool_table("pytest"),
+            config_file("pytest.ini"),
+            in_tests("import pytest"),
+            in_tests("from pytest import"),
+        ),
+    ),
+    (
+        CatalogueRole.runner,
+        "unittest",
+        (in_tests("import unittest"), in_tests("from unittest import")),
+    ),
+    (CatalogueRole.runner, "nose2", (dependency("nose2"),)),
+    (
+        CatalogueRole.bdd,
+        "pytest-bdd",
+        (
+            dependency("pytest-bdd"),
+            in_tests("from pytest_bdd import"),
+            in_tests("import pytest_bdd"),
+        ),
+    ),
+    (
+        CatalogueRole.bdd,
+        "behave",
+        (dependency("behave"), directory("features/steps"), config_file("behave.ini")),
+    ),
+    (
+        CatalogueRole.property,
+        "hypothesis",
+        (
+            dependency("hypothesis"),
+            tool_table("hypothesis"),
+            in_tests("from hypothesis import"),
+            in_tests("import hypothesis"),
+        ),
+    ),
+    (CatalogueRole.property, "pytest-quickcheck", (dependency("pytest-quickcheck"),)),
+    (
+        CatalogueRole.fuzzing,
+        "atheris",
+        (dependency("atheris"), in_tests("atheris.Setup("), directory("oss-fuzz")),
+    ),
+    (CatalogueRole.fuzzing, "pythonfuzz", (dependency("pythonfuzz"),)),
+    (
+        CatalogueRole.mutation,
+        "mutmut",
+        (
+            tool_table("mutmut"),
+            _setup_cfg_section("mutmut"),
+            dependency("mutmut"),
+            directory("mutants"),
+        ),
+    ),
+    (CatalogueRole.mutation, "mutatest", (dependency("mutatest"),)),
+    (CatalogueRole.mutation, "cosmic-ray", (dependency("cosmic-ray"),)),
+    (
+        CatalogueRole.coverage,
+        "coverage.py",
+        (
+            tool_table("coverage"),
+            config_file(".coveragerc"),
+            dependency("coverage"),
+            dependency("pytest-cov"),
+        ),
+    ),
+    (CatalogueRole.coverage, "diff-cover", (dependency("diff-cover"), in_ci("diff-cover"))),
+    (
+        CatalogueRole.architecture,
+        "import-linter",
+        (
+            tool_table("importlinter"),
+            config_file(".importlinter"),
+            _setup_cfg_section("importlinter"),
+            dependency("import-linter"),
+        ),
+    ),
+    (CatalogueRole.architecture, "pytest-archon", (dependency("pytest-archon"),)),
+    (
+        CatalogueRole.static,
+        "ruff",
+        (
+            tool_table("ruff"),
+            config_file("ruff.toml"),
+            config_file(".ruff.toml"),
+            dependency("ruff"),
+        ),
+    ),
+    (CatalogueRole.static, "flake8", (config_file(".flake8"), dependency("flake8"))),
+    (
+        CatalogueRole.static,
+        "pylint",
+        (tool_table("pylint"), config_file(".pylintrc"), dependency("pylint")),
+    ),
+    (CatalogueRole.static, "black", (tool_table("black"), dependency("black"))),
+    (
+        CatalogueRole.types,
+        "mypy",
+        (tool_table("mypy"), config_file("mypy.ini"), dependency("mypy")),
+    ),
+    (
+        CatalogueRole.types,
+        "pyright",
+        (tool_table("pyright"), config_file("pyrightconfig.json"), dependency("pyright")),
+    ),
+    (CatalogueRole.security, "ruff", (_ruff_selects_s,)),
+    (CatalogueRole.security, "pip-audit", (dependency("pip-audit"), in_ci("pip-audit"))),
+    (
+        CatalogueRole.security,
+        "bandit",
+        (tool_table("bandit"), config_file(".bandit"), dependency("bandit"), in_ci("bandit")),
+    ),
+    (CatalogueRole.security, "safety", (dependency("safety"),)),
+    (
+        CatalogueRole.contract,
+        "schemathesis",
+        (dependency("schemathesis"), in_tests("schemathesis"), in_tests("schema.parametrize(")),
+    ),
+    (
+        CatalogueRole.performance,
+        "pytest-benchmark",
+        (dependency("pytest-benchmark"), config_file(".benchmarks"), in_tests("benchmark")),
+    ),
+    (
+        CatalogueRole.performance,
+        "pytest-memray",
+        (dependency("pytest-memray"), in_tests("limit_memory")),
+    ),
+    (CatalogueRole.doubles, "pytest-mock", (dependency("pytest-mock"), in_tests("mocker"))),
+    (CatalogueRole.doubles, "respx", (dependency("respx"),)),
+    (CatalogueRole.doubles, "time-machine", (dependency("time-machine"),)),
+    (
+        CatalogueRole.doubles,
+        "unittest.mock",
+        (in_tests("unittest.mock"), in_tests("from unittest import mock")),
+    ),
+)
+"""Which tool measures which role, and what it is recognised from.
+
+The recommended tools come first in their role with the markers the studies list
+(``docs/studies/2026-09-13-python-test-libraries.md`` and ``-bdd-libraries.md``, section "What
+a profile can detect"); the tools after them are the alternatives the catalogue rejected or
+the ecosystem commonly uses, named so that a role measured with another tool than the
+recommended one is reported as such rather than as unmeasured. ``pytest-cov`` names
+``coverage.py``: it is its pytest integration, not a second engine.
+"""
+
+
+def _python_coverage(tree: _PythonTree) -> list[RoleCoverage]:
+    rows = {
+        role: RoleCoverage(technology="python", role=role) for role in ROLES_BY_TECHNOLOGY["python"]
+    }
+    for role, tool, markers in PYTHON_TOOLS:
+        for marker in markers:
+            found = marker(tree)
+            if found is not None:
+                rows[role].tools.append(tool)
+                rows[role].markers.append(found)
+                break
+    return list(rows.values())
+
+
+SHELL_TOOLS: dict[CatalogueRole, tuple[str, ...]] = {
+    CatalogueRole.runner: ("shellspec", "bats", "shunit2"),
+    CatalogueRole.static: ("shellcheck", "shfmt"),
+}
+"""The shell roles, measured with the tools ``_detect_shell`` already recognises.
+
+``bdd`` and ``security`` have no marker yet: shellspec's describe/it is not Gherkin, and the
+catalogue's shell section awaits its study.
+"""
+
+
+def _shell_coverage(tooling: list[str]) -> list[RoleCoverage]:
+    rows = []
+    for role in ROLES_BY_TECHNOLOGY["shell"]:
+        used = [tool for tool in SHELL_TOOLS.get(role, ()) if tool in tooling]
+        rows.append(
+            RoleCoverage(
+                technology="shell",
+                role=role,
+                tools=used,
+                markers=[f"{tool} recognised in the tree" for tool in used],
+            )
+        )
+    return rows
+
+
 def _detect_python(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     pyproject = root / "pyproject.toml"
     has_py = pyproject.exists() or (root / "setup.py").exists() or (root / "setup.cfg").exists()
@@ -237,6 +637,7 @@ def _detect_python(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComm
         cmds.setdefault(
             "typecheck", _cmd("typecheck", "pyright", VerificationKind.typecheck, "detected")
         )
+    prof.role_coverage.extend(_python_coverage(_python_tree(root, data)))
 
 
 def _detect_node(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
@@ -343,11 +744,16 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     _detect_others(root, prof, cmds)
     # Last: it is the one that asks what the others concluded.
     _detect_shell(root, prof, cmds)
+    if "shell" in prof.languages:
+        prof.role_coverage.extend(_shell_coverage(prof.tooling))
     prof.commands = list(cmds.values())
     prof.conventions = list(project.conventions)
     _collect_docs(root, prof, project.docs)
     prof.languages = list(dict.fromkeys(prof.languages))
-    prof.tooling = list(dict.fromkeys(prof.tooling))
+    # A tool that measures a role is part of the tooling the agents are told about.
+    prof.tooling = list(
+        dict.fromkeys([*prof.tooling, *(t for r in prof.role_coverage for t in r.tools)])
+    )
     if git.is_repo(root):
         try:
             prof.base_commit = git.head_commit(root)

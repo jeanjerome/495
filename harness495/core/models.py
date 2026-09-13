@@ -96,6 +96,29 @@ class VerificationKind(StrEnum):
     manual = "manual"
 
 
+class CatalogueRole(StrEnum):
+    """The roles of the test-library catalogue (``docs/test-libraries.md``, section Roles).
+
+    A role names one contract a test can measure; the catalogue recommends a library per role
+    and per technology, and the profile reports which tool a host project measures each role
+    with (``RoleCoverage``).
+    """
+
+    runner = "runner"
+    bdd = "bdd"
+    property = "property"
+    fuzzing = "fuzzing"
+    mutation = "mutation"
+    coverage = "coverage"
+    architecture = "architecture"
+    static = "static"
+    types = "types"
+    security = "security"
+    contract = "contract"
+    performance = "performance"
+    doubles = "doubles"
+
+
 class Sufficiency(StrEnum):
     sufficient = "sufficient"
     insufficient = "insufficient"
@@ -285,11 +308,30 @@ class ReadinessCheck(StrictModel):
     duration_s: float = 0.0
 
 
+class RoleCoverage(StrictModel):
+    """Which tool a project measures one catalogue role with, for one of its technologies.
+
+    ``tools`` is empty when nothing in the project measures the role; ``markers`` names what
+    the tool was recognised from (a dependency, a configuration section, a file, an import
+    in a test), one entry per tool, so the requester can check the claim.
+    """
+
+    technology: str
+    role: CatalogueRole
+    tools: list[str] = Field(default_factory=list)
+    markers: list[str] = Field(default_factory=list)
+
+    @property
+    def measured(self) -> bool:
+        return bool(self.tools)
+
+
 class ProjectProfile(StrictModel):
     root: str
     languages: list[str] = Field(default_factory=list)
     tooling: list[str] = Field(default_factory=list)
     commands: list[ProjectCommand] = Field(default_factory=list)
+    role_coverage: list[RoleCoverage] = Field(default_factory=list)
     conventions: list[str] = Field(default_factory=list)
     doc_files: list[str] = Field(default_factory=list)
     detected_from: list[str] = Field(default_factory=list)
@@ -301,6 +343,12 @@ class ProjectProfile(StrictModel):
         for c in self.commands:
             if c.name == name:
                 return c
+        return None
+
+    def coverage(self, technology: str, role: CatalogueRole) -> RoleCoverage | None:
+        for r in self.role_coverage:
+            if r.technology == technology and r.role is role:
+                return r
         return None
 
     @property

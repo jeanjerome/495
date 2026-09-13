@@ -18,7 +18,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 
 | Phase | Who | What it establishes |
 |---|---|---|
-| profile | harness | languages, tooling, verification commands, conventions, documents; every command run once on the base version (readiness and baseline) |
+| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), conventions, documents; every command run once on the base version (readiness and baseline) |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm`, out of scope, assumptions, allowed paths; the harness then audits sufficiency |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
@@ -66,7 +66,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `engine` | the phases, the decisions raised to the requester and how each answer moves the run, calibration of instruments, merge and integration check |
 | `decide` | `assess()`: the pure acceptance decision over spec, evidence and reviews |
 | `verification` | running one command on the exact commit, the control run on the base version, the failure signature, sufficiency, test-file recognition |
-| `profile` | detection of languages, tooling and commands from manifests and from the tree |
+| `profile` | detection of languages, tooling and commands from manifests and from the tree; role coverage against the catalogue's roles, from markers per technology (`ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`) |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the three roles; the reviewer perspectives |
@@ -102,8 +102,9 @@ renders from the store and drives the engine through the same public methods as 
 
 ## The data model
 
-A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile`, one `Spec`, a `Budget` and its
-`Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
+A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
+`ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, `ReadinessCheck`s), one
+`Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
 `non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes). An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and

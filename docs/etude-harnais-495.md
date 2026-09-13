@@ -465,7 +465,9 @@ minimum, injecter dans le contexte du réviseur la liste des tests existants mod
 
 **E34 · La détection de profil ignore les outils des contrats Domaine, Architecture, Tests et
 Sécurité.** Priorité moyenne · effort M. Le profil signale `pre-commit` mais ni Hypothesis, ni
-import-linter, ni bandit, ni mutmut, ni leurs équivalents JS/Go/Rust/Java. Or leur présence dans
+import-linter, ni bandit, ni mutmut, ni leurs équivalents JS/Go/Rust/Java (pour Python et shell,
+la couverture de rôles de E50 (a) les signale désormais ; les `VerificationKind` et la proposition
+du spécificateur restent à faire). Or leur présence dans
 un projet est le signal le plus fiable que le projet *veut* ces contrôles. Piste : étendre
 `_detect_*` à ces familles, ajouter les `VerificationKind` `property`, `architecture`,
 `security`, `mutation`, et faire proposer par le spécificateur une V du kind correspondant quand
@@ -496,9 +498,15 @@ l'absence d'entrée. Le catalogue existe ; sa section Python est remplie par l'�
 2026-09-13 (`docs/studies/2026-09-13-python-test-libraries.md`) : les douze rôles sont pourvus,
 chaque entrée avec sa version mesurée et ses notes d'usage, sept bibliothèques sont rejetées avec
 leur raison, et l'étude liste les marqueurs par lesquels un profil peut détecter chaque outil.
-Les autres technologies restent à étudier. Reste à construire le mécanisme côté projet hôte :
-(a) le profil calcule une **couverture de rôles** : pour chaque rôle du catalogue, quel outil le
-projet utilise, à partir des manifestes, des configurations et des fichiers de test (prolonge E34) ;
+Les autres technologies restent à étudier. Mécanisme côté projet hôte :
+(a) **fait** : le profil calcule une **couverture de rôles** (`RoleCoverage`, un par technologie
+et par `CatalogueRole`) : pour chaque rôle du catalogue, quel outil le projet utilise et à quel
+marqueur il a été reconnu, à partir des manifestes (`pyproject.toml`, `requirements*.txt`), des
+configurations, des fichiers de test et de CI (prolonge E34) ; les marqueurs Python sont ceux des
+études, les rôles shell se lisent des outils déjà reconnus ; une technologie sans marqueurs n'a
+pas de lignes (la couverture énonce un fait sur le projet, jamais une lacune du profil) ; les
+lignes sont affichées par `495 profile`, la vue profil du TUI et le contexte des agents
+(`tests/features/profile.feature`, `tests/test_catalogue.py`) ;
 (b) `495 init` et `495 profile` comparent cette couverture au catalogue et énoncent les écarts :
 rôle non mesuré, ou mesuré avec un autre outil que celui recommandé ;
 (c) chaque écart devient une **proposition de mise en conformité** persistée dans `.495/`, que
@@ -681,7 +689,7 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles et mise en conformité du projet hôte (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles (faite pour Python et shell), mise en conformité du projet hôte (à construire) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne

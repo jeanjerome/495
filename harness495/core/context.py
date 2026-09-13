@@ -83,6 +83,11 @@ def render_profile(profile: ProjectProfile, working_dir: str | None = None) -> s
             lines.append(f"  - {c.name} ({c.kind.value}): `{c.command}`{state}")
     else:
         lines.append("- verification commands available: none detected")
+    if profile.role_coverage:
+        lines.append("- test roles the project measures, per technology (catalogue roles):")
+        for r in profile.role_coverage:
+            tools = ", ".join(r.tools) if r.tools else "not measured"
+            lines.append(f"  - {r.technology} {r.role.value}: {tools}")
     if profile.conventions:
         lines.append("- declared conventions:")
         lines.extend(f"  - {c}" for c in profile.conventions)

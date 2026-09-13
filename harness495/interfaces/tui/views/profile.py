@@ -111,11 +111,17 @@ def build_profile(ctx: ViewContext) -> StageContent:
         ICON["project"],
         "project",
     )
+    measured = [
+        f"{r.technology} {r.role.value}: {', '.join(r.tools) if r.tools else 'not measured'}"
+        for r in p.role_coverage
+    ]
     given = panel(
         Group(
             bullets("conventions the agents are held to", p.conventions, "h.value"),
             Text(),
             bullets("documents put in their context", p.doc_files, "h.ref"),
+            Text(),
+            bullets("test roles the project measures", measured, "h.value"),
         ),
         ICON["briefing"],
         "what the agents are told",

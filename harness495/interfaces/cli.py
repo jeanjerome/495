@@ -16,6 +16,7 @@ import typer
 from pydantic import BaseModel
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from harness495 import __version__
 from harness495.core import git
@@ -313,6 +314,21 @@ def profile_cmd(ctx: typer.Context) -> None:
         f"base commit: {prof.base_commit or 'not a git repository'}; docs: {', '.join(prof.doc_files) or 'none'}"
     )
     console.print(table)
+    if prof.role_coverage:
+        roles = Table(title="Test roles measured (docs/test-libraries.md)")
+        roles.add_column("technology")
+        roles.add_column("role")
+        roles.add_column("tool")
+        roles.add_column("recognised from")
+        for r in prof.role_coverage:
+            # Text, not str: a marker such as "[tool.mutmut]" would otherwise be read as markup.
+            roles.add_row(
+                r.technology,
+                r.role.value,
+                ", ".join(r.tools) or "—",
+                Text("; ".join(r.markers) or "nothing measures it"),
+            )
+        console.print(roles)
 
 
 @app.command()

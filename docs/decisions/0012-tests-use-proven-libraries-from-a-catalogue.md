@@ -42,9 +42,15 @@ ecosystem already provides.
 
 - Adding a role or a technology to the catalogue is a documentation change with a source; adding
   a library without a source is refused in review.
-- Profile detection (`harness495/core/profile.py`) grows a notion of *role coverage*: which roles
-  the project measures, with which tool. Until it does, point 4 is a decision without an
-  implementation.
+- Profile detection (`harness495/core/profile.py`) carries a notion of *role coverage*: for each
+  role of the catalogue and each technology of the project, which tool measures it
+  (`RoleCoverage`, with the marker the tool was recognised from). The roles are the enum
+  `CatalogueRole`, kept equal to the document's Roles table by `tests/test_catalogue.py`; the
+  markers come from the studies' "What a profile can detect" sections. A technology without
+  markers has no rows, so that an unmeasured role always states a fact about the project and
+  never a gap in the profile. Tools found this way join the profile's tooling, so the agents
+  are told about them. The comparison with the catalogue and the proposal (point 4) build on
+  these rows.
 - A host project may keep a library the catalogue does not recommend; 495 proposes, the
   requester decides, and the decision is recorded like any other.
 - First application: `tests/test_architecture.py` runs `import-linter` contracts declared in
@@ -56,5 +62,10 @@ ecosystem already provides.
 - `pyproject.toml`: `[tool.importlinter]`, dev dependency `import-linter`.
 - `tests/test_architecture.py`.
 - `AGENTS.md`, section Invariants (the rule for 495's own tests).
-- To build: role coverage in `harness495/core/profile.py`; the conformance proposal at
-  `init`/`profile`; its persistence (E50).
+- `harness495/core/models.py`: `CatalogueRole`, `RoleCoverage`, `ProjectProfile.role_coverage`.
+- `harness495/core/profile.py`: `ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`,
+  `_python_coverage`, `_shell_coverage`; `core/context.py::render_profile`, `495 profile` and
+  the TUI profile view show the rows.
+- `tests/features/profile.feature` with `tests/test_profile_scenarios.py`;
+  `tests/test_catalogue.py`.
+- To build: the conformance proposal at `init`/`profile`; its persistence (E50 (b), (c)).
