@@ -236,7 +236,7 @@ on it, at the stage it belongs to. It is also where a run starts: type an intent
 it opens walks the same eight stops in front of you.
 
 <p align="center">
-   <img src="docs/assets/run-surface.svg" alt="The checks stop of a delivered run: the pipeline strip, the headline, the list of checks and the detail of the selected one" width="900">
+   <img src="docs/assets/run-surface.svg" alt="The verdict stop of a delivered run: the pipeline strip carrying a count per stop, the headline, the ledger of requirements and what the selected one rests on" width="900">
 </p>
 
 Four things carry the surface:
@@ -270,6 +270,10 @@ against its ceiling, the branch it delivered and whether anything carries it. Un
 what isolates a run, what ceilings stop it. Nothing on that page speaks for a run you are not
 pointing at: `d`, `s`, `p`, `m` and `i` act on the row under the cursor, `enter` opens it, a
 digit opens it at that stop, and `n` goes to whichever run needs you.
+
+<p align="center">
+   <img src="docs/assets/store-page.svg" alt="The store's own page: what the runs need, the listing of every run with where it stands and what it has spent, the run under the cursor read without opening it, and how 495 is configured for this project" width="900">
+</p>
 
 Keys: `1`-`8` or `←` `→` walk the pipeline, `n` catches up to where the run is, `↑` `↓` move the
 cursor, `g` the event log (`f` filters it), `l` the store's own page, `space` freezes the
