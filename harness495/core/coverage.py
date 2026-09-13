@@ -34,6 +34,7 @@ ROLES_BY_TECHNOLOGY: dict[str, tuple[CatalogueRole, ...]] = {
         CatalogueRole.static,
         CatalogueRole.security,
     ),
+    "javascript/typescript": tuple(CatalogueRole),
 }
 """The roles the catalogue (``docs/test-libraries.md``) has a table for, per technology."""
 
@@ -371,5 +372,156 @@ test directories and ``features/``. shellcheck measures security as well as stat
 warnings are the analysis there is for shell.
 """
 
-TABLES: dict[str, ToolTable] = {"python": PYTHON_TOOLS, "shell": SHELL_TOOLS}
+# --------------------------------------------------------------------- javascript/typescript
+
+
+def _test_file(suffixes: tuple[str, ...]) -> Marker:
+    """A test file named by its suffix: ``.bench.ts``, ``.fuzz.js``."""
+
+    def found(t: Tree) -> str | None:
+        for rel in t.tests:
+            if rel.endswith(suffixes):
+                return rel
+        return None
+
+    return found
+
+
+NODE_TOOLS: ToolTable = (
+    (
+        CatalogueRole.runner,
+        "vitest",
+        (dependency("vitest"), config_glob("vitest.config.*"), in_tests('from "vitest"')),
+    ),
+    (
+        CatalogueRole.runner,
+        "jest",
+        (dependency("jest"), config_glob("jest.config.*"), in_tests('from "@jest/globals"')),
+    ),
+    (CatalogueRole.runner, "mocha", (dependency("mocha"), config_glob(".mocharc.*"))),
+    (
+        CatalogueRole.bdd,
+        "@cucumber/cucumber",
+        (
+            dependency("@cucumber/cucumber"),
+            *(
+                config_file(f"cucumber.{ext}")
+                for ext in ("js", "mjs", "cjs", "json", "yaml", "yml")
+            ),
+        ),
+    ),
+    (CatalogueRole.bdd, "@amiceli/vitest-cucumber", (dependency("@amiceli/vitest-cucumber"),)),
+    (CatalogueRole.bdd, "jest-cucumber", (dependency("jest-cucumber"),)),
+    (
+        CatalogueRole.property,
+        "fast-check",
+        (
+            dependency("fast-check"),
+            dependency("@fast-check/vitest"),
+            dependency("@fast-check/jest"),
+            in_tests('from "fast-check"'),
+        ),
+    ),
+    (
+        CatalogueRole.fuzzing,
+        "@jazzer.js/core",
+        (dependency("@jazzer.js/core"), directory("fuzz"), _test_file((".fuzz.js", ".fuzz.ts"))),
+    ),
+    (CatalogueRole.fuzzing, "jsfuzz", (dependency("jsfuzz"),)),
+    (
+        CatalogueRole.mutation,
+        "@stryker-mutator/core",
+        (
+            dependency("@stryker-mutator/core"),
+            config_glob("stryker.config.*"),
+            config_glob("stryker.conf.*"),
+        ),
+    ),
+    (
+        CatalogueRole.coverage,
+        "@vitest/coverage-v8",
+        (dependency("@vitest/coverage-v8"), dependency("@vitest/coverage-istanbul")),
+    ),
+    (CatalogueRole.coverage, "c8", (dependency("c8"), config_glob(".c8rc*"))),
+    (CatalogueRole.coverage, "nyc", (dependency("nyc"), config_glob(".nycrc*"))),
+    (
+        CatalogueRole.architecture,
+        "dependency-cruiser",
+        (dependency("dependency-cruiser"), config_glob(".dependency-cruiser.*")),
+    ),
+    (
+        CatalogueRole.architecture,
+        "eslint-plugin-boundaries",
+        (dependency("eslint-plugin-boundaries"),),
+    ),
+    (CatalogueRole.architecture, "madge", (dependency("madge"),)),
+    (
+        CatalogueRole.static,
+        "eslint",
+        (dependency("eslint"), config_glob("eslint.config.*"), config_glob(".eslintrc*")),
+    ),
+    (CatalogueRole.static, "prettier", (dependency("prettier"), config_glob(".prettierrc*"))),
+    (
+        CatalogueRole.static,
+        "@biomejs/biome",
+        (dependency("@biomejs/biome"), config_glob("biome.json*")),
+    ),
+    (CatalogueRole.static, "oxlint", (dependency("oxlint"),)),
+    (CatalogueRole.types, "typescript", (dependency("typescript"), config_file("tsconfig.json"))),
+    (
+        CatalogueRole.security,
+        "eslint-plugin-security",
+        (dependency("eslint-plugin-security"),),
+    ),
+    (
+        CatalogueRole.security,
+        "npm audit",
+        (in_ci("npm audit"), in_ci("pnpm audit"), in_ci("yarn npm audit"), dependency("audit-ci")),
+    ),
+    (CatalogueRole.security, "snyk", (dependency("snyk"), in_ci("snyk "))),
+    (
+        CatalogueRole.contract,
+        "@stoplight/prism-cli",
+        (dependency("@stoplight/prism-cli"), in_ci("prism proxy")),
+    ),
+    (
+        CatalogueRole.contract,
+        "express-openapi-validator",
+        (dependency("express-openapi-validator"),),
+    ),
+    (CatalogueRole.contract, "@pact-foundation/pact", (dependency("@pact-foundation/pact"),)),
+    (CatalogueRole.contract, "pactum", (dependency("pactum"),)),
+    (
+        CatalogueRole.performance,
+        "tinybench",
+        (dependency("tinybench"), _test_file((".bench.ts", ".bench.js", ".bench.mjs"))),
+    ),
+    (CatalogueRole.performance, "mitata", (dependency("mitata"),)),
+    (CatalogueRole.performance, "benchmark", (dependency("benchmark"),)),
+    (CatalogueRole.performance, "autocannon", (dependency("autocannon"),)),
+    (
+        CatalogueRole.doubles,
+        "vi",
+        (in_tests("vi.fn("), in_tests("vi.mock("), in_tests("vi.spyOn(")),
+    ),
+    (CatalogueRole.doubles, "msw", (dependency("msw"),)),
+    (CatalogueRole.doubles, "sinon", (dependency("sinon"),)),
+    (CatalogueRole.doubles, "nock", (dependency("nock"),)),
+    (CatalogueRole.doubles, "testdouble", (dependency("testdouble"),)),
+)
+"""The JavaScript / TypeScript markers
+(``docs/studies/2026-09-13-javascript-typescript-test-libraries.md``).
+
+``dependencies`` are the ``dependencies`` and ``devDependencies`` of ``package.json``,
+``tests`` the files under the test directories and the ``.test``, ``.spec``, ``.bench`` and
+``.fuzz`` files, ``ci`` the CI files and ``package.json`` itself, for the scripts.
+``@vitest/coverage-istanbul`` names ``@vitest/coverage-v8``'s cell: the same reporter through
+the same runner, with istanbul's instrumentation.
+"""
+
+TABLES: dict[str, ToolTable] = {
+    "python": PYTHON_TOOLS,
+    "shell": SHELL_TOOLS,
+    "javascript/typescript": NODE_TOOLS,
+}
 """The marker table of each technology that has coverage rows."""

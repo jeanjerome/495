@@ -90,6 +90,21 @@ Feature: Gaps of a host project against the test-library catalogue
     And the gap on "bdd" of "shell" is "unmeasured"
     And that gap recommends "cucumber, aruba"
 
+  Scenario: A JavaScript project on Express is told the in-process contract entry
+    Given a JavaScript project
+    And its package.json lists the dependency "express"
+    When the harness profiles the project
+    Then the gap on "contract" of "javascript/typescript" is "unmeasured"
+    And that gap recommends "express-openapi-validator"
+    And that gap states the condition "the project uses Express"
+
+  Scenario: A JavaScript project without Express is told the proxy, the default of the cell
+    Given a JavaScript project
+    When the harness profiles the project
+    Then the gap on "contract" of "javascript/typescript" is "unmeasured"
+    And that gap recommends "@stoplight/prism-cli"
+    And that gap states no condition
+
   Scenario: The profile command states the gaps to the requester
     Given a Python project
     And its pyproject.toml lists the dependency "bandit"

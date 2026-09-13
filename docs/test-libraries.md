@@ -114,19 +114,20 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 
 | Role | Library | Status | Source | Notes |
 |---|---|---|---|---|
-| runner | | | | |
-| bdd | | | | |
-| property | | | | |
-| fuzzing | | | | |
-| mutation | | | | |
-| coverage | | | | |
-| architecture | | | | |
-| static | | | | |
-| types | | | | |
-| security | | | | |
-| contract | | | | |
-| performance | | | | |
-| doubles | | | | |
+| runner | vitest | recommended | study 2026-09-13 (`docs/studies/2026-09-13-javascript-typescript-test-libraries.md`) | 5.0.0 measured; runs ESM and TypeScript sources as they are; carries the coverage, property and doubles entries below |
+| bdd | @cucumber/cucumber | recommended | study 2026-09-13 (js) | 13.2.1 measured; TypeScript steps on Node 24 through `NODE_OPTIONS="--import tsx"`, the `loader` option fails there; @amiceli/vitest-cucumber runs the same `.feature` as vitest tests for a project that wants everything under vitest |
+| property | fast-check | recommended | study 2026-09-13 (js) | 4.10.0 measured with @fast-check/vitest 0.5.0, whose `test.prop` makes a property a vitest test |
+| fuzzing | @jazzer.js/core | recommended | study 2026-09-13 (js) | 4.0.0 measured; libFuzzer for Node.js, coverage-guided, `jazzer <target> --sync -- -max_total_time=20`, the crashing input written to `./crash-<hash>` |
+| mutation | @stryker-mutator/core | recommended | study 2026-09-13 (js) | 10.0.0 measured with its vitest runner: 9 of 11 mutants killed on vitest 4.1.11, none on vitest 5.0.0 (issue 6210, the per-test filter matches nothing); pin vitest 4 for the mutation run until the runner supports 5; `stryker.config.json`, report under `reports/mutation/` |
+| coverage | @vitest/coverage-v8 | recommended | study 2026-09-13 (js) | 5.0.0 measured; `lcov` and `json` reporters list the executed lines per file; `diff-cover coverage/lcov.info --compare-branch` (the Python entry) reports the changed lines the suite misses; c8 reads the same V8 counters outside the runner |
+| architecture | dependency-cruiser | recommended | study 2026-09-13 (js) | 18.2.0 measured; `forbidden` rules in `.dependency-cruiser.cjs`, `tsPreCompilationDeps` for TypeScript, exit 1 with the violations listed |
+| static | eslint, with prettier | recommended | study 2026-09-13 (js) | 10.10.0 and 3.9.6 measured; flat config with typescript-eslint, whose peer range needs `typescript@<6.1`; `prettier --check` fails on an unformatted file; @biomejs/biome lints and formats in one binary for a project that has it |
+| types | typescript | recommended | study 2026-09-13 (js), in use in 495's profile since 2026-09-12 | 6.0.3 measured, `tsc --noEmit`; 7.0.2 is npm's `latest` and typescript-eslint 8.70 does not accept it yet |
+| security | eslint-plugin-security, npm audit | recommended | study 2026-09-13 (js) | 4.0.1 measured, `configs.recommended` in the flat config reports object injection and non-literal RegExp as warnings; `npm audit --json` reads the registry's advisories with no account |
+| contract | @stoplight/prism-cli | recommended | study 2026-09-13 (js) | 5.16.0 measured; `prism proxy <spec> <url> --errors` answers 500 with the violation for a response that breaks the description, whatever the framework; needs the implementation running |
+| contract | express-openapi-validator | recommended | study 2026-09-13 (js) | when the project uses Express: 5.6.2 measured, the middleware with `validateResponses: true` rejects the response in-process, inside a vitest test |
+| performance | tinybench | recommended | study 2026-09-13 (js) | 6.2.0 measured; the engine vitest's `bench` mode wraps, results under `task.result.latency` and `.throughput`; vitest 5.0.0 does not export `bench`, so the engine is used directly |
+| doubles | vi (vitest), with msw | recommended | study 2026-09-13 (js) | vitest 5.0.0 and msw 2.15.0 measured; `vi.fn`, `vi.spyOn`, `vi.mock`, fake timers, undone by `vi.restoreAllMocks`; msw intercepts `fetch` at the network boundary; sinon for a project not on vitest |
 
 ### Rust
 
@@ -204,3 +205,15 @@ are the rows of its role coverage (`tests/test_catalogue.py` keeps the two equal
 | Shell | bdd | shellkin, g4b, shellot | Gherkin runners written in shell without a user base (5, 2 and 0 stars) | study 2026-09-13 (shell) |
 | Shell | static | shellharden | rewrites quoting, a fixer rather than a checker, within shellcheck's scope | study 2026-09-13 (shell) |
 | Shell | security | trufflehog | AGPL-3.0; verifies secrets against the providers online | study 2026-09-13 (shell) |
+| JavaScript / TypeScript | bdd | jest-cucumber | last release 2024-07; jest only | study 2026-09-13 (js) |
+| JavaScript / TypeScript | fuzzing | jsfuzz | last release 2021-01 | study 2026-09-13 (js) |
+| JavaScript / TypeScript | coverage | nyc | instruments the source for the measure V8 gives through @vitest/coverage-v8 or c8 | study 2026-09-13 (js) |
+| JavaScript / TypeScript | architecture | madge | last release 2024-08; cycles and graphs, no rules | study 2026-09-13 (js) |
+| JavaScript / TypeScript | security | snyk | service behind a vendor account | study 2026-09-13 (js) |
+| JavaScript / TypeScript | security | audit-ci | last release 2024-07; a wrapper over `npm audit` | study 2026-09-13 (js) |
+| JavaScript / TypeScript | contract | dredd | last release 2021-11 | study 2026-09-13 (js) |
+| JavaScript / TypeScript | contract | jest-openapi, chai-openapi-response-validator, openapi-response-validator | last releases 2022-01 and 2023-05 | study 2026-09-13 (js) |
+| JavaScript / TypeScript | contract | @pact-foundation/pact | consumer-driven contracts between services, a different question than the description against the implementation | study 2026-09-13 (js) |
+| JavaScript / TypeScript | performance | benchmark | last release 2017-03 | study 2026-09-13 (js) |
+| JavaScript / TypeScript | performance | mitata | last release 2025-02; no statistics on the sample count | study 2026-09-13 (js) |
+| JavaScript / TypeScript | doubles | testdouble | last release 2024-03 | study 2026-09-13 (js) |

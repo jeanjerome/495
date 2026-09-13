@@ -573,7 +573,13 @@ conventions et le scope du projet (E44 (a)) reste à lire dans la même commande
 (`docs/studies/2026-09-13-shell-test-libraries.md` : bats, cucumber avec aruba faute de
 runner Gherkin écrit en shell, shellcheck avec shfmt, shellcheck et gitleaks ; marqueurs dans
 `core/coverage.py::SHELL_TOOLS`, scénarios shell de `profile.feature` et `catalogue.feature`) ;
-JavaScript / TypeScript, Rust, Go et Java / Kotlin restent à faire. Les kinds de
+JavaScript / TypeScript **fait** le 2026-09-13
+(`docs/studies/2026-09-13-javascript-typescript-test-libraries.md` : vitest, cucumber-js,
+fast-check, Jazzer.js, Stryker (vitest 4 : le runner ne tue rien sous vitest 5, issue 6210),
+@vitest/coverage-v8, dependency-cruiser, eslint avec prettier, typescript, eslint-plugin-security
+et npm audit, prism en proxy ou express-openapi-validator sous Express, tinybench, `vi` avec msw ;
+marqueurs dans `core/coverage.py::NODE_TOOLS`, arbre lu dans `package.json`) ; Rust, Go et
+Java / Kotlin restent à faire. Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
 **E51 · Les tests ne sont pas des scénarios de comportement lisibles par le demandeur.**

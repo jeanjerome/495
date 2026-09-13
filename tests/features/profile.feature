@@ -92,6 +92,26 @@ Feature: Role coverage of a host project
     Then the role "security" of "shell" is measured with "shellcheck, gitleaks"
     And the role "static" of "shell" is measured with "shellcheck"
 
+  Scenario: A JavaScript project's package.json names the tools of its roles
+    Given a JavaScript project
+    And its package.json lists the development dependency "vitest"
+    And its package.json lists the development dependency "@stryker-mutator/core"
+    And the file "tests/math.test.ts" contains "const f = vi.fn();"
+    When the harness profiles the project
+    Then the role "runner" of "javascript/typescript" is measured with "vitest"
+    And that role is recognised from "package.json: dependency vitest"
+    And the role "mutation" of "javascript/typescript" is measured with "@stryker-mutator/core"
+    And the role "doubles" of "javascript/typescript" is measured with "vi"
+    And that role is recognised from "tests/math.test.ts: vi.fn("
+    And the role "fuzzing" of "javascript/typescript" is not measured
+
+  Scenario: An npm audit in a package.json script measures the security role
+    Given a JavaScript project
+    And its package.json has the script "check" running "npm audit --audit-level=high"
+    When the harness profiles the project
+    Then the role "security" of "javascript/typescript" is measured with "npm audit"
+    And that role is recognised from "package.json: npm audit"
+
   Scenario: A helper script's tools are named, but do not make shell a covered technology
     Given a Python project
     And the file "scripts/deploy.sh" contains "#!/bin/sh"

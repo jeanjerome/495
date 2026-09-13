@@ -372,6 +372,33 @@ def _detect_python(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComm
     )
 
 
+NODE_TEST_SUFFIXES = (".test.", ".spec.", ".bench.", ".fuzz.")
+
+
+def _node_tree(root: Path, data: Mapping[str, Any]) -> Tree:
+    """What the JavaScript / TypeScript markers read: the ``dependencies`` and
+    ``devDependencies`` of ``package.json``, the test files (under the test directories, or
+    named ``.test``, ``.spec``, ``.bench``, ``.fuzz``), the CI files and ``package.json``
+    itself for its scripts."""
+    tree = Tree(root=root)
+    for key in ("dependencies", "devDependencies"):
+        for name in data.get(key, {}):
+            tree.dependencies.setdefault(name, "package.json")
+
+    def is_test(path: Path) -> bool:
+        if path.suffix not in (".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".tsx", ".jsx"):
+            return path.suffix == ".feature"
+        parts = path.relative_to(root).parts[:-1]
+        in_test_dir = any(part.lower() in TEST_DIRS for part in parts)
+        return in_test_dir or any(mark in path.name for mark in NODE_TEST_SUFFIXES)
+
+    for path in _walk(root, is_test):
+        tree.tests[tree.rel(path)] = _read_small(path)
+    read_ci(tree, _read_small)
+    tree.ci["package.json"] = json.dumps(data.get("scripts", {}))
+    return tree
+
+
 def _detect_node(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectCommand]) -> None:
     pkg = root / "package.json"
     if not pkg.exists():
@@ -382,6 +409,9 @@ def _detect_node(root: Path, prof: ProjectProfile, cmds: dict[str, ProjectComman
         data = json.loads(pkg.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return
+    prof.role_coverage.extend(
+        coverage.rows("javascript/typescript", _node_tree(root, data), coverage.NODE_TOOLS)
+    )
     pm = "npm run"
     if (root / "pnpm-lock.yaml").exists():
         pm = "pnpm run"

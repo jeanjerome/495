@@ -13,6 +13,7 @@ is in the document with its source
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,6 +80,20 @@ def _no_pytest_suite_or_standalone_features(profile: ProjectProfile) -> bool:
     return not has_pytest or (Path(profile.root) / "features" / "steps").is_dir()
 
 
+def _uses_express(profile: ProjectProfile) -> bool:
+    return (Path(profile.root) / "node_modules" / "express").is_dir() or _lists_dependency(
+        Path(profile.root) / "package.json", "express"
+    )
+
+
+def _lists_dependency(package_json: Path, name: str) -> bool:
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return any(name in data.get(key, {}) for key in ("dependencies", "devDependencies"))
+
+
 @dataclass(frozen=True)
 class Recommendation:
     """One ``recommended`` entry of the catalogue: the tools of the cell, and when it applies.
@@ -119,6 +134,28 @@ RECOMMENDED: tuple[Recommendation, ...] = (
     Recommendation("shell", CatalogueRole.bdd, ("cucumber", "aruba")),
     Recommendation("shell", CatalogueRole.static, ("shellcheck", "shfmt")),
     Recommendation("shell", CatalogueRole.security, ("shellcheck", "gitleaks")),
+    Recommendation("javascript/typescript", CatalogueRole.runner, ("vitest",)),
+    Recommendation("javascript/typescript", CatalogueRole.bdd, ("@cucumber/cucumber",)),
+    Recommendation("javascript/typescript", CatalogueRole.property, ("fast-check",)),
+    Recommendation("javascript/typescript", CatalogueRole.fuzzing, ("@jazzer.js/core",)),
+    Recommendation("javascript/typescript", CatalogueRole.mutation, ("@stryker-mutator/core",)),
+    Recommendation("javascript/typescript", CatalogueRole.coverage, ("@vitest/coverage-v8",)),
+    Recommendation("javascript/typescript", CatalogueRole.architecture, ("dependency-cruiser",)),
+    Recommendation("javascript/typescript", CatalogueRole.static, ("eslint", "prettier")),
+    Recommendation("javascript/typescript", CatalogueRole.types, ("typescript",)),
+    Recommendation(
+        "javascript/typescript", CatalogueRole.security, ("eslint-plugin-security", "npm audit")
+    ),
+    Recommendation("javascript/typescript", CatalogueRole.contract, ("@stoplight/prism-cli",)),
+    Recommendation(
+        "javascript/typescript",
+        CatalogueRole.contract,
+        ("express-openapi-validator",),
+        "the project uses Express",
+        _uses_express,
+    ),
+    Recommendation("javascript/typescript", CatalogueRole.performance, ("tinybench",)),
+    Recommendation("javascript/typescript", CatalogueRole.doubles, ("vi", "msw")),
 )
 """The document's ``recommended`` entries, in its order; a cell with several entries lists
 its default first. A technology whose section of the document is empty has no entry here,

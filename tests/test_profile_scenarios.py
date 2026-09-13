@@ -41,12 +41,25 @@ class Project:
     dependencies: list[str] = field(default_factory=list)
     sections: list[str] = field(default_factory=list)
     ruff_select: list[str] = field(default_factory=list)
+    node_dependencies: dict[str, str] = field(default_factory=dict)
+    node_dev_dependencies: dict[str, str] = field(default_factory=dict)
+    node_scripts: dict[str, str] = field(default_factory=dict)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
     last_proposal: Proposal | None = None
     output: str = ""
     exit_code: int = 0
+
+    def write_package_json(self) -> None:
+        data = {
+            "name": "x",
+            "private": True,
+            "scripts": self.node_scripts,
+            "dependencies": self.node_dependencies,
+            "devDependencies": self.node_dev_dependencies,
+        }
+        (self.root / "package.json").write_text(json.dumps(data))
 
     def write_pyproject(self) -> None:
         deps = ", ".join(f'"{d}"' for d in self.dependencies)
@@ -120,6 +133,29 @@ def a_python_project(project: Project) -> None:
 def a_shell_project(project: Project) -> None:
     (project.root / "scripts").mkdir()
     (project.root / "scripts" / "deploy.sh").write_text("#!/bin/sh\necho deploying\n")
+
+
+@given("a JavaScript project")
+def a_javascript_project(project: Project) -> None:
+    project.write_package_json()
+
+
+@given(parsers.parse('its package.json lists the dependency "{name}"'))
+def package_json_lists_a_dependency(project: Project, name: str) -> None:
+    project.node_dependencies[name] = "*"
+    project.write_package_json()
+
+
+@given(parsers.parse('its package.json lists the development dependency "{name}"'))
+def package_json_lists_a_dev_dependency(project: Project, name: str) -> None:
+    project.node_dev_dependencies[name] = "*"
+    project.write_package_json()
+
+
+@given(parsers.parse('its package.json has the script "{name}" running "{command}"'))
+def package_json_has_a_script(project: Project, name: str, command: str) -> None:
+    project.node_scripts[name] = command
+    project.write_package_json()
 
 
 @given("a Rust project")

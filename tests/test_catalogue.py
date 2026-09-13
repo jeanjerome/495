@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from harness495.core.catalogue import CONTRADICTING_ROLES, RECOMMENDED, ROLE_CONTRACTS
 from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import CatalogueRole
@@ -59,9 +61,7 @@ def test_a_technology_with_markers_has_the_catalogue_table_it_covers() -> None:
     # Given the per-technology tables of the catalogue
     sections = _sections(CATALOGUE.read_text(encoding="utf-8"))
     tables = {
-        name.lower().replace(" ", ""): _first_column(lines)
-        for name, lines in sections.items()
-        if name in ("Python", "JavaScript / TypeScript", "Rust", "Go", "Java / Kotlin", "Shell")
+        TABLES[name]: _first_column(lines) for name, lines in sections.items() if name in TABLES
     }
     # When the technologies the profile has markers for are looked up
     covered = {tech: [r.value for r in roles] for tech, roles in ROLES_BY_TECHNOLOGY.items()}
@@ -71,16 +71,30 @@ def test_a_technology_with_markers_has_the_catalogue_table_it_covers() -> None:
         assert set(roles) == set(tables[tech]), f"{tech}: roles differ from the catalogue's"
 
 
-def test_the_recommended_entries_of_the_catalogue_are_the_recommendations_of_the_code() -> None:
-    # Given the Python table of the catalogue
+TABLES = {
+    "Python": "python",
+    "JavaScript / TypeScript": "javascript/typescript",
+    "Rust": "rust",
+    "Go": "go",
+    "Java / Kotlin": "java/kotlin",
+    "Shell": "shell",
+}
+"""The per-technology tables of the document, and the technology key the code uses."""
+
+
+@pytest.mark.parametrize(("table", "technology"), TABLES.items())
+def test_the_recommended_entries_of_the_catalogue_are_the_recommendations_of_the_code(
+    table: str, technology: str
+) -> None:
+    # Given one technology's table of the catalogue
     sections = _sections(CATALOGUE.read_text(encoding="utf-8"))
-    rows = _rows(sections["Python"])
+    rows = _rows(sections[table])
     # When its recommended entries are read, in order, with the tools of each cell
     documented = [
         (role, _tools(library)) for role, library, status, *_ in rows if status == "recommended"
     ]
-    # Then they are exactly the code's recommendations for Python, in the same order
-    coded = [(r.role.value, list(r.tools)) for r in RECOMMENDED if r.technology == "python"]
+    # Then they are exactly the code's recommendations for the technology, in the same order
+    coded = [(r.role.value, list(r.tools)) for r in RECOMMENDED if r.technology == technology]
     assert documented == coded
 
 
