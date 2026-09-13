@@ -36,17 +36,28 @@ One recommended library per technology and per role. Binds 495's own tests and t
   (`docs/decisions/0014-a-verification-names-the-catalogue-role-it-measures.md`).
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
+- Closing a run on a host project: `495 retro <run-id>` reads back what the run showed about
+  each tool that measured a role (`harness495/core/retro.py`): proven when its report
+  differed with and without the change or contradicted the agent, faulty when it timed out,
+  failed identically on both versions, failed before any change too or had its command
+  replaced by the requester, inconclusive otherwise. It prints the row below that each proven
+  or faulty tool yields, with `retrospective <date> (<project>, run <id>)` as source, and
+  keeps the document under the run (`retrospective.json`). The row is pasted here by hand
+  once read; the command never writes this file
+  (`docs/decisions/0015-a-retrospective-states-what-each-tool-showed.md`).
 
 ## Bringing an entry in
 
 An entry has a status, a source and a date. Statuses:
 
-- `recommended`: admitted by a study, a piece of research, or a retrospective on a host project.
-  The source column names it. A cell may hold several `recommended` entries when each states,
+- `recommended`: admitted by a study, a piece of research, or a retrospective on a host project
+  (`495 retro`, whose proven tools yield the row). The source column names it. A cell may hold several `recommended` entries when each states,
   in its notes, the condition under which it is the one to take; the first listed is the
   default, the others apply when their condition holds (a project without a pytest suite takes
   behave, not pytest-bdd).
-- `rejected`: examined and set aside; the reason stays so that it is not proposed again.
+- `rejected`: examined and set aside; the reason stays so that it is not proposed again. A
+  tool a retrospective found faulty yields a row for the Rejected table, its reason the
+  measurements that failed outside the change's reach.
 
 A library used by 495's own suite counts as a source ("in use in 495 since <date>") once it has
 run in the suite for at least one change; it is still listed, not assumed.

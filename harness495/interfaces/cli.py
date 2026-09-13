@@ -21,6 +21,7 @@ from rich.text import Text
 from harness495 import __version__
 from harness495.core import git
 from harness495.core import proposals as conformance
+from harness495.core import retro as retrospection
 from harness495.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
 from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
@@ -35,10 +36,12 @@ from harness495.core.models import (
     Proposal,
     Proposals,
     ProposalStatus,
+    Retrospective,
     ReviewerSpec,
     Run,
     RunMode,
     Spec,
+    ToolVerdict,
 )
 from harness495.core.profile import detect_profile
 from harness495.core.report import render_markdown
@@ -907,6 +910,79 @@ def report(
         typer.echo(text)
 
 
+def _print_retrospective(retro: Retrospective) -> None:
+    """The tools of the project as the run showed them, and the rows the catalogue takes."""
+    if not retro.tool_observations:
+        console.print(
+            f"run {retro.run_id} ({retro.run_status.value}): no verification naming a catalogue "
+            "role was measured, so the run shows nothing about the project's tools"
+        )
+        return
+    table = Table(
+        title=f"what run {retro.run_id} ({retro.run_status.value}) showed about the tools"
+    )
+    for col in ("technology", "role", "tools", "verdict", "runs", "contradictions", "faults"):
+        table.add_column(col)
+    colours = {
+        ToolVerdict.proven: "green",
+        ToolVerdict.faulty: "red",
+        ToolVerdict.inconclusive: "yellow",
+    }
+    for o in retro.tool_observations:
+        table.add_row(
+            o.technology,
+            o.role.value,
+            ", ".join(o.tools),
+            Text(o.verdict.value, style=colours[o.verdict]),
+            str(o.runs),
+            str(o.contradictions),
+            str(o.faults),
+        )
+    console.print(table)
+    for o in retro.tool_observations:
+        console.print(Text(f"{o.technology} {o.role.value} ({', '.join(o.tools)}):"))
+        for line in o.detail:
+            console.print(Text(f"  {line}"))
+    rows = [o for o in retro.tool_observations if o.catalogue_row]
+    if not rows:
+        console.print("nothing to bring to docs/test-libraries.md: no tool proved itself or failed")
+        return
+    console.print("rows for docs/test-libraries.md, source: " + retro.source)
+    for o in rows:
+        if o.verdict is ToolVerdict.proven:
+            where = (
+                f"a further source for the entry the {o.technology} table already recommends"
+                if o.in_catalogue
+                else f"a recommended entry for the {o.technology} table, if the maintainer admits it"
+            )
+        else:
+            where = (
+                "a row for the Rejected table, against an entry the catalogue recommends"
+                if o.in_catalogue
+                else "a row for the Rejected table"
+            )
+        console.print(Text(f"{o.technology} {o.role.value}: {where}"))
+        console.print(Text(f"  {o.catalogue_row}"))
+
+
+@app.command()
+def retro(ctx: typer.Context, run_id: str) -> None:
+    """What the run showed about the project's tools, with the rows the catalogue takes."""
+    c = _ctx(ctx)
+    try:
+        run = c.store.load(run_id)
+    except RunNotFound:
+        _error(c, f"run {run_id} not found")
+        return
+    retro = retrospection.retrospect(run)
+    path = c.store.save_retrospective(retro)
+    if c.json:
+        _emit_json(retro.model_dump(mode="json"))
+        return
+    _print_retrospective(retro)
+    console.print(f"saved at {path}")
+
+
 @app.command()
 def spec(ctx: typer.Context, run_id: str) -> None:
     """Show the run's specification: what the change must accomplish and how it is checked."""
@@ -1104,7 +1180,9 @@ def watch(
 @app.command()
 def schema(
     ctx: typer.Context,
-    name: str = typer.Argument("run", help="run | event | spec | config | proposals"),
+    name: str = typer.Argument(
+        "run", help="run | event | spec | config | proposals | retrospective"
+    ),
 ) -> None:
     """Print the JSON schema of the persisted documents."""
     from harness495.core.models import Event as EventModel
@@ -1115,6 +1193,7 @@ def schema(
         "spec": Spec,
         "config": HarnessConfig,
         "proposals": Proposals,
+        "retrospective": Retrospective,
     }
     if name not in models:
         raise typer.BadParameter(f"unknown schema '{name}'; choose from {list(models)}")

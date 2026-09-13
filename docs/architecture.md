@@ -27,6 +27,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | decide | harness | each requirement `satisfied`, `violated` or `undetermined`; violations become correction requests and a new iteration; `undetermined` stops and asks |
 | deliver | harness | patch, branch `495/<run-id>`, Markdown report; nothing merged |
 | merge, check-integration | harness, on request | the delivered branch brought into the checked-out branch in one of four shapes, then the target ref compared with what was verified |
+| retro | harness, on request | what the run showed about each tool that measured a catalogue role, read from the run document: proven, faulty or inconclusive, with the row the catalogue takes by hand |
 
 `495 eval` runs the same machine without a producer: the existing change (a commit, a range, a
 patch or the working tree) is materialised as one commit in the worktree and enters at `produced`.
@@ -50,7 +51,7 @@ Dependencies point downwards only (`docs/decisions/0011-package-boundaries.md`):
 - `interfaces` may import anything. Nothing outside `interfaces` imports it.
 - Inside `core`, only `engine` imports `agents`, and only `engine` and `verification` import
   `sandbox`. The rest of `core` (`models`, `decide`, `scope`, `context`, `prompts`, `schemas`,
-  `profile`, `catalogue`, `proposals`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on
+  `profile`, `catalogue`, `proposals`, `retro`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on
   `core` alone.
 - `agents` imports `core.models`, `core.pricing` and `sandbox`; never `core.engine`, `core.store`
   or `core.decide`.
@@ -70,12 +71,13 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; role coverage against the catalogue's roles, from markers per technology (`ROLES_BY_TECHNOLOGY`, `PYTHON_TOOLS`, `SHELL_TOOLS`) |
 | `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), what a test of each role must show (`ROLE_CONTRACTS`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), `compare()`: the profile's gaps against them, and `unmeasured_role()`: why a verification of a role cannot run in the project |
 | `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
+| `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
 | `scope` | which files a change may touch |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the three roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
-| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json` |
+| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`; a run's `retrospective.json` |
 | `report` | the Markdown restitution of a run from its persisted state |
 | `config` | precedence: defaults, `~/.config/495/config.toml`, `.495/config.toml`, `.495/project.toml`, command line |
 | `budget`, `pricing` | limits checked before each intervention; cost `reported`, `estimated` or `unknown` |
@@ -120,7 +122,10 @@ collects the evidence and reviews measured on it. `Evidence` is what the harness
 and the `IntegrationCheck`. Outside any run, a `Proposals` document holds one `Proposal` per
 gap against the catalogue, identified by technology and role: the gap as last stated, a
 `ProposalStatus` (`open`, `accepted` with the run it created, `declined` with the reason,
-`deferred`, `resolved`), and the intent an acceptance turns into a run. The JSON schema of
+`deferred`, `resolved`), and the intent an acceptance turns into a run. Next to a run, a
+`Retrospective` holds one `ToolObservation` per technology and `CatalogueRole` a
+verification measured: the tools, a `ToolVerdict` (`proven`, `faulty`, `inconclusive`), the
+counts and sentences of each measurement, and the catalogue row it yields. The JSON schema of
 each document comes from these models.
 
 ## State on disk
@@ -131,6 +136,7 @@ each document comes from these models.
   proposals.json                       the conformance proposals and the requester's answers
   runs/<run-id>/
     run.json                           the Run document, atomic writes
+    retrospective.json                 what the run showed about the tools, written by 495 retro
     events.jsonl                       append-only event log
     DRIVER  STOP                       claim of the process advancing the run; stop request
     interventions/<id>/                prompt.md, context.json, transcript, output, meta.json

@@ -23,3 +23,4 @@ carries the decision.
 | [0012](0012-tests-use-proven-libraries-from-a-catalogue.md) | Tests use proven specialised libraries from a catalogue by technology and role, in 495 and in host projects | accepted | 2026-09-13, refined 2026-09-13 |
 | [0013](0013-tests-are-behaviour-scenarios-in-gherkin.md) | Tests are behaviour scenarios, in Gherkin or in a Given/When/Then shape that reads like it | accepted | 2026-09-13 |
 | [0014](0014-a-verification-names-the-catalogue-role-it-measures.md) | A verification names the catalogue role it measures, and a role the project does not measure is a stated gap, never an invented tool | accepted | 2026-09-13, refined 2026-09-13 |
+| [0015](0015-a-retrospective-states-what-each-tool-showed.md) | A retrospective states what a run showed about each tool that measured a catalogue role, and the catalogue takes the row by hand with the run as its source | accepted | 2026-09-13 |

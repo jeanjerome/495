@@ -53,6 +53,9 @@ Keep these true in every change; each has a test or a record that names it.
   again (`0014`).
 - Runs work in a git worktree under `~/.cache/495/worktrees/`; the harness makes the commits;
   the user's checkout is written by `495 merge` only (`0006`, `0010`).
+- `core/retro.py::retrospect` is a pure function of the run document; `495 retro` writes
+  `retrospective.json` under the run and never the catalogue, whose rows are admitted by hand
+  (`0015`).
 - Cost is `reported`, `estimated` or `unknown` (`0008`).
 - Tests use `Scenario` and `FakeAgent` from `tests/conftest.py`. Mark a test that reaches a
   real agent CLI or the network `live`.

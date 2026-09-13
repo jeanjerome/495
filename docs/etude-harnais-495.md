@@ -549,9 +549,27 @@ profil (`DeclinedRole`), le fait montre le rôle comme refusé avec la raison et
 ne l'appelle pas, et une V qui le nomme quand même cite le refus, pas une proposition à
 répondre (`tests/features/specifier.feature`, scénarios « The specifier is told … » de
 `tests/features/catalogue.feature`) ;
-(e) les rétrospectives (E44) alimentent le catalogue : un outil qui a fait ses preuves sur un
-projet hôte entre avec sa source, un outil qui a posé problème est consigné en rejeté.
-Prérequis pour (e) : un passage d'étude par technologie (Python fait le 2026-09-13 ;
+(e) **fait** (`docs/decisions/0015-a-retrospective-states-what-each-tool-showed.md`) : les
+rétrospectives alimentent le catalogue. `495 retro <id>` lit dans le seul document du run ce
+que chaque outil mesurant un rôle a montré (`core/retro.py::retrospect`, `Retrospective`
+persistée en `runs/<id>/retrospective.json`, schéma `495 schema retrospective`) : chaque
+passage d'une V portant un rôle est apparié à son contrôle sur la version de base (même V,
+itération et commande), ou lu contre le passage de base avant tout changement ; il vaut
+verdict (rapport différent avec et sans le changement, ou succès confirmé par la base),
+contradiction (échec sur le changement que la base n'a pas), faute (délai dépassé, non
+exécutable, échec identique des deux côtés consigné en faute d'instrument, échec déjà
+présent avant tout changement, commande remplacée par le demandeur) ou rien (même succès des
+deux côtés, rapport sans point de comparaison). Une `ToolObservation` par technologie et rôle
+porte les outils de la couverture, les comptes, les preuves et chaque mesure en une phrase ;
+son verdict est `faulty` dès qu'une faute, sinon `proven` dès qu'un verdict ou une
+contradiction, sinon `inconclusive`. Un outil `proven` donne la ligne `recommended` prête à
+coller, un outil `faulty` la ligne de la table Rejected avec les fautes pour raison, la
+source étant `retrospective <date> (<projet>, run <id>)` ; l'observation dit si le catalogue
+recommande déjà l'outil (la ligne est alors une source de plus). La commande n'écrit jamais
+`docs/test-libraries.md` : une observation sur un projet est admise par le mainteneur
+(`tests/features/retrospective.feature`). Ce que le run a appris sur les commandes, les
+conventions et le scope du projet (E44 (a)) reste à lire dans la même commande.
+Reste : un passage d'étude par technologie (Python fait le 2026-09-13 ;
 JavaScript / TypeScript, Rust, Go, Java / Kotlin et Shell restent à faire). Les kinds de
 vérification par rôle envisagés en E34 sont remplacés par le champ `role` de (d).
 
@@ -637,7 +655,9 @@ préviennent pas le spécificateur du suivant ; aucune statistique inter-run (ta
 défaillants, itérations moyennes, coût par exigence, findings récurrents par perspective) n'est
 calculée alors que tout est sur disque. 495 est une boucle courte parfaite et une boucle longue
 absente. Pistes, par ordre de coût :
-(a) `495 retro <id>` : à partir de `run.json`, proposer des modifications concrètes de
+(a) `495 retro <id>` : *la commande existe depuis E50 (e) et lit ce que le run a montré des
+outils du projet pour le catalogue (`docs/decisions/0015`) ; le reste de (a) s'y ajoute.*
+À partir de `run.json`, proposer des modifications concrètes de
 `project.toml` (commande recalibrée → `[[commands]]`, correction humaine → `conventions`,
 scope accordé → `allowed_paths`) que l'humain accepte ou non ;
 (b) un fichier `lessons.md` dans `.495/` alimenté par ces rétrospectives et injecté comme fait au
@@ -724,7 +744,7 @@ semaine ou plus).
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
-| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait) ; reste l'alimentation par les rétrospectives et les études des autres technologies | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
+| E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait) ; restent les études des autres technologies | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne

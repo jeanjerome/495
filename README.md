@@ -242,6 +242,15 @@ declined at the next `profile`, never asked again; a deferred one stays listed u
 accept or decline it. A proposal whose gap the profile no longer states is resolved.
 `495 schema proposals` prints the document's schema.
 
+The loop closes at the end of a run. `495 retro <id>` reads back what the run showed about each
+tool that measured a catalogue role: **proven** when its report differed with and without the
+change, or contradicted the agent; **faulty** when it timed out, failed identically on both
+versions, failed before any change too, or you replaced its command; **inconclusive** when
+nothing shows whether it observed the change. Each measurement is stated with its verification
+and iteration, and a proven or faulty tool comes with the Markdown row `docs/test-libraries.md`
+takes, the run as its source. The command keeps `retrospective.json` under the run and writes
+nothing else: the catalogue is 495's document, and the row is admitted by hand.
+
 Detection is not a contract. Every command is run once on the base version at the start of a
 run — that is the **readiness** check — and a command that cannot run there, or that already
 fails there, becomes a question rather than a silent failure later.
@@ -533,7 +542,9 @@ source of history.
 495 watch [<id>] [--stage checks] [--read-only] [--print] [--export view.svg]
 495 merge <id> [--how fast-forward|rebase|squash|merge] [--rerun]
 495 check-integration <id> [--ref main] [--rerun]
-495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config|proposals | validate run.json
+495 retro <id>
+495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config|proposals|retrospective
+    | validate run.json
 495 profile | init | doctor | serve [--port 4950]
 495 proposals [list] | proposals accept <id> [--no-start] | proposals decline <id> --reason "..."
     | proposals defer <id> [--note "..."]
@@ -551,6 +562,7 @@ source of history.
 | `495 profile`, `doctor`, `init` | Detection, availability, configuration | No | `init` writes `.495/`; `profile` records the proposals under it |
 | `495 proposals` | List the conformance proposals, accept, decline or defer one | `accept` starts a run unless `--no-start` | `.495/proposals.json` |
 | `495 status`, `list`, `events`, `spec`, `report`, `export`, `schema`, `validate` | Read what a run recorded | No | No (`export` writes its archive to the working directory) |
+| `495 retro` | What the run showed about each tool that measured a catalogue role, with the rows for the catalogue | No | `retrospective.json` under the run |
 | `495 serve` | Expose the same workflow over HTTP | Through the runs it starts | No |
 
 Global options, before the command: `--project`/`-C` (target project, default the working
@@ -702,7 +714,7 @@ form, and says so.
 
 ### JSON documents and the HTTP API
 
-`495 schema run|event|spec|config|proposals` prints the JSON schema of each persisted document,
+`495 schema run|event|spec|config|proposals|retrospective` prints the JSON schema of each persisted document,
 generated from the models 495 itself validates against. `495 validate <run.json>` checks a
 run document.
 

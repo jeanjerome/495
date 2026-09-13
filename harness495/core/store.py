@@ -7,6 +7,7 @@ Layout under ``<state_dir>``::
 and under ``<state_dir>/runs/<run_id>/``::
 
     run.json            the full :class:`Run` document (atomic writes)
+    retrospective.json  what the run showed about the project's tools (:class:`Retrospective`)
     events.jsonl        append-only event log
     interventions/<id>/ prompt.md, context.json, transcript.*, output.*
     evidence/<id>/      command output
@@ -29,10 +30,11 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from harness495.core.models import Event, Proposals, Run, utcnow
+from harness495.core.models import Event, Proposals, Retrospective, Run, utcnow
 
 STATE_DIR_NAME = ".495"
 PROPOSALS_FILE = "proposals.json"
+RETROSPECTIVE_FILE = "retrospective.json"
 STOP_FLAG = "STOP"
 DRIVER_FLAG = "DRIVER"
 
@@ -178,6 +180,22 @@ class RunStore:
 
     def save_proposals(self, proposals: Proposals) -> None:
         _atomic_write_text(self.proposals_path(), proposals.model_dump_json(indent=2))
+
+    # ---- retrospective, one document per run, written from the run document alone
+
+    def retrospective_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / RETROSPECTIVE_FILE
+
+    def load_retrospective(self, run_id: str) -> Retrospective | None:
+        path = self.retrospective_path(run_id)
+        if not path.exists():
+            return None
+        return Retrospective.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def save_retrospective(self, retro: Retrospective) -> Path:
+        path = self.retrospective_path(retro.run_id)
+        _atomic_write_text(path, retro.model_dump_json(indent=2))
+        return path
 
     # ---- events
 
