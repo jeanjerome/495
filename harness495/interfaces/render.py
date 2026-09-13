@@ -71,8 +71,9 @@ def print_spec(spec: Spec) -> None:
     """The specification as it stands, for someone about to approve or refuse it.
 
     Statements are shown whole: approving a requirement you have only seen half of is the thing
-    this is meant to prevent. Descriptions of verifications are clipped instead, because they
-    restate at length what the command already says, and the artifact holds the full text.
+    this is meant to prevent, and so is the scenario of a test, since its text is the test the
+    requester approves. Descriptions of verifications are clipped instead, because they restate
+    at length what the command already says, and the artifact holds the full text.
     """
     requirements = Table(title="requirements", show_lines=True, title_justify="left")
     requirements.add_column("req", style="bold", no_wrap=True)
@@ -94,6 +95,10 @@ def print_spec(spec: Spec) -> None:
         console.print(f"    [cyan]{v.command}[/]" if v.command else "    [red]no command[/]")
         if v.description:
             console.print(f"    [dim]{_clip(v.description)}[/]")
+        if v.scenario is not None:
+            for step in v.scenario.lines():
+                keyword, _, rest = step.partition(" ")
+                console.print(f"      [bold]{keyword}[/] {rest}")
 
     for title, items in (
         ("allowed paths", spec.allowed_paths),

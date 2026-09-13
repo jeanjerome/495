@@ -133,6 +133,14 @@ def assess_sufficiency(
         elif not v.command:
             v.sufficiency = Sufficiency.missing
             v.rationale = v.rationale or "no command to execute"
+        elif v.kind is VerificationKind.test and v.to_create and not _has_scenario(v):
+            v.sufficiency = Sufficiency.insufficient
+            v.rationale = (
+                "a test to create is stated as a scenario (given, when, then) so that the "
+                "requester approves the text of the test and the producer writes it from that "
+                "text; "
+                + ("its scenario has no when or then step" if v.scenario else "none was given")
+            )
         elif executable_commands is not None and not v.to_create:
             head = v.command.split()[0] if v.command.split() else ""
             if head and not _known_prefix(v.command, executable_commands):
@@ -166,6 +174,10 @@ def assess_sufficiency(
             )
     spec.gaps = gaps
     return gaps
+
+
+def _has_scenario(v: Verification) -> bool:
+    return v.scenario is not None and v.scenario.complete
 
 
 def _known_prefix(command: str, executable: set[str]) -> bool:

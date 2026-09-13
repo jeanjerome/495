@@ -570,6 +570,33 @@ class Retrospective(StrictModel):
 # --------------------------------------------------------------------------- specification
 
 
+class BehaviourScenario(StrictModel):
+    """A test stated as a scenario: what is given, what is done, what is then observed.
+
+    Each list holds one step per entry, in the words of the domain; the first step of a list
+    takes its keyword (Given, When, Then) and the following ones read as ``And``. ``given`` may
+    be empty; ``when`` and ``then`` are not, or the scenario says nothing a reader can check.
+    The producer writes the test from this text and the requester approves it, so the scenario
+    says what the behaviour is through the interface a caller uses, never how it is implemented.
+    """
+
+    given: list[str] = Field(default_factory=list)
+    when: list[str] = Field(default_factory=list)
+    then: list[str] = Field(default_factory=list)
+
+    @property
+    def complete(self) -> bool:
+        return bool(self.when) and bool(self.then)
+
+    def lines(self) -> list[str]:
+        """The scenario as Gherkin steps, one per line, ready to paste into a feature file."""
+        out: list[str] = []
+        for keyword, steps in (("Given", self.given), ("When", self.when), ("Then", self.then)):
+            for i, step in enumerate(steps):
+                out.append(f"{keyword if i == 0 else 'And'} {step}")
+        return out
+
+
 class Verification(StrictModel):
     id: str
     kind: VerificationKind
@@ -578,6 +605,10 @@ class Verification(StrictModel):
     expected_exit_code: int = 0
     to_create: bool = False
     """The verification (typically a test) must be created as part of the change."""
+    scenario: BehaviourScenario | None = None
+    """For a ``test``, the scenario the test enacts: the text the requester approves and the
+    producer writes the test from. A test to create without one is insufficient, since the only
+    thing the requester could then approve is the description of a test nobody has written."""
     role: CatalogueRole | None = None
     """The catalogue role the verification measures, when it is one (a property-based test, a
     mutation run, a coverage report); None for a plain command, a review or a manual check.

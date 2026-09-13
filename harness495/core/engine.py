@@ -42,6 +42,7 @@ from harness495.core.decide import Assessment, assess
 from harness495.core.models import (
     NON_DISCRIMINATING,
     AgentIdentity,
+    BehaviourScenario,
     Capability,
     CatalogueRole,
     Cost,
@@ -2372,6 +2373,7 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
                 command=(str(v["command"]).strip() or None) if v.get("command") else None,
                 to_create=bool(v.get("to_create", False)),
                 role=CatalogueRole(role) if role in CatalogueRole.__members__ else None,
+                scenario=_scenario_from_agent(v.get("scenario")),
             )
         )
     requirements: list[Requirement] = []
@@ -2404,6 +2406,21 @@ def _spec_from_agent(data: dict[str, Any]) -> Spec:
     )
     _normalise_spec(spec)
     return spec
+
+
+def _scenario_from_agent(data: Any) -> BehaviourScenario | None:
+    """Read a scenario's steps; blank steps are dropped, and no step at all is no scenario."""
+    if not isinstance(data, dict):
+        return None
+    steps = {
+        key: [str(x).strip() for x in data.get(key) or [] if str(x).strip()]
+        if isinstance(data.get(key), list)
+        else []
+        for key in ("given", "when", "then")
+    }
+    if not any(steps.values()):
+        return None
+    return BehaviourScenario(**steps)
 
 
 def _finding_from_agent(f: dict[str, Any], spec: Spec) -> Finding:

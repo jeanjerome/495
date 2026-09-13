@@ -106,6 +106,11 @@ SPEC_JSON: dict[str, Any] = {
             "description": "a test exercising subtract with positive and negative values",
             "command": f"{sys.executable} -m pytest -q -p no:cacheprovider tests/test_calc.py",
             "to_create": True,
+            "scenario": {
+                "given": ["the calc module"],
+                "when": ["subtract(5, 3) and subtract(3, 5) are called"],
+                "then": ["they return 2 and -2"],
+            },
         },
         {
             "id": "V2",

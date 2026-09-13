@@ -152,6 +152,9 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
         role = f", role {v.role.value}" if v.role else ""
         cmd = f" command: `{v.command}`" if v.command else ""
         lines.append(f"- {v.id} ({v.kind.value}{role}{flag}): {v.description}{cmd}")
+        if v.scenario is not None:
+            lines.append("  scenario:")
+            lines.extend(f"    {step}" for step in v.scenario.lines())
         if v.sufficiency in NON_DISCRIMINATING:
             lines.append(f"  reports the same with and without the change: {v.rationale}")
     if spec.out_of_scope:

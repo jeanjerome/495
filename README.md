@@ -467,6 +467,10 @@ question. So does reaching `max_iterations`, or the budget.
 - `approve_spec`: approve / approve_with_gaps / revise (note) / abort. The specification is
   printed in full before the question, saved to `artifacts/spec.json` (the path is in the
   question), carried in the decision's `context.spec`, and readable at any time with `495 spec <id>`.
+  A test the change must create is stated as a scenario (given, when, then steps) under its
+  verification: that text is the test you approve, and the producer writes the test from it. A
+  test to create without one is a verification gap
+  (`docs/decisions/0016-a-test-to-create-is-specified-as-a-scenario.md`).
 - `readiness`: a verification command cannot run here: drop / retry / abort; or it already fails on
   the base version, so nothing it reports later can be attributed to the change: proceed /
   allow_network (re-run with the network open to the verification commands, for builds that

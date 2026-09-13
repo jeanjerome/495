@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from harness495.core.models import (
+    BehaviourScenario,
     ProjectCommand,
     ProjectConfig,
     Requirement,
@@ -327,6 +328,7 @@ def test_a_command_that_already_passes_cannot_carry_new_behaviour() -> None:
                 description="a new test",
                 command="mvn t -Dtest=New",
                 to_create=True,
+                scenario=BehaviourScenario(when=["New runs"], then=["it asserts the behaviour"]),
             ),
         ],
     )

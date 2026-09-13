@@ -18,6 +18,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import (
+    BehaviourScenario,
     CatalogueGap,
     CatalogueRole,
     DeclinedRole,
@@ -135,6 +136,7 @@ def a_test_naming_a_role(world: World, vid: str, role: str) -> None:
             command="pytest -q",
             to_create=True,
             role=CatalogueRole(role),
+            scenario=BehaviourScenario(when=["the test runs"], then=["it observes the role"]),
         )
     )
 

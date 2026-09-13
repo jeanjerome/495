@@ -58,6 +58,14 @@ Rules for verifications:
   too slow to run, and only with a form the project itself uses: a filter that a runner rejects,
   or that selects nothing in a module or package that does not hold the test, fails whatever the
   change contains and proves nothing.
+- Every verification of kind "test" carries a `scenario`: the test stated as steps, `given`
+  (the state before), `when` (what is done) and `then` (what is observed), one step per entry,
+  in the words of the requirement and through the interface a caller would use, never in terms
+  of the implementation. That text is what the requester reads and approves as the expected
+  test, and what the producer writes the test from, so it is complete on its own: concrete
+  inputs, the exact observable outcome. One behaviour per scenario; a test that must exercise
+  several behaviours is several verifications. A test to create without a `when` and a `then`
+  is reported insufficient. Set `scenario` to null for every other kind.
 - Prefer an automated check whenever one is possible: a docstring, a type annotation, a
   signature, an error message or a CLI flag can all be asserted by a small test or a one-line
   command (e.g. `python -c "import m; assert m.f.__doc__"`); propose such a `test` or `command`

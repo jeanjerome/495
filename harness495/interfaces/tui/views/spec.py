@@ -86,6 +86,10 @@ def build_spec(ctx: ViewContext) -> StageContent:
             node.add(shell_block(v.command))
         if v.description:
             node.add(Text(v.description, style="h.value"))
+        if v.scenario is not None:
+            for step in v.scenario.lines():
+                keyword, _, rest = step.partition(" ")
+                node.add(Text.assemble((keyword, "h.key"), " ", (rest, "h.value")))
         if v.rationale:
             node.add(Text(v.rationale, style=f"suf.{v.sufficiency.value}"))
     rows.append(tree)

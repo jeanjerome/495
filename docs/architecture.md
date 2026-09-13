@@ -19,7 +19,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | Phase | Who | What it establishes |
 |---|---|---|
 | profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
-| specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure being insufficient |
+| specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any; a test stated as a given/when/then scenario), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure or a test to create without a scenario being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | produce | producer agent, write | the change, in the run's worktree; the harness commits it so the evaluated version is one commit |
 | verify | harness | scope check, then every verification on that commit; each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence |
@@ -113,8 +113,9 @@ A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooli
 against the catalogue, the `DeclinedRole`s read from the proposals, `ReadinessCheck`s), one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
-`non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes and,
-when it measures a catalogue role, that `CatalogueRole`). An
+`non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes,
+when it measures a catalogue role, that `CatalogueRole`, and when it is a test, the
+`BehaviourScenario` it enacts: given, when and then steps). An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
 `command_result`, `scope_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A

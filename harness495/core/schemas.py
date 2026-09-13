@@ -66,6 +66,16 @@ SPEC_SCHEMA: dict[str, Any] = _obj(
                     "command": {"type": ["string", "null"]},
                     "to_create": {"type": "boolean"},
                     "role": {"type": ["string", "null"], "enum": [*CATALOGUE_ROLES, None]},
+                    "scenario": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "given": {"type": "array", "items": {"type": "string"}},
+                            "when": {"type": "array", "items": {"type": "string"}},
+                            "then": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["given", "when", "then"],
+                        "additionalProperties": False,
+                    },
                 }
             ),
         },

@@ -610,8 +610,12 @@ le rôle `bdd` au catalogue, pytest-bdd au groupe dev, quatre scénarios de `dec
 `tests/features/decide.feature` comme première application. Reste :
 (a) la suite de 495 (182 tests fonction) migre au fil des modifications, les tests d'acceptation
 de `test_engine.py` et `test_cli_api.py` en premier ;
-(b) le spécificateur formule chaque V de kind `test` comme un scénario Given/When/Then, ce qui
-donne au demandeur, à l'approbation de la spécification, le texte même du test attendu ;
+(b) **fait** (`docs/decisions/0016-a-test-to-create-is-specified-as-a-scenario.md`) : chaque V
+de kind `test` porte un `scenario` (`BehaviourScenario` : listes `given`, `when`, `then`), le
+spécificateur en reçoit la règle, l'audit rend `insufficient` un test `to_create` sans scénario
+ou sans étape `when`/`then` (écart à la porte), les étapes sont affichées entières à
+l'approbation (CLI, TUI) et rendues sous la vérification dans la spécification que reçoivent
+producteur et réviseurs (`tests/features/expected_test.feature`) ;
 (c) le producteur reçoit, quand le profil détecte l'outil `bdd`, la consigne d'écrire le test
 `to_create` en fichier `.feature` et steps, et le réviseur `test_quality` vérifie que le
 scénario dit ce que l'exigence dit ;
@@ -772,7 +776,7 @@ semaine ou plus).
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
-| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite), migration de la suite de 495 et scénarios côté spécificateur, producteur, profil et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
+| E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016), migration de la suite de 495 et scénarios côté producteur et rapport (à construire) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
 ### Priorité moyenne
 
