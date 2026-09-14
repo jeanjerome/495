@@ -19,7 +19,7 @@ import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 from harness495 import __version__
 from harness495.agents.base import Agent, AgentResult, AgentTask
@@ -470,104 +470,115 @@ class Engine:
             return self._abort(
                 run, f"aborted by {made_by.value} at {kind.value}: {note}".rstrip(": ")
             )
-        if kind is DecisionKind.clarify:
-            self._record_clarify_answers(run, answers)
-            self._set_status(run, RunStatus.clarifying)
-        elif kind is DecisionKind.approve_spec:
-            if choice in ("approve", "approve_with_gaps"):
-                run.spec.approved = True
-                run.spec.approved_by = made_by
-                self._set_status(run, RunStatus.ready)
-            elif choice == "revise":
-                run.spec.approved = False
-                run.spec.assumptions.append(f"revision requested: {note}")
-                run.intent.text = run.intent.text  # unchanged; the note travels with the spec
-                self._set_status(run, RunStatus.clarified)
-        elif kind is DecisionKind.readiness:
-            if choice == "proceed":
-                self._set_status(run, RunStatus.profiled)
-            elif choice == "allow_network":
-                run.config.sandbox.allow_network = True
-                self._warn(
-                    run,
-                    "verification commands now run with network access; agent isolation is unchanged",
-                )
-                self._set_status(run, RunStatus.created)
-            elif choice == "drop":
-                assert run.profile is not None
-                bad = {r.command_name for r in run.profile.readiness if not r.executable}
-                run.profile.commands = [c for c in run.profile.commands if c.name not in bad]
-                run.profile.readiness = [r for r in run.profile.readiness if r.executable]
-                self._set_status(run, RunStatus.profiled)
-            elif choice == "retry":
-                self._set_status(run, RunStatus.created)
-        elif kind is DecisionKind.no_progress:
-            if choice == "respecify":
-                run.spec.approved = False
-                run.spec.assumptions.append(f"revision requested: {note}")
-                self._set_status(run, RunStatus.clarified)
-            elif choice == "review_anyway":
-                self._set_status(run, RunStatus.produced)
-            elif choice == "stop":
-                run.result.outcome = Verdict.reject
-                run.result.summary = "rejected: the corrections produced no change"
-                self._set_status(run, RunStatus.rejected)
-        elif kind is DecisionKind.instrument_fault:
-            if choice == "recalibrate":
-                self._recalibrate(run, note)
-                self._set_status(run, RunStatus.produced)
-            elif choice == "respecify":
-                run.spec.approved = False
-                run.spec.assumptions.append(f"revision requested: {note}")
-                self._set_status(run, RunStatus.clarified)
-            elif choice == "ignore":
-                # The verification keeps running and keeps being recorded, but goes on counting
-                # as proof of nothing, so the requirements it carries stay undetermined rather
-                # than becoming violations the producer would be sent to fix. The answer holds
-                # for the rest of the run: the fault is in the specification and has not moved.
-                self._set_status(run, run.resume_status or RunStatus.reviewed)
-        elif kind is DecisionKind.iteration_limit:
-            if choice == "continue":
-                run.budget.max_iterations += 1
-                self._set_status(run, RunStatus.ready)
-            elif choice == "stop":
-                run.result.outcome = Verdict.reject
-                run.result.summary = "rejected after reaching the iteration limit"
-                self._set_status(run, RunStatus.rejected)
-        elif kind is DecisionKind.undetermined:
-            if choice == "accept_with_risk":
-                run.result.summary = f"accepted by human despite undetermined evidence: {note}"
-                self._set_status(run, RunStatus.accepted)
-            elif choice == "rerun":
-                self._set_status(run, RunStatus.produced)
-            elif choice == "correct":
-                it = run.current_iteration
-                if it is not None:
-                    it.correction_requests.append(f"[human] {note}")
-                if run.mode is RunMode.evaluate:
-                    run.result.outcome = Verdict.reject
-                    run.result.summary = f"rejected by human: {note}"
-                    self._set_status(run, RunStatus.rejected)
-                else:
+        match kind:
+            case DecisionKind.clarify:
+                self._record_clarify_answers(run, answers)
+                self._set_status(run, RunStatus.clarifying)
+            case DecisionKind.approve_spec:
+                if choice in ("approve", "approve_with_gaps"):
+                    run.spec.approved = True
+                    run.spec.approved_by = made_by
                     self._set_status(run, RunStatus.ready)
-        elif kind is DecisionKind.budget:
-            if choice == "raise":
-                try:
-                    extra = float(note.strip().split()[0])
-                except (ValueError, IndexError) as exc:
-                    raise EngineError(
-                        "the note must start with the additional budget in USD"
-                    ) from exc
-                run.budget.max_cost_usd = (run.budget.max_cost_usd or 0.0) + extra
-                run.budget.max_interventions += 5
-                self._set_status(run, run.resume_status or RunStatus.ready)
-        elif kind is DecisionKind.scope and choice == "allow":
-            it = run.current_iteration
-            if it is not None:
-                it.correction_requests = [
-                    c for c in it.correction_requests if not c.startswith("[scope]")
-                ]
-            self._set_status(run, RunStatus.produced)
+                elif choice == "revise":
+                    run.spec.approved = False
+                    run.spec.assumptions.append(f"revision requested: {note}")
+                    run.intent.text = run.intent.text  # unchanged; the note travels with the spec
+                    self._set_status(run, RunStatus.clarified)
+            case DecisionKind.readiness:
+                if choice == "proceed":
+                    self._set_status(run, RunStatus.profiled)
+                elif choice == "allow_network":
+                    run.config.sandbox.allow_network = True
+                    self._warn(
+                        run,
+                        "verification commands now run with network access; "
+                        "agent isolation is unchanged",
+                    )
+                    self._set_status(run, RunStatus.created)
+                elif choice == "drop":
+                    assert run.profile is not None
+                    bad = {r.command_name for r in run.profile.readiness if not r.executable}
+                    run.profile.commands = [c for c in run.profile.commands if c.name not in bad]
+                    run.profile.readiness = [r for r in run.profile.readiness if r.executable]
+                    self._set_status(run, RunStatus.profiled)
+                elif choice == "retry":
+                    self._set_status(run, RunStatus.created)
+            case DecisionKind.no_progress:
+                if choice == "respecify":
+                    run.spec.approved = False
+                    run.spec.assumptions.append(f"revision requested: {note}")
+                    self._set_status(run, RunStatus.clarified)
+                elif choice == "review_anyway":
+                    self._set_status(run, RunStatus.produced)
+                elif choice == "stop":
+                    run.result.outcome = Verdict.reject
+                    run.result.summary = "rejected: the corrections produced no change"
+                    self._set_status(run, RunStatus.rejected)
+            case DecisionKind.instrument_fault:
+                if choice == "recalibrate":
+                    self._recalibrate(run, note)
+                    self._set_status(run, RunStatus.produced)
+                elif choice == "respecify":
+                    run.spec.approved = False
+                    run.spec.assumptions.append(f"revision requested: {note}")
+                    self._set_status(run, RunStatus.clarified)
+                elif choice == "ignore":
+                    # The verification keeps running and keeps being recorded, but goes on
+                    # counting as proof of nothing, so the requirements it carries stay
+                    # undetermined rather than becoming violations the producer would be sent to
+                    # fix. The answer holds for the rest of the run: the fault is in the
+                    # specification and has not moved.
+                    self._set_status(run, run.resume_status or RunStatus.reviewed)
+            case DecisionKind.iteration_limit:
+                if choice == "continue":
+                    run.budget.max_iterations += 1
+                    self._set_status(run, RunStatus.ready)
+                elif choice == "stop":
+                    run.result.outcome = Verdict.reject
+                    run.result.summary = "rejected after reaching the iteration limit"
+                    self._set_status(run, RunStatus.rejected)
+            case DecisionKind.undetermined:
+                if choice == "accept_with_risk":
+                    run.result.summary = f"accepted by human despite undetermined evidence: {note}"
+                    self._set_status(run, RunStatus.accepted)
+                elif choice == "rerun":
+                    self._set_status(run, RunStatus.produced)
+                elif choice == "correct":
+                    it = run.current_iteration
+                    if it is not None:
+                        it.correction_requests.append(f"[human] {note}")
+                    if run.mode is RunMode.evaluate:
+                        run.result.outcome = Verdict.reject
+                        run.result.summary = f"rejected by human: {note}"
+                        self._set_status(run, RunStatus.rejected)
+                    else:
+                        self._set_status(run, RunStatus.ready)
+            case DecisionKind.budget:
+                if choice == "raise":
+                    try:
+                        extra = float(note.strip().split()[0])
+                    except (ValueError, IndexError) as exc:
+                        raise EngineError(
+                            "the note must start with the additional budget in USD"
+                        ) from exc
+                    run.budget.max_cost_usd = (run.budget.max_cost_usd or 0.0) + extra
+                    run.budget.max_interventions += 5
+                    self._set_status(run, run.resume_status or RunStatus.ready)
+            case DecisionKind.scope:
+                if choice == "allow":
+                    it = run.current_iteration
+                    if it is not None:
+                        it.correction_requests = [
+                            c for c in it.correction_requests if not c.startswith("[scope]")
+                        ]
+                    self._set_status(run, RunStatus.produced)
+            case DecisionKind.acceptance:
+                # The verdict the harness records for itself in _decide, from the evidence it
+                # measured. It is never raised as a question, so no answer to it arrives here;
+                # the case exists so that the kind is covered rather than overlooked.
+                pass
+            case _:
+                assert_never(kind)
         run.resume_status = None
         self.store.save(run)
         return run
