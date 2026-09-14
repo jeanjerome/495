@@ -3439,27 +3439,49 @@ def _looks_unavailable(output: str) -> bool:
 
 
 def _parse_json_text(text: str) -> dict[str, Any] | None:
+    """The JSON object an agent's prose carries, or None if it carries none.
+
+    Three kinds of candidate are built: the whole text, the body of every fenced block, and the
+    span from the first ``{`` to the last ``}``. **The largest candidate that parses as an object
+    wins**, a tie going to the last one built.
+
+    Size decides, and not position, because the candidates do not come in the order the agent
+    wrote them: the whole text is built first and the brace span last however the prose is laid
+    out, so the rank of a candidate says nothing about which answer it holds. Size says
+    something. An agent that shows a JSON block before its answer is showing the shape it is
+    about to fill — an empty skeleton, one illustrative element — and fills it in a block that
+    follows; the answer is the one carrying the content. Taking the first candidate that parsed
+    read that illustration as the answer, and the block it discarded left nothing behind to read:
+    the run went on with an empty specification, an empty question list or an empty verdict.
+
+    What the rule costs: an answer genuinely shorter than an example preceding it is still
+    mis-read. Nothing in a page of prose distinguishes the two, and the shorter answer is the
+    rarer shape.
+    """
     text = text.strip()
     if not text:
         return None
     candidates = [text]
     if "```" in text:
         for block in text.split("```")[1::2]:
-            block = block.strip()
-            if block.startswith("json"):
-                block = block[4:]
-            candidates.append(block.strip())
+            # ```json, ```jsonc, ```JSON: a fence carries its info string on a line of its own,
+            # and a first line that opens a JSON value is content rather than an info string.
+            info, _, body = block.partition("\n")
+            head = info.strip()
+            candidates.append((block if not head or head[0] in "{[" else body).strip())
     start, end = text.find("{"), text.rfind("}")
     if start != -1 and end > start:
         candidates.append(text[start : end + 1])
-    for c in candidates:
+    best: dict[str, Any] | None = None
+    best_size = -1
+    for candidate in candidates:
         try:
-            obj = json.loads(c)
+            obj = json.loads(candidate)
         except json.JSONDecodeError:
             continue
-        if isinstance(obj, dict):
-            return obj
-    return None
+        if isinstance(obj, dict) and len(candidate) >= best_size:
+            best, best_size = obj, len(candidate)
+    return best
 
 
 def _clarify_frontier(

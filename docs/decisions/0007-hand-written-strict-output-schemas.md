@@ -25,6 +25,14 @@ unparsable or invalid answer becomes a failed specifier, an `undetermined` revie
 ignored producer claim. A structured output missing from the CLI result falls back to
 `_parse_json_text` on the free text.
 
+`_parse_json_text` builds candidates out of the prose — the whole text, the body of every fenced
+block with its info string removed, and the span from the first `{` to the last `}` — and returns
+**the largest that parses as an object**, a tie going to the last built. Size decides and not
+position: the candidates do not come in the order the agent wrote them, since the whole text is
+built first and the brace span last however the prose is laid out. An agent that shows a JSON
+block before its answer is showing the shape it is about to fill, and fills it in a block that
+follows, so the answer is the one carrying the content.
+
 `495 schema run|event|spec|config` publishes the schemas of the *persisted* documents, which are
 generated from the pydantic models; those are a different set and may use `$ref`.
 
@@ -37,6 +45,11 @@ generated from the pydantic models; those are a different set and may use `$ref`
   accepts both.
 - A finding whose `requirement_id` names a verification is re-filed under `verification_id`
   (`_finding_from_agent`).
+- A prose answer holding an illustration and the answer is read as the larger of the two. The
+  cost is the answer genuinely shorter than the example preceding it, which stays mis-read;
+  nothing in a page of prose tells the two cases apart, and the shorter answer is the rarer
+  shape. A block that loses is discarded silently: there is no artifact of it to read back,
+  which is why the rule the reading follows has to be the one that is right more often.
 
 ## Where in the code
 
@@ -47,3 +60,6 @@ generated from the pydantic models; those are a different set and may use `$ref`
   `--output-schema`; `harness495/agents/openai_compat.py`: `schema_hint`, `final` block.
 - `tests/test_agents.py`: `test_claude_agent_runs_fake_cli`, `test_codex_agent_runs_fake_cli`,
   `test_openai_compat_loop_executes_commands_then_final`.
+- `tests/features/agent_answer.feature`, `tests/test_agent_answer_scenarios.py`: the candidate
+  `_parse_json_text` returns, over prose, one fence, two fences, a `jsonc` fence, an object
+  written into the prose, a truncated object, a list and an empty answer.
