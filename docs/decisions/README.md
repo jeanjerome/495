@@ -32,3 +32,4 @@ carries the decision.
 | [0021](0021-the-existing-suite-is-measured-on-the-change.md) | The existing test suite is measured on the change, and a passing command on a weaker suite credits no non-regression requirement | accepted | 2026-09-14 |
 | [0022](0022-the-verifications-are-measured-against-wrong-versions-of-the-change.md) | The verifications are measured against wrong versions of the change, and one that reports success on such a version credits no requirement | accepted | 2026-09-14 |
 | [0023](0023-the-lines-the-change-adds-are-crossed-with-what-the-verifications-execute.md) | The lines the change adds are crossed with what the verifications execute, and a line none of them ran credits no requirement | accepted | 2026-09-14 |
+| [0024](0024-a-verification-is-run-twice-on-the-same-version.md) | A verification is run twice on the same version, and one that does not report the same thing twice decides nothing | accepted | 2026-09-14 |

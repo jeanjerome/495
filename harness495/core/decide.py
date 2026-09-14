@@ -65,19 +65,30 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
     failures_by_observation: dict[str, list[str]] = {}
     faulty_instruments: dict[str, str] = {}
 
+    # Each command a requirement leans on was run twice on the version under review, with
+    # nothing changed between the two runs. One that reported success once and failure once is
+    # not an instrument: what it happened to report first credits nothing and charges nothing.
+    unstable: dict[str, str] = {
+        e.verification_id: e.summary
+        for e in evidence
+        if e.kind is EvidenceKind.stability_check and e.passed is False and e.verification_id
+    }
+
     # A reviewer reads a failing verification as a defect of the change, because from where it
     # stands that is what a failure means. The harness has since run that command on a version
-    # without the change and seen it report the same thing, so a finding resting on it is
-    # reporting the instrument, and acting on it would send the producer after the wrong thing.
+    # without the change and seen it report the same thing, or run it again on this one and
+    # seen it report something else, so a finding resting on it is reporting the instrument,
+    # and acting on it would send the producer after the wrong thing.
     blind = {v.id for v in spec.verifications if v.sufficiency in NON_DISCRIMINATING}
-    tainted = set(blind) | {e.id for e in evidence if e.verification_id in blind}
+    unreadable = blind | set(unstable)
+    tainted = set(unreadable) | {e.id for e in evidence if e.verification_id in unreadable}
     tainted_pattern = (
         re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(tainted)) + r")\b")
         if tainted
         else None
     )
 
-    def rests_on_a_blind_instrument(finding: object) -> bool:
+    def rests_on_an_unreadable_instrument(finding: object) -> bool:
         if tainted_pattern is None:
             return False
         text = getattr(finding, "evidence", "")
@@ -124,11 +135,21 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
         passed: list[str] = []
         not_run: list[str] = []
         faulty: list[str] = []
+        unsteady: list[str] = []
         insufficient_only = True
         for vid in r.verification_ids:
             v = spec.verification(vid)
             if v is None:
                 not_run.append(f"{vid} (unknown verification)")
+                continue
+            if vid in unstable:
+                unsteady.append(f"{vid}: {unstable[vid]}")
+                last_run = by_verification.get(vid, [])
+                if last_run and last_run[-1].passed is True:
+                    uncredited.append(
+                        f"{r.id}: {vid} passed, and did not report the same thing twice on the "
+                        "same version"
+                    )
                 continue
             settled_either_way = (
                 v.sufficiency is Sufficiency.vacuous and r.kind is RequirementKind.non_regression
@@ -176,11 +197,12 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
             and f.severity in (Severity.blocker, Severity.major)
             and f.evidence.strip()
         ]
-        violations = [(p, f) for p, f in admissible if not rests_on_a_blind_instrument(f)]
+        violations = [(p, f) for p, f in admissible if not rests_on_an_unreadable_instrument(f)]
         for persp, f in admissible:
-            if rests_on_a_blind_instrument(f):
+            if rests_on_an_unreadable_instrument(f):
                 set_aside.append(
-                    f"{r.id}: {persp} reviewer's '{f.title}' rests on {', '.join(sorted(blind))}"
+                    f"{r.id}: {persp} reviewer's '{f.title}' rests on "
+                    + ", ".join(sorted(unreadable))
                 )
         # A reviewer's per-requirement assessment is a claim; only its findings carry an
         # observation. An assessment of `violated` therefore weighs exactly what the findings
@@ -227,8 +249,12 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 why.append("verifications not executed: " + ", ".join(not_run))
             if faulty:
                 why.append("no verification that observes the change: " + "; ".join(faulty))
+            if unsteady:
+                why.append(
+                    "no verification that reported the same thing twice: " + "; ".join(unsteady)
+                )
             why.extend(_set_aside_for(r.id, set_aside))
-            if insufficient_only and r.verification_ids and not faulty:
+            if insufficient_only and r.verification_ids and not faulty and not unsteady:
                 why.append("only insufficient verifications available")
             if review_undetermined:
                 why.append("reviewers undetermined: " + ", ".join(review_undetermined))

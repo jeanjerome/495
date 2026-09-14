@@ -64,6 +64,10 @@ def verification_state(run: Run, v: Verification) -> tuple[str, str, str]:
             f"suf.{v.sufficiency.value}",
             v.rationale or "reports the same thing without the change",
         )
+    unstable = unstable_verifications(run)
+    if v.id in unstable:
+        # Both runs are withdrawn, so what the first one reported is not this check's state.
+        return "◐", "req.undetermined", unstable[v.id].removeprefix(f"{v.id} ")
     results = [
         e
         for e in run.evidence
@@ -130,3 +134,23 @@ def coverage_checks(run: Run) -> list[Evidence]:
     it = run.current_iteration
     ids = set(it.evidence_ids if it else [])
     return [e for e in run.evidence if e.kind is EvidenceKind.coverage_check and e.id in ids]
+
+
+def stability_checks(run: Run) -> list[Evidence]:
+    """One per command run a second time on the version under review, on the current iteration."""
+    it = run.current_iteration
+    ids = set(it.evidence_ids if it else [])
+    return [e for e in run.evidence if e.kind is EvidenceKind.stability_check and e.id in ids]
+
+
+def unstable_verifications(run: Run) -> dict[str, str]:
+    """Checks that reported one thing and then another on the same version, and what they said.
+
+    Nothing about the tree changed between the two runs, so neither reading decides anything:
+    the surface says so rather than showing the first run as the check's result.
+    """
+    return {
+        e.verification_id: e.summary
+        for e in stability_checks(run)
+        if e.passed is False and e.verification_id
+    }

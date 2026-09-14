@@ -296,6 +296,26 @@ def render_mutation_reading(evidence: list[Evidence]) -> str:
     return "\n".join(lines)
 
 
+def render_stability_reading(evidence: list[Evidence]) -> str:
+    """The commands that reported one thing and then another on the same version.
+
+    Nothing about the tree changed between the two runs, so the difference is the command's
+    own. The reviewer is asked what in the test depends on something other than the change,
+    because the harness sees that two runs disagreed and not why they did.
+    """
+    lines = [
+        "The harness ran each of these commands twice on the version under review, one run "
+        "after the other, with nothing changed in between. They reported something different "
+        "the second time, so what either run reported is withdrawn: it credits no requirement "
+        "and charges none. Name what makes the test depend on something other than the change "
+        "— the order its cases run in, the clock, the network, a port or a directory another "
+        "process holds, state left behind by an earlier test — as a finding on the "
+        "verification, quoting the line that carries it.",
+        "\n".join(f"- {e.summary}" for e in evidence) or "(none)",
+    ]
+    return "\n".join(lines)
+
+
 def render_version(version: Version) -> str:
     lines = [
         f"- base commit: {version.base_commit}",

@@ -41,7 +41,10 @@ def _observed(run: Run, ver: Verification) -> str:
     Only a command result of the current iteration says anything about the change: a control
     run on the base version and a baseline run carry the same verification id and are left
     out, as ``decide.assess`` leaves them out. A verification that reports the same with and
-    without the change is stated as such, since its result is neither proof nor defect.
+    without the change is stated as such, since its result is neither proof nor defect, and so
+    is one that reported something else when it was run a second time on this same commit:
+    what it reported first was withdrawn from the decision, and the row says so rather than
+    showing it as the check's result.
     """
     if ver.sufficiency in NON_DISCRIMINATING:
         return (
@@ -49,6 +52,16 @@ def _observed(run: Run, ver: Verification) -> str:
             f"{ver.rationale or 'does not observe the change'}"
         )
     it = run.current_iteration
+    unstable = [
+        e
+        for e in (run.evidence_by_id(x) for x in (it.evidence_ids if it else []))
+        if e
+        and e.kind is EvidenceKind.stability_check
+        and e.passed is False
+        and e.verification_id == ver.id
+    ]
+    if unstable:
+        return f"withdrawn ({unstable[-1].id}): {_cell(unstable[-1].summary)}"
     results = [
         e
         for e in (run.evidence_by_id(x) for x in (it.evidence_ids if it else []))

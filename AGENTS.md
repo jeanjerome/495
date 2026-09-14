@@ -48,6 +48,10 @@ Keep these true in every change; each has a test or a record that names it.
   deleted, removed or skipped, or a smaller tally, is a failed `suite_check`, and a passing
   command on such a suite credits no `non_regression` requirement (`undetermined` until the
   requester rules); every existing test the change touched is listed to the reviewers (`0021`).
+- Every command a requirement leans on is run a second time on the evaluated commit, with
+  nothing changed in between; one that reports success once and failure once credits no
+  requirement, charges none, produces no correction request, and is left out of the
+  calibration, the mutants and the coverage run of that iteration (`0024`).
 - Every command that passed on the change is run again against a few wrong versions of it, one
   line of the diff altered in a stated way each; a wrong version none of them reports leaves the
   behaviour requirements resting on those commands `undetermined`, never `violated`, and never

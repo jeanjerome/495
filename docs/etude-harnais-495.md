@@ -159,6 +159,20 @@ exécutions sur le changement au minimum pour les V discriminantes ; répétitio
 le résultat d'une V change entre deux itérations sans diff des fichiers qu'elle exerce) ; un
 résultat instable devient une évidence `flaky` qui met l'exigence en `undetermined` plutôt que de
 trancher.
+Fait le 2026-09-14 : `Engine._repeat` rejoue chaque commande qu'une exigence porte une seconde
+fois sur le commit évalué, dans l'arbre que la passe de vérification a laissé et dans le même
+ordre, et `verification.reports_the_same_twice` lit la paire — deux fois le code de sortie
+attendu est une seule lecture quelle que soit la sortie, deux échecs sont comparés sur la
+signature de panne, un succès et un échec (ou un dépassement de délai) n'est pas une lecture.
+Une évidence `stability_check` par commande ; une commande qui ne rapporte pas deux fois la même
+chose ne crédite aucune exigence (`undetermined`, la paire en raison, la V citée dans
+`uncredited`) et n'en charge aucune : pas de vérification échouée, donc pas de demande de
+correction, et un finding de réviseur qui la cite est écarté comme celui qui cite un instrument
+aveugle. La même lecture la sort du calibrage, des mutants et de la mesure de couverture de
+l'itération. `budget.max_repeated_commands` (4) et `budget.repeat_command_max_s` (120) bornent
+le contrôle, 0 le retire ; la V dont le résultat a basculé depuis l'itération précédente est
+rejouée en premier. Réviseurs avertis par le fait « Verifications that did not report the same
+thing twice » (ADR 0024, `tests/features/stability.feature`). E02 est clos.
 
 **E03 · Le producteur écrit lui-même les tests qui le jugent.** Priorité haute · effort L.
 C'est exactement la configuration à un seul raisonneur que l'article ouvre. Les V `to_create`
@@ -216,6 +230,7 @@ suffit : la spécification approuvée est la cible, l'intent n'est fourni que po
 |---|---|---|
 | Exécution des vérifications, code de sortie attendu | déterministe | `run_verification` |
 | Baseline, preflight, contrôle d'instrument | déterministe | `_profile`, `_preflight`, `_calibrate` |
+| Stabilité d'une commande : deux exécutions sur la version évaluée | déterministe | `_repeat`, `reports_the_same_twice` |
 | Scope sur le diff | déterministe | `check_scope` |
 | Intégrité du projet et du worktree | déterministe | `project_snapshot`, `_review` |
 | Version exacte, patch haché, no-progress | déterministe | `git.py`, `_produce` |
@@ -227,8 +242,8 @@ suffit : la spécification approuvée est la cible, l'intent n'est fourni que po
 | Sufficiency `insufficient` pour `review`/`manual` | déterministe sur une déclaration de jugement | `assess_sufficiency` |
 
 Le partage respecte A5 pour ce qui existe. Ce qui manque n'est pas un contrôle déterministe
-remplacé par du jugement, mais des **contrôles déterministes absents** (E02, E04, §6) et **un
-jugement là où un outil existe** (sécurité, §6).
+remplacé par du jugement, mais des **contrôles déterministes absents** (§6) et **un jugement là
+où un outil existe** (sécurité, §6).
 
 ---
 
@@ -897,7 +912,7 @@ semaine ou plus).
 | E33 | la suite existante pouvait être affaiblie (suppression, skip) sans détection ; depuis le 2026-09-14 le diff sur les tests existants et le décompte du runner sur les deux versions donnent une évidence `suite_check`, une suite affaiblie laisse la non-régression `undetermined` jusqu'à l'arbitrage du demandeur, et les réviseurs reçoivent la liste des tests existants touchés (fait) | tests hôtes | M | comptage des tests base/changement, lecture du diff des tests existants, liste aux réviseurs |
 | E30 | force de la suite non mesurée, un seul mutant (l'absence du changement) ; depuis le 2026-09-14 quelques lignes du diff sont altérées une à une, les V de comportement réexécutées sur chaque version fausse, et un mutant qu'aucune commande ne rapporte laisse l'exigence `undetermined` (fait) | tests hôtes | M à L | sort du « satisfied = passe et ne passait pas » |
 | E31 | la couverture du diff n'était pas mesurée ; depuis le 2026-09-14 les V de test sont rejouées sous l'outil de couverture du projet et une ligne ajoutée qu'aucune n'exécute laisse l'exigence `undetermined` (fait) | tests hôtes | M | dit *où* la spécification ne regarde pas |
-| E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
+| E02 | rien ne mesurait la stabilité d'une commande ; depuis le 2026-09-14 chaque commande qu'une exigence porte est rejouée une seconde fois sur la version évaluée, et une évidence `stability_check` qui dit qu'elle a rapporté deux choses différentes ne crédite ni ne charge l'exigence (fait) | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |

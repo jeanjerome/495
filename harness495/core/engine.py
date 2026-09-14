@@ -37,6 +37,7 @@ from harness495.core.context import (
     render_reach_reading,
     render_reviews,
     render_spec,
+    render_stability_reading,
     render_suite_reading,
     render_test_design,
     render_version,
@@ -124,6 +125,7 @@ from harness495.core.verification import (
     instrument_files,
     looks_like_a_test,
     measures_the_change,
+    reports_the_same_twice,
     run_control,
     run_verification,
 )
@@ -1658,6 +1660,7 @@ class Engine:
             )
             if ev.summary == "interrupted":
                 raise KeyboardInterrupt
+        evidence.extend(self._repeat(run, it, evidence))
         evidence.append(self._check_suite(run, it, evidence))
         it.instrument_faults = []
         calibration, proposals = self._calibrate(run, it, evidence)
@@ -1681,6 +1684,152 @@ class Engine:
                 run, self._instrument_decision(run, it, proposals), RunStatus.verified
             )
         return run
+
+    def _flipped_since(self, run: Run, it: Iteration, evidence: list[Evidence]) -> set[str]:
+        """The verifications that report something else than they did on the previous iteration.
+
+        A flip is where an unstable command does its damage: it is the moment the harness
+        either credits a requirement it refused before, or charges one it credited, and it
+        cannot tell the producer's work from the command's own weather. Both readings ask for
+        the same thing — run it again — so a flipped command is repeated before any other.
+        """
+        if it.n < 2 or len(run.iterations) < it.n:
+            return set()
+        before: dict[str, bool | None] = {}
+        for e in (run.evidence_by_id(x) for x in run.iterations[it.n - 2].evidence_ids):
+            if e is not None and e.kind is EvidenceKind.command_result and e.verification_id:
+                before[e.verification_id] = e.passed
+        return {
+            e.verification_id
+            for e in evidence
+            if e.kind is EvidenceKind.command_result
+            and e.verification_id
+            and e.passed is not None
+            and before.get(e.verification_id) is not None
+            and before[e.verification_id] != e.passed
+        }
+
+    def _repeat_watchers(
+        self, run: Run, it: Iteration, evidence: list[Evidence]
+    ) -> list[Verification]:
+        """The commands worth running a second time on the version under review.
+
+        Every command a requirement leans on and that reported something: what it reported is
+        about to credit that requirement or charge it, and a reading taken once says nothing
+        about whether it repeats. A command that did not run has nothing to compare, and one
+        slower on the change than the budget allows is left out with a warning, since the
+        check costs one more run of it. What comes first is the command whose result flipped
+        since the previous iteration, then the cheapest, so that a cap spends itself where a
+        difference has already been seen.
+        """
+        durations = {
+            e.verification_id: e.duration_s or 0.0
+            for e in evidence
+            if e.kind is EvidenceKind.command_result and e.verification_id and e.passed is not None
+        }
+        carried = {vid for r in run.spec.requirements for vid in r.verification_ids}
+        flipped = self._flipped_since(run, it, evidence)
+        watchers: list[Verification] = []
+        slow: set[str] = set()
+        for v in run.spec.verifications:
+            if v.command is None or v.sufficiency not in ADMISSIBLE or v.id not in durations:
+                continue
+            if v.id not in carried:
+                continue
+            if durations[v.id] > run.budget.repeat_command_max_s:
+                slow.add(v.id)
+                continue
+            watchers.append(v)
+        for vid in sorted(slow):
+            self._warn(
+                run,
+                f"{vid} took {durations[vid]:.0f}s on the change, over the "
+                f"{run.budget.repeat_command_max_s}s a second run is given: whether it reports "
+                "the same thing twice is not measured",
+            )
+        return sorted(watchers, key=lambda v: (v.id not in flipped, durations[v.id]))
+
+    def _repeat(self, run: Run, it: Iteration, evidence: list[Evidence]) -> list[Evidence]:
+        """Run the commands the requirements lean on a second time on the same version.
+
+        Every other control the harness runs compares two trees; this one compares two runs of
+        the same command on the same tree, where nothing changed between them. A command that
+        reports success once and failure once is not an instrument: what it happened to report
+        first would credit a requirement no one could reproduce, or send the producer after a
+        defect that is not in the change. Either reading is withdrawn and the requirement waits
+        for the requester (``docs/decisions/0024``).
+
+        The second run follows the first in the worktree the verifications left, in the order
+        they ran in, so that a command finding what an earlier one built still finds it.
+        """
+        assert it.version is not None and it.version.head_commit
+        for v in run.spec.verifications:
+            v.stable = None
+        limit = run.budget.max_repeated_commands
+        watchers = self._repeat_watchers(run, it, evidence)[:limit] if limit > 0 else []
+        if not watchers:
+            return []
+        first_run = {
+            e.verification_id: e
+            for e in evidence
+            if e.kind is EvidenceKind.command_result and e.verification_id
+        }
+        req_by_verification: dict[str, list[str]] = {}
+        for r in run.spec.requirements:
+            for vid in r.verification_ids:
+                req_by_verification.setdefault(vid, []).append(r.id)
+        wt = self._worktree(run)
+        produced: list[Evidence] = []
+        for v in watchers:
+            assert v.command is not None
+            first = first_run[v.id]
+            req = ExecRequest(
+                command=v.command,
+                cwd=wt,
+                timeout_s=v.timeout_s or run.budget.command_timeout_s,
+                writable=True,
+                network=run.config.sandbox.allow_network,
+                stop_check=self._stop_check(run),
+            )
+            res = self.sandbox.run(req)
+            if res.interrupted:
+                raise KeyboardInterrupt
+            stable, summary = reports_the_same_twice(
+                v.expected_exit_code,
+                first.exit_code,
+                self.store.read_text(run.id, first.output_ref or ""),
+                first.summary == "timed out",
+                res,
+            )
+            v.stable = stable
+            eid = new_id("ev")
+            ev = Evidence(
+                id=eid,
+                kind=EvidenceKind.stability_check,
+                iteration=it.n,
+                subject_version=it.version.head_commit,
+                verification_id=v.id,
+                requirement_ids=[] if stable else req_by_verification.get(v.id, []),
+                command=v.command,
+                exit_code=res.exit_code,
+                expected_exit_code=v.expected_exit_code,
+                passed=stable,
+                summary=f"{v.id} {summary}",
+                output_ref=self.store.write_text(
+                    run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), res.output
+                ),
+                output_sha256=git.sha256_text(res.output),
+                duration_s=res.duration_s,
+                sandbox=self.sandbox.describe(req),
+            )
+            produced.append(ev)
+            self.emit(
+                run,
+                "evidence",
+                f"stability: {'ok' if stable else 'UNSTABLE'} - {ev.summary}",
+                {"id": ev.id, "verification": v.id},
+            )
+        return produced
 
     def _suite_reading(self, run: Run, it: Iteration, evidence: list[Evidence]) -> SuiteReading:
         """What the change did to the suite that passed on the base: the diff over the test
@@ -1760,9 +1909,9 @@ class Engine:
         change. Only a test is instrumented: a linter, a build or a type checker reads the
         source without executing it, and a coverage engine put in front of one would report
         that the change runs nowhere, which is about the command and not about the tests. A
-        command already failing is being corrected, and one the calibration found blind
-        describes itself. The cheapest goes first, since what bounds the check is a number of
-        commands.
+        command already failing is being corrected, and one the calibration found blind, or
+        one the second run did not agree with, describes itself. The cheapest goes first,
+        since what bounds the check is a number of commands.
         """
         durations = {
             e.verification_id: e.duration_s or 0.0
@@ -1776,6 +1925,7 @@ class Engine:
             and v.kind is VerificationKind.test
             and v.sufficiency in ADMISSIBLE
             and v.discriminates is not False
+            and v.stable is not False
             and v.id in durations
         ]
         return sorted(watchers, key=lambda v: durations[v.id])
@@ -1911,9 +2061,10 @@ class Engine:
     def _mutation_watchers(self, run: Run, evidence: list[Evidence]) -> list[Verification]:
         """The commands worth running against a wrong version of the change.
 
-        Every command that reported success on the evaluated commit and can say something
-        else on another tree: a command already failing is being corrected, and what it
-        reports on an altered version of the same code is not a statement about anything. The
+        Every command that reported success on the evaluated commit twice and can say
+        something else on another tree: a command already failing is being corrected, and what
+        a command that does not repeat its own reading reports on an altered version of the
+        same code is not a statement about anything. The
         set is not restricted to the requirement a mutated line belongs to, because the
         harness does not know which requirement a line belongs to: what a mutant asks is
         whether the evidence the run rests on, taken together, tells this version of the
@@ -1933,6 +2084,7 @@ class Engine:
                 v.command is None
                 or v.sufficiency not in ADMISSIBLE
                 or v.discriminates is False
+                or v.stable is False
                 or v.id not in durations
             ):
                 continue
@@ -2219,6 +2371,9 @@ class Engine:
 
         Pass or fail, every verification that a behaviour requirement leans on is measured this
         way. Checking only the failing ones catches the loud half and credits the silent one.
+        A command the second run did not agree with is left out: what it reported on the change
+        is one of two readings, and comparing it with a third run on another tree would name an
+        instrument at fault on the strength of a coin that came up heads.
         """
         assert run.profile is not None and run.profile.base_commit and it.version is not None
         assert it.version.head_commit
@@ -2238,6 +2393,7 @@ class Engine:
             if v is not None
             and v.command
             and v.sufficiency in ADMISSIBLE
+            and v.stable is not False
             and (v.to_create or v.id in leaned_on)
         ]
         if not subjects:
@@ -2455,6 +2611,14 @@ class Engine:
             if reach:
                 pack.add_fact(
                     "Lines of the change no verification executed", render_reach_reading(reach)
+                )
+            unsteady = [
+                e for e in evidence if e.kind is EvidenceKind.stability_check and e.passed is False
+            ]
+            if unsteady:
+                pack.add_fact(
+                    "Verifications that did not report the same thing twice",
+                    render_stability_reading(unsteady),
                 )
             mutation = [e for e in evidence if e.kind is EvidenceKind.mutation_check]
             if mutation:

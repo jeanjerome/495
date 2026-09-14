@@ -292,6 +292,12 @@ class Budget(StrictModel):
     max_coverage_commands: int = 2
     """Test commands run again under the project's coverage tool per iteration, to see which
     lines of the change they execute; 0 leaves the coverage check out."""
+    max_repeated_commands: int = 4
+    """Commands run a second time on the evaluated version per iteration, to see whether they
+    report the same thing twice; 0 leaves the stability check out."""
+    repeat_command_max_s: int = 120
+    """A verification that took longer than this on the change is not run a second time: the
+    stability check costs one more run of the command, and a slow one doubles the iteration."""
 
 
 class SandboxConfig(StrictModel):
@@ -660,6 +666,10 @@ class Verification(StrictModel):
     rationale: str = ""
     discriminates: bool | None = None
     """Whether running it with and without the change gave different outcomes. None: not measured."""
+    stable: bool | None = None
+    """Whether two runs of the command on the evaluated version reported the same thing. None:
+    not measured in this iteration. A command that reports one thing and then another decides
+    nothing, in either direction."""
     timeout_s: int | None = None
 
 
@@ -816,6 +826,9 @@ class EvidenceKind(StrEnum):
     coverage_check = "coverage_check"
     """Which lines the change adds the verifications execute: the test commands run again under
     the project's coverage tool, and their report crossed with the diff."""
+    stability_check = "stability_check"
+    """Whether a command reports the same thing twice on the same version: the second run of a
+    command a requirement leans on, read against the first."""
 
 
 class Evidence(StrictModel):

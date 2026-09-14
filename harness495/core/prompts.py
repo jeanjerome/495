@@ -285,7 +285,11 @@ PERSPECTIVES: dict[str, str] = {
         'When the facts list lines under "Lines of the change no verification executed", '
         "read each one against the requirement it serves: a line that carries behaviour a "
         "requirement states and that no test runs leaves that requirement `undetermined`, "
-        "and the finding names the verification and the case that would have reached it."
+        "and the finding names the verification and the case that would have reached it. "
+        'When the facts list commands under "Verifications that did not report the same thing '
+        'twice", what either run of such a command reported says nothing: do not read its '
+        "failure as a defect of the change, and do not read its success as the requirement "
+        "holding."
     ),
     "security": (
         "Look for security weaknesses introduced or left by the change: injection, unsafe "
@@ -327,7 +331,13 @@ PERSPECTIVES: dict[str, str] = {
         "the harness has measured which lines of the change the tests run: a line none of "
         "them reached is a case no test states, and the finding names the verification and "
         "the input that would reach that line, unless no requirement asks for what the line "
-        "does, which you say in your summary."
+        "does, which you say in your summary. "
+        'When the facts list commands under "Verifications that did not report the same thing '
+        'twice", the harness ran each of them twice on the same version and they disagreed '
+        "with themselves: name what in the test depends on something other than the change — "
+        "the order its cases run in, the clock, the network, a port or a directory another "
+        "process holds, state an earlier test left behind — as a finding on the verification, "
+        "quoting the line that carries it."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

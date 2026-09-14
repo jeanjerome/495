@@ -404,6 +404,53 @@ def measures_the_change(
     return failure_signature(subject_output) != failure_signature(control.output)
 
 
+def reported_success(expected_exit_code: int, exit_code: int | None, timed_out: bool) -> bool:
+    """Whether one run of a command reported what the verification expects of it."""
+    return not timed_out and exit_code == expected_exit_code
+
+
+def reports_the_same_twice(
+    expected_exit_code: int,
+    first_exit: int | None,
+    first_output: str,
+    first_timed_out: bool,
+    second: CommandResult,
+) -> tuple[bool, str]:
+    """Read two runs of one command on one version. Returns (stable, what the pair reported).
+
+    Nothing about the tree changed between them, so a difference is the command's own: a test
+    that depends on the order it runs in, on the clock, on the network, on a port or a
+    directory another process holds. A command that reports one thing and then another is not
+    measuring the change, and what it happened to report first decides nothing — neither that
+    the requirement holds nor that it is violated.
+
+    Two runs that both report success are the same reading, whatever they printed on the way:
+    the verification's outcome is its exit code, and a passing run's output carries counts and
+    orderings that differ between any two runs. Two runs that both fail are compared on their
+    failure signature as well, since a command that fails for a different reason each time
+    hands the producer an observation that will not be there when it looks.
+    """
+    first_passed = reported_success(expected_exit_code, first_exit, first_timed_out)
+    second_passed = reported_success(expected_exit_code, second.exit_code, second.timed_out)
+    first_state = "timed out" if first_timed_out else f"exit {first_exit}"
+    second_state = "timed out" if second.timed_out else f"exit {second.exit_code}"
+    if first_passed != second_passed:
+        return (
+            False,
+            f"reported success once and failure once on the same version: {first_state} then "
+            f"{second_state}",
+        )
+    if first_passed:
+        return True, f"reported success twice on the same version ({first_state}, {second_state})"
+    if failure_signature(first_output) != failure_signature(second.output):
+        return (
+            False,
+            f"failed twice on the same version, for two different reasons: {first_state} then "
+            f"{second_state}, and the two runs did not fail the same way",
+        )
+    return True, f"failed the same way twice on the same version ({first_state}, {second_state})"
+
+
 def classify_instrument(
     v: Verification,
     subject_passed: bool | None,

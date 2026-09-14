@@ -17,7 +17,9 @@ from harness495.interfaces.tui.reading import (
     latest_results,
     mutation_checks,
     scope_checks,
+    stability_checks,
     suite_checks,
+    unstable_verifications,
     verification_state,
 )
 from harness495.interfaces.tui.views.base import StageContent, ViewContext
@@ -125,6 +127,21 @@ def build_checks(ctx: ViewContext) -> StageContent:
                 ),
             )
         )
+    repeated = stability_checks(run)
+    unstable = unstable_verifications(run)
+    if repeated:
+        notes.append(
+            (
+                "stability check",
+                Text(
+                    "; ".join(unstable.values())
+                    if unstable
+                    else f"{len(repeated)} command(s) run twice on this version, each reporting "
+                    "the same thing both times",
+                    style="req.undetermined" if unstable else "req.satisfied",
+                ),
+            )
+        )
     mutants = mutation_checks(run)
     survivors = [e for e in mutants if e.passed is False]
     if mutants:
@@ -225,6 +242,17 @@ def check_detail(run: Run, v: Verification, faulty: bool, logs: Logs) -> Rendera
                 "something else. Anything it carries stays undetermined until the check is "
                 "replaced — 495 will not ask the producer to chase it.",
                 style="suf.faulty",
+            ),
+        ]
+    if v.id in unstable_verifications(run):
+        rows += [
+            Text(),
+            Text(
+                "This command was run twice on this exact version and reported something "
+                "different the second time, so neither run says anything about the change. "
+                "Anything it carries stays undetermined — 495 will not credit it, and will "
+                "not send the producer after a failure that did not come back.",
+                style="req.undetermined",
             ),
         ]
     return panel(
