@@ -72,10 +72,12 @@ ecosystem already provides.
   `ProjectProfile.catalogue_gaps`) so that a run records the gaps it saw. `RECOMMENDED`
   mirrors the document's `recommended` entries and `CONTRADICTING_ROLES` its Roles table;
   `tests/test_catalogue.py` keeps both equal to the document. A cell with several entries is
-  compared with the first conditional entry whose condition holds in the project, else with
-  the default; a project that measures every tool of that entry has no gap, whatever else it
-  measures. A technology whose section is empty has no gap: nothing is stated against a
-  recommendation that does not exist.
+  compared with the first conditional entry whose condition held when the project was
+  profiled, else with the default; the conditions are `CONDITIONS`, named by the entries they
+  select, evaluated once by `detect_profile` (`conditions_holding`) and recorded on
+  `ProjectProfile.conditions`, so that reading an entry opens no file; a project that measures
+  every tool of that entry has no gap, whatever else it measures. A technology whose section is
+  empty has no gap: nothing is stated against a recommendation that does not exist.
 - A host project may keep a library the catalogue does not recommend; 495 proposes, the
   requester decides, and the decision is recorded like any other.
 - The proposals (point 5) are `harness495/core/proposals.py`: `reconcile` brings the
@@ -104,8 +106,10 @@ ecosystem already provides.
   `harness495/core/profile.py` gathers each technology's `Tree`;
   `core/context.py::render_profile`, `495 profile` and
   the TUI profile view show the rows.
-- `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`;
-  `harness495/core/models.py`: `CatalogueGap`, `GapKind`, `ProjectProfile.catalogue_gaps`;
+- `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`,
+  and the conditions that select among the entries of a cell (`CONDITIONS`,
+  `conditions_holding`); `harness495/core/models.py`: `CatalogueGap`, `GapKind`,
+  `ProjectProfile.catalogue_gaps`, `ProjectProfile.conditions`;
   `495 profile` and `495 init` print the gaps, the TUI profile view lists them.
 - `tests/features/profile.feature` and `tests/features/catalogue.feature` with
   `tests/test_profile_scenarios.py`; `tests/test_catalogue.py`.

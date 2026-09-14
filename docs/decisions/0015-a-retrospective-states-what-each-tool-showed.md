@@ -52,10 +52,15 @@ them.
 
 - A retrospective is a pure function of the run document (`core/retro.py::retrospect`), like
   the decision (0001): it reads evidence, iterations, the spec and the profile, never the
-  events, the outputs or the tree. A run archived with `495 export` yields the same
-  retrospective anywhere. The cost is that two failures with different signatures on both
-  versions, which the engine tells apart from the outputs, are read here from the recorded
-  instrument fault alone: a pair of failures with no fault recorded is a contradiction.
+  events, the outputs or the tree. The catalogue entry each observation is stated against is
+  read the same way: a cell holding several entries is picked between by conditions, some of
+  which read the project's files, and those are evaluated once, while the project is profiled,
+  onto `ProjectProfile.conditions`; `catalogue.applicable` reads that record and opens nothing.
+  A run read after its project changed answers as the run measured the project, not as the
+  project stands. A run archived with `495 export` yields the same retrospective anywhere. The
+  cost is that two failures with different signatures on both versions, which the engine tells
+  apart from the outputs, are read here from the recorded instrument fault alone: a pair of
+  failures with no fault recorded is a contradiction.
 - Control and baseline runs carry `passed=None`, being statements about the instrument; the
   retrospective reads what they reported from the exit code against the expected one.
 - A verification of a role nothing in the project measures never ran and brings nothing; a
@@ -74,9 +79,14 @@ them.
 
 - `harness495/core/models.py`: `ToolVerdict`, `ToolObservation`, `Retrospective`.
 - `harness495/core/retro.py`: `measurements`, `read`, `retrospect`, `SECTION_NAMES`.
+- `harness495/core/catalogue.py`: `CONDITIONS`, `conditions_holding`, `applicable`;
+  `harness495/core/profile.py::detect_profile` records the outcome;
+  `harness495/core/models.py`: `ProjectProfile.conditions`.
 - `harness495/core/store.py`: `RunStore.retrospective_path`, `load_retrospective`,
   `save_retrospective`.
 - `harness495/interfaces/cli.py`: the `retro` command, `_print_retrospective`,
   `495 schema retrospective`.
 - `docs/test-libraries.md`, section Bringing an entry in.
-- `tests/features/retrospective.feature` with `tests/test_retrospective_scenarios.py`.
+- `tests/features/retrospective.feature` with `tests/test_retrospective_scenarios.py`;
+  `tests/features/catalogue.feature`, scenario "The catalogue is read as the project was
+  profiled, not as its tree stands", with `tests/test_profile_scenarios.py`.

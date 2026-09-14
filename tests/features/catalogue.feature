@@ -208,6 +208,15 @@ Feature: Gaps of a host project against the test-library catalogue
     And the gap on "coverage" of "java/kotlin" is "unmeasured"
     And that gap recommends "kover"
 
+  Scenario: The catalogue is read as the project was profiled, not as its tree stands
+    Given a Kotlin project
+    When the harness profiles the project
+    And the project's tree is removed
+    Then the profile records the catalogue condition "is_kotlin"
+    And the profile records the catalogue condition "is_kotlin_on_gradle"
+    And the catalogue rendered to the specifier says "runner (planned cases hold, through public interfaces): not measured; the catalogue recommends kotest (the project is written in Kotlin)"
+    And the catalogue rendered to the specifier says "coverage (which changed lines the suite executes): not measured; the catalogue recommends kover (the project is written in Kotlin and built with Gradle)"
+
   Scenario: A Java project is told the default entries of the cells
     Given a Java project
     When the harness profiles the project

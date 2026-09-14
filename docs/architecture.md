@@ -75,7 +75,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `verification` | running one command on the exact commit, the control run on the base version, the second run on the same version (`reports_the_same_twice`), the failure signature and the nature of a failure (assertion or execution error), sufficiency, test-file recognition |
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; gathers what each technology's markers read (a `coverage.Tree`) |
 | `coverage` | role coverage against the catalogue's roles: the roles per technology (`ROLES_BY_TECHNOLOGY`), the marker table of each technology (`PYTHON_TOOLS`, `SHELL_TOOLS`, `NODE_TOOLS`, `RUST_TOOLS`, `GO_TOOLS`, `JVM_TOOLS`), `rows()`: one `RoleCoverage` per role with the tools whose markers hold |
-| `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), what a test of each role must show (`ROLE_CONTRACTS`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), `compare()`: the profile's gaps against them, and `unmeasured_role()`: why a verification of a role cannot run in the project |
+| `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), what a test of each role must show (`ROLE_CONTRACTS`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), `compare()`: the profile's gaps against them, and `unmeasured_role()`: why a verification of a role cannot run in the project. The conditions that pick between the entries of one cell (`CONDITIONS`) are the only part that reads the project; `conditions_holding()` evaluates them once, at profiling, and `applicable()` reads the recorded outcome |
 | `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
 | `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
 | `lessons` | what a run showed about the project: `learn()` reads a replaced command, a correction written by hand, a blocking finding no requirement asked about, the scope a produced version stayed inside, a decision taken before the specification and a tool the retrospective found faulty; `reconcile()` keeps one record per lesson however many runs show it; `accept()`, `decline()`, `defer()` record the answer; `criteria()` adds the accepted ones to the project's criteria; `toml_lines()` and `render_document()` state them |
@@ -121,7 +121,8 @@ renders from the store and drives the engine through the same public methods as 
 ## The data model
 
 A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
-`ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the `CatalogueGap`s
+`ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the catalogue
+conditions that held when the project was profiled, the `CatalogueGap`s
 against the catalogue, the `DeclinedRole`s read from the proposals, the `Lesson`s in force,
 `ReadinessCheck`s), one
 `Clarification`, one

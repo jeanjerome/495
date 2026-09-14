@@ -12,7 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from harness495.core.catalogue import CONTRADICTING_ROLES, RECOMMENDED, ROLE_CONTRACTS
+from harness495.core.catalogue import (
+    CONDITIONS,
+    CONTRADICTING_ROLES,
+    RECOMMENDED,
+    ROLE_CONTRACTS,
+    Recommendation,
+)
 from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import CatalogueRole
 
@@ -96,6 +102,19 @@ def test_the_recommended_entries_of_the_catalogue_are_the_recommendations_of_the
     # Then they are exactly the code's recommendations for the technology, in the same order
     coded = [(r.role.value, list(r.tools)) for r in RECOMMENDED if r.technology == technology]
     assert documented == coded
+
+
+def test_the_entries_after_the_default_of_a_cell_name_the_conditions_that_select_them() -> None:
+    # Given the code's recommendations, grouped into the cells of the document
+    cells: dict[tuple[str, CatalogueRole], list[Recommendation]] = {}
+    for entry in RECOMMENDED:
+        cells.setdefault((entry.technology, entry.role), []).append(entry)
+    # When the default of each cell is separated from the entries that follow it
+    defaults = [entries[0] for entries in cells.values()]
+    conditional = [entry for entries in cells.values() for entry in entries[1:]]
+    # Then the default names no condition, and the entries after it name the conditions
+    assert [e.applies_when for e in defaults] == [""] * len(defaults)
+    assert {e.applies_when for e in conditional} == set(CONDITIONS)
 
 
 def test_a_recommendation_exists_only_for_a_technology_the_profile_has_markers_for() -> None:

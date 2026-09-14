@@ -569,6 +569,13 @@ class ProjectProfile(StrictModel):
     tooling: list[str] = Field(default_factory=list)
     commands: list[ProjectCommand] = Field(default_factory=list)
     role_coverage: list[RoleCoverage] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    """The catalogue conditions that held when the project was profiled
+    (``core/catalogue.py::CONDITIONS``), which pick the entry of a cell holding several.
+
+    Recorded so that reading the catalogue against the profile opens no file: the reading
+    answers as the run measured the tree, not as the tree stands, and a name absent from the
+    list is a condition that did not hold."""
     catalogue_gaps: list[CatalogueGap] = Field(default_factory=list)
     declined_roles: list[DeclinedRole] = Field(default_factory=list)
     lessons: list[Lesson] = Field(default_factory=list)

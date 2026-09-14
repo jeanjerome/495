@@ -10,6 +10,7 @@ coverage, the gaps and the proposals back; nothing is asserted outside a ``Then`
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -291,6 +292,11 @@ def the_harness_profiles_the_project(project: Project) -> None:
     project.profile = detect_profile(project.root)
 
 
+@when("the project's tree is removed")
+def the_project_tree_is_removed(project: Project) -> None:
+    shutil.rmtree(project.root)
+
+
 @given("the project is a git repository")
 def the_project_is_a_git_repository(project: Project) -> None:
     def git(*args: str) -> None:
@@ -428,6 +434,11 @@ def the_tooling_names(project: Project, tool: str) -> None:
 @then(parsers.parse('the profile rendered to the agents says "{line}"'))
 def the_rendered_profile_says(project: Project, line: str) -> None:
     assert line in render_profile(project.profiled())
+
+
+@then(parsers.parse('the profile records the catalogue condition "{name}"'))
+def the_profile_records_the_condition(project: Project, name: str) -> None:
+    assert name in project.profiled().conditions, project.profiled().conditions
 
 
 @then(parsers.parse('the catalogue rendered to the specifier says "{line}"'))

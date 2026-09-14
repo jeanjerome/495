@@ -638,6 +638,9 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     prof.tooling = list(
         dict.fromkeys([*prof.tooling, *(t for r in prof.role_coverage for t in r.tools)])
     )
+    # The conditions of the catalogue read the tree; they are measured here, once, so that
+    # every later reading of the catalogue answers from the profile alone.
+    prof.conditions = catalogue.conditions_holding(prof)
     prof.catalogue_gaps = catalogue.compare(prof)
     if git.is_repo(root):
         try:
