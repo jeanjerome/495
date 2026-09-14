@@ -887,6 +887,14 @@ What this README describes is what the code does today.
 .venv/bin/lint-imports                   # package boundaries, the contracts in pyproject.toml
 ```
 
+`.github/workflows/checks.yml` runs those four on every push and every pull request. Each is a
+step of its own, so a failing run names everything that is broken rather than the first thing.
+
+The same workflow prints, in the job summary, the largest module of `harness495/` and its line
+delta against the base commit, plus every module whose size changed
+(`.github/scripts/module-size.sh`). It gates nothing: a ceiling at N lines is met by moving code
+into a second file without giving it a seam, so the count goes in front of a reader instead.
+
 `pytest -m live` runs the tests that call real agent CLIs; they are deselected by default.
 Tests use the libraries listed in `docs/test-libraries.md` for their role, and a test of a
 behaviour is a Gherkin scenario under `tests/features/` bound to steps with pytest-bdd

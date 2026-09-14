@@ -1,0 +1,56 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: tests, lint, types, boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The module-size report reads the base commit's tree.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          # run.sh takes the first of python3.13, python3.12, python3.11, python3 that
+          # answers >= 3.11, so the newest pinned here is the one the venv gets.
+          python-version: '3.13'
+
+      - name: Create the virtual environment
+        id: bootstrap
+        run: ./run.sh --version
+
+      # The four commands of README.md, section Development. Each reports on its own, so a
+      # run says everything that is broken rather than the first thing.
+      - name: Tests
+        run: .venv/bin/python -m pytest -q
+
+      - name: Lint and format
+        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
+        run: .venv/bin/ruff check harness495 tests && .venv/bin/ruff format --check harness495 tests
+
+      - name: Types
+        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
+        run: .venv/bin/mypy harness495
+
+      - name: Package boundaries
+        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
+        run: .venv/bin/lint-imports
+
+      # Reported, never enforced: see the header of the script for why the number is not a bound.
+      - name: Module size
+        if: ${{ !cancelled() }}
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: .github/scripts/module-size.sh "$BASE" >> "$GITHUB_STEP_SUMMARY"
