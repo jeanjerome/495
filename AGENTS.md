@@ -66,6 +66,11 @@ Keep these true in every change; each has a test or a record that names it.
   out of every reviewer's context (`0004`, `0005`).
 - Build every prompt with `ContextPack`: harness-measured material under facts, agent- or
   repository-produced material under untrusted (`0005`).
+- The harness is the only source an agent takes instructions from: the CLIs read nothing of the
+  target project on their own (`--setting-sources ""` for Claude Code, `project_doc_max_bytes=0`
+  for Codex), and a repository file is untrusted content whatever the route. The profile names
+  the documentation files; what the requester wants obeyed is declared under `conventions` in
+  `.495/project.toml` and travels as a fact (`0026`).
 - A test to create is written by the test designer, in an intervention of its own before the
   producer; the harness commits the test files it finds written and puts any other file back;
   a version of the change that modifies one of them fails the scope check (`0020`).

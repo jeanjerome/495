@@ -107,8 +107,12 @@ class ClaudeCodeAgent(Agent):
             "--permission-prompts",
             "none",
             "--no-session-persistence",
+            # No setting source: neither the target project's settings file (permissions, hooks,
+            # which could weaken what --settings imposes) nor its instruction files reach the CLI
+            # natively. The harness is the only distributor of context, and a repository file is
+            # untrusted content in the pack (0026). --settings still applies.
             "--setting-sources",
-            "project",
+            "",
             "--strict-mcp-config",
             "--tools",
             ",".join(tools),
@@ -153,8 +157,8 @@ class ClaudeCodeAgent(Agent):
             network="denied (sandbox.network.allowedDomains=[]; API traffic excepted)",
             writable_paths=[str(task.cwd)] if task.capability is Capability.write else [],
             detail=(
-                "Claude Code built-in sandbox, permission prompts disabled, tools restricted to "
-                + ",".join(allowed)
+                "Claude Code built-in sandbox, permission prompts disabled, no setting source "
+                "loaded from the project, tools restricted to " + ",".join(allowed)
             ),
         )
         res = run_process(

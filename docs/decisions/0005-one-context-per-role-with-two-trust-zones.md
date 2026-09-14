@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-09-11; refined 2026-09-13 (the specifier also receives the catalogue against the
-  project's role coverage, 0014)
+  project's role coverage, 0014); refined 2026-09-14 (the CLIs' native paths into the target
+  project are closed, so the pack is the only route a repository file takes, 0026)
 
 ## Context
 
@@ -43,9 +44,12 @@ tracked files. The rendered prompt is stored as `prompt.md` and its section size
   different agent per role is supported by configuration and adds independence on top.
 - A new piece of context is placed by its origin: measured by the harness → `add_fact`; written
   by an agent or found in the repository → `add_untrusted`. There is no third zone.
-- Known limits: the target project's `CLAUDE.md` reaches `claude -p` natively as an instruction
-  while 495 injects it as untrusted (`docs/etude-harnais-495.md`, E20); context is pushed whole,
-  with no on-demand loading (E21).
+- The two zones are the only statuses, and the pack is the only route: the CLIs' native reading
+  of the target project's instruction and settings files is turned off, so no repository file
+  arrives with harness authority (0026). The profile names the documentation files it found;
+  their content stays untrusted, read from the pack or by the agent itself.
+- Known limit: context is pushed whole, with no on-demand loading
+  (`docs/etude-harnais-495.md`, E21).
 
 ## Where in the code
 

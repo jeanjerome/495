@@ -369,23 +369,49 @@ automatique ciblée sur les gaps (une intervention du spécificateur avec les ga
   par intervention.
 - **La surface d'attaque des agents est réduite** : `--strict-mcp-config`, `WebFetch`,
   `WebSearch`, `Task`, `Agent`, `Skill` interdits, `--no-session-persistence`, outils par capacité.
+- **Le pack est la seule route.** Les CLI ne lisent rien de la cible d'eux-mêmes
+  (`--setting-sources ""`, `project_doc_max_bytes=0`) : un fichier du dépôt garde un seul statut
+  de confiance, quel que soit le CLI qui porte le rôle (E20, ADR 0026).
 
 ### 5.2 Écarts
 
-**E20 · Le même fichier est « instruction de confiance » pour Claude Code et « contenu non
-fiable » pour 495.** Priorité haute · effort S.
-`claude -p` lit nativement le `CLAUDE.md` du répertoire courant, c'est-à-dire du worktree du
-projet cible, comme instructions ; 495 injecte le même fichier dans `<untrusted>`. Le même texte
-arrive donc deux fois, avec deux statuts contradictoires, et une injection placée dans le
-`CLAUDE.md` d'un dépôt cible est obéie par le chemin natif quoi qu'en dise 495. De même,
-`--setting-sources project` charge `.claude/settings.json` du projet cible (permissions, hooks),
-qui peut affaiblir ce que `--settings` impose ; la précédence entre les deux n'est pas établie
-dans le code ni documentée. Piste : décider qui parle. Soit le projet hôte est une source de
-confiance (c'est *sa* qualité que l'on défend) et son `CLAUDE.md` passe en fait, en gardant
-l'isolement pour les fichiers arbitraires ; soit on neutralise le chemin natif
-(`--setting-sources ""`, et vérifier dans la documentation du CLI comment désactiver la lecture
-de `CLAUDE.md`) et 495 reste seul distributeur de contexte. Dans les deux cas, écrire le test qui
-fixe le comportement.
+**E20 · Le même fichier était « instruction de confiance » pour le CLI et « contenu non fiable »
+pour 495.** Priorité haute · effort S. **Fait le 2026-09-14** (ADR 0026).
+Les deux CLI lisaient la configuration du projet cible d'eux-mêmes, avant que 495 ne dise quoi
+que ce soit. Mesuré sur `claude 2.1.270` et `codex-cli 0.153.3`, sur un répertoire portant un
+fichier d'instructions qui nomme un mot de passe et un `.claude/settings.json` posant une
+variable d'environnement :
+
+| commande | le mot de passe est connu | le `settings.json` du projet est chargé |
+|---|---|---|
+| `claude -p --setting-sources project` | oui | oui |
+| `claude -p --setting-sources ""` | non | non |
+| `codex exec` | oui | — |
+| `codex exec -c project_doc_max_bytes=0` | non | — |
+
+Le même `CLAUDE.md` arrivait donc deux fois avec deux statuts contradictoires — instruction sur
+le chemin natif, donnée sous `<untrusted>` — et une injection placée dans un dépôt cible était
+obéie quoi qu'en dise 495. Trois conséquences venaient de la même cause : le contexte dépendait
+du CLI qui portait le rôle (Claude Code lit `CLAUDE.md`, Codex lit `AGENTS.md`, la boucle
+OpenAI-compatible ne lit rien), donc des contextes construits pour des jugements indépendants
+n'étaient pas comparables ; ce qui arrivait nativement échappait aux bornes, au décompte et à la
+trace, alors que `prompt.md` et `context.json` prétendent dire ce que l'intervention a reçu ; et
+`--setting-sources project` chargeait les `permissions` et les `hooks` de la cible, dont la
+précédence contre le `--settings` de 495 n'est écrite nulle part.
+
+Résolu en fermant les chemins natifs : `--setting-sources ""` pour Claude Code,
+`-c project_doc_max_bytes=0` pour Codex, l'adaptateur OpenAI-compatible n'ayant pas de chemin
+natif. Un fichier du dépôt est du contenu non fiable quelle que soit la route, y compris lu par
+l'agent lui-même : `COMMON_RULES` nomme déjà « files in the repository ». Le profil nomme les
+fichiers de documentation trouvés — les chemins seulement, en fait — pour qu'un rôle qui en a
+besoin les lise comme des données ; ce que le demandeur veut voir obéi se déclare sous
+`conventions` dans `.495/project.toml` et voyage en fait. L'alternative — promouvoir le
+`CLAUDE.md` de la cible en fait, au motif que c'est *sa* qualité que l'on défend — est écartée :
+elle fait dépendre la confiance de chaque rôle d'un fichier que tout auteur du dépôt peut
+changer, c'est-à-dire de la frontière que 0005 existe pour tenir. Deux tests `live`
+(`test_live.py`) interrogent les vrais CLI sur un projet témoin et exigent qu'ils ignorent son
+mot de passe ; les scénarios de `tests/features/context_distribution.feature` fixent les
+commandes construites et la route unique.
 
 **E21 · Tout le contexte est poussé d'emblée ; rien n'est chargé à la demande.** Priorité moyenne
 · effort M. L'article et Anthropic insistent : le vrai allègement vient de mécanismes qui ne se
@@ -819,8 +845,9 @@ caches, sandbox natives de Claude Code et Codex avec réseau refusé.
 **E42 · La détection d'évasion ne couvre que l'arbre du projet.** Priorité moyenne · effort M.
 `project_snapshot` empreinte `git status` et `git diff` du projet ; un agent qui écrit ailleurs
 (`~/.ssh`, `~/.gitconfig`, un autre dépôt) n'est pas vu. Pour les agents locaux, Seatbelt/Docker
-le bloquent ; pour Claude Code et Codex, on dépend de leur sandbox et de la configuration chargée
-(E20). Piste : documenter le modèle de menace par adaptateur dans le README ; pour macOS,
+le bloquent ; pour Claude Code et Codex, on dépend de leur sandbox, la configuration de la cible
+ne pouvant plus l'affaiblir depuis E20. Piste : documenter le modèle de menace par adaptateur
+dans le README ; pour macOS,
 envelopper aussi `claude`/`codex` dans un profil Seatbelt qui autorise le réseau mais confine les
 écritures au worktree, au scratch et aux répertoires de configuration du CLI.
 
@@ -927,7 +954,7 @@ semaine ou plus).
 | E31 | la couverture du diff n'était pas mesurée ; depuis le 2026-09-14 les V de test sont rejouées sous l'outil de couverture du projet et une ligne ajoutée qu'aucune n'exécute laisse l'exigence `undetermined` (fait) | tests hôtes | M | dit *où* la spécification ne regarde pas |
 | E02 | rien ne mesurait la stabilité d'une commande ; depuis le 2026-09-14 chaque commande qu'une exigence porte est rejouée une seconde fois sur la version évaluée, et une évidence `stability_check` qui dit qu'elle a rapporté deux choses différentes ne crédite ni ne charge l'exigence (fait) | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses ; depuis le 2026-09-14 une phase `clarify` met la frontière des décisions au demandeur, round par round, l'arbre étant recalculé à chaque fois et une question réglée jamais reposée, et ses réponses entrent en faits chez le spécificateur, le test designer, le producteur et chaque réviseur (fait, ADR 0025) | spécification | L | traite le problème de l'oracle à la source |
-| E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
+| E20 | le `CLAUDE.md` du projet hôte était lu nativement comme instruction et injecté comme non fiable ; depuis le 2026-09-14 les CLI ne lisent plus rien de la cible d'eux-mêmes (`--setting-sources ""`, `project_doc_max_bytes=0`), un fichier du dépôt est non fiable quelle que soit la route, le profil en nomme les chemins et `conventions` porte ce que le demandeur veut voir obéi (fait, ADR 0026) | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017 ; le rapport montre sous chaque exigence le scénario qui la vérifie et ce qu'il a rapporté, ADR 0018), migration de la suite de 495 au fil des modifications (reste) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |

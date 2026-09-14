@@ -62,7 +62,7 @@ software change is cleared to merge.
 - [x] **A rich terminal UI**: eight stops in the order the engine walks them — where the run is, what each stage produced, and the controls that act on it
 - [x] **Merge on request only**, in four shapes, followed by the integration check that inspects it
 - [x] **Scoped permissions**: read-only roles and one write role, each under the isolation its client offers, with what was actually applied recorded per intervention
-- [x] **Context engineering**: every prompt separates established facts from untrusted content
+- [x] **Context engineering**: every prompt separates established facts from untrusted content, and the pack is the only route — the agent CLIs read nothing of your project on their own, so one file keeps one trust status
 - [x] **Budgets and cost accounting**: cost is `reported`, `estimated` or `unknown`, never silently zero, and limits are enforced before each intervention
 - [x] **Traceability**: one JSON document per run, an append-only event log, and every prompt, transcript, structured output and command output on disk
 - [x] **Three interfaces over one engine**: a CLI (interactive or `--json`), a terminal UI, and an HTTP API
@@ -535,10 +535,20 @@ as files it may not touch. The clarifier sees the intent, the profile and the an
 given, and its transcript reaches nobody: what travels on is the questions you answered and
 your answers.
 
+The pack is the only route. The CLIs read nothing of your project on their own: Claude Code runs
+with no setting source, so neither its `CLAUDE.md` nor its `.claude/settings.json` — whose
+permissions and hooks could weaken the sandbox 495 imposes — reaches the model, and Codex reads
+no project instruction file. Otherwise the same text would arrive twice, as an instruction on the
+native path and as data in the pack, and the context would depend on which CLI ran the role. A
+file of your repository is untrusted content however it arrives, including when the agent reads
+it itself. The profile names the documentation files it found, paths only, so a role that needs
+them reads them as data; a rule you want obeyed goes under `conventions` in
+`.495/project.toml`, which travels as a fact.
+
 | agent | read-only roles (clarifier, specifier, reviewers) | write roles (test designer, producer) | isolation |
 |---|---|---|---|
-| Claude Code | `--tools Bash,Read`, Bash limited to read-only patterns, `--permission-mode dontAsk` | `--permission-mode acceptEdits`, tools Bash/Edit/Write/Read | Claude Code sandbox enabled with no allowed network domain, permission prompts disabled, session not persisted |
-| Codex | `--sandbox read-only` | `--sandbox workspace-write` | `network_access=false`, ephemeral session |
+| Claude Code | `--tools Bash,Read`, Bash limited to read-only patterns, `--permission-mode dontAsk` | `--permission-mode acceptEdits`, tools Bash/Edit/Write/Read | Claude Code sandbox enabled with no allowed network domain, permission prompts disabled, session not persisted, no setting source loaded from the project |
+| Codex | `--sandbox read-only` | `--sandbox workspace-write` | `network_access=false`, ephemeral session, no project instruction file read |
 | OpenAI-compatible | bash loop in the harness sandbox, read-only | same, writable | Seatbelt (no network, writes limited to the worktree and the scratch directories) or Docker (`--network none`), else host with a warning |
 
 Every intervention records the agent identity (kind, model, CLI version, session id), the tools

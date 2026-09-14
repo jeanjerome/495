@@ -78,7 +78,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
 | `scope` | which files a change may touch |
 | `suite` | what the change did to the test suite that passed on the base: `read_suite_changes()` reads the diff over the test files that existed there (deleted, renamed out of the runner's reach, tests removed, skips added), `count_tests()` reads the tally a runner prints, `compare_counts()` pairs the base's with the change's |
-| `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
+| `context` | `ContextPack`: facts versus untrusted content, the only route by which anything reaches an agent, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the five roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
@@ -95,6 +95,10 @@ applied, transcript). `claude_code` drives `claude -p` with restricted tools and
 sandbox; `codex` drives `codex exec` with `read-only` or `workspace-write`; `openai_compat` is a
 bash-only loop for any OpenAI-compatible chat endpoint, executing every command through the
 harness sandbox.
+
+No adapter lets its CLI read the target project's own configuration: `claude -p` runs with no
+setting source and `codex exec` with `project_doc_max_bytes=0`, so the context is the pack and
+nothing else, and a repository file keeps one trust status whichever CLI runs the role (0026).
 
 ### `sandbox`
 

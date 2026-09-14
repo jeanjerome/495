@@ -64,6 +64,11 @@ class CodexAgent(Agent):
             str(task.cwd),
             "-c",
             "sandbox_workspace_write.network_access=false",
+            # The project's instruction files are not read natively: the harness is the only
+            # distributor of context, and a repository file is untrusted content in the pack
+            # (0026).
+            "-c",
+            "project_doc_max_bytes=0",
             "-o",
             str(last_message),
         ]
@@ -90,7 +95,10 @@ class CodexAgent(Agent):
             backend="codex-sandbox",
             network="denied (sandbox_workspace_write.network_access=false; API traffic excepted)",
             writable_paths=[str(task.cwd)] if writable else [],
-            detail=f"codex --sandbox {'workspace-write' if writable else 'read-only'}",
+            detail=(
+                f"codex --sandbox {'workspace-write' if writable else 'read-only'}, "
+                "no project instruction file read natively"
+            ),
         )
         allowed = ["shell (workspace-write)" if writable else "shell (read-only)"]
         with tempfile.TemporaryDirectory(prefix="495-codex-") as tmp:

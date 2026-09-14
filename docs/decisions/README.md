@@ -13,7 +13,7 @@ carries the decision.
 | [0002](0002-every-verification-is-measured-on-both-versions.md) | Every verification is measured on the change and on the base version before it counts | accepted | 2026-09-11, refined 2026-09-13 |
 | [0003](0003-behaviour-and-non-regression-requirements.md) | A requirement states behaviour or non-regression, and that decides what a passing command may credit | accepted | 2026-09-13 |
 | [0004](0004-corrections-name-the-gap-not-the-remedy.md) | A correction request names the gap and the observation, never the remedy | accepted | 2026-09-11 |
-| [0005](0005-one-context-per-role-with-two-trust-zones.md) | Each intervention gets a context of its own, split into facts and untrusted content | accepted | 2026-09-11 |
+| [0005](0005-one-context-per-role-with-two-trust-zones.md) | Each intervention gets a context of its own, split into facts and untrusted content | accepted | 2026-09-11, refined 2026-09-14 |
 | [0006](0006-a-run-works-in-a-worktree-and-the-harness-commits.md) | A run works in a git worktree outside the project, and the harness makes the commits | accepted | 2026-09-11 |
 | [0007](0007-hand-written-strict-output-schemas.md) | Agent output schemas are hand-written, strict and nullable, then re-validated by pydantic | accepted | 2026-09-11 |
 | [0008](0008-cost-is-never-silently-zero.md) | Cost is reported, estimated or unknown, never silently zero | accepted | 2026-09-11 |
@@ -34,3 +34,4 @@ carries the decision.
 | [0023](0023-the-lines-the-change-adds-are-crossed-with-what-the-verifications-execute.md) | The lines the change adds are crossed with what the verifications execute, and a line none of them ran credits no requirement | accepted | 2026-09-14 |
 | [0024](0024-a-verification-is-run-twice-on-the-same-version.md) | A verification is run twice on the same version, and one that does not report the same thing twice decides nothing | accepted | 2026-09-14 |
 | [0025](0025-the-decisions-are-taken-before-the-specification-in-rounds.md) | The requester's decisions are taken before the specification, in rounds, and a settled question is never asked again | accepted | 2026-09-14 |
+| [0026](0026-the-harness-is-the-only-source-an-agent-takes-instructions-from.md) | The harness is the only source an agent takes instructions from, and a repository file is untrusted content whatever the route | accepted | 2026-09-14 |
