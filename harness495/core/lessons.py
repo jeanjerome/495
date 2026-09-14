@@ -3,14 +3,17 @@
 A run measures a project and, on the way, the requester settles things that outlive it: a
 command put in the place of one that could not measure anything, a rule stated by hand once the
 producer had already broken it, the paths the change was allowed to touch, a decision taken
-before the specification was written. All of it is in ``run.json`` and none of it reached the
-next run: the harness was a short loop, run after run, with no memory between them.
+before the specification was written, a reviewer's claim weighed and found not to hold here.
+All of it is in ``run.json`` and none of it reached the next run: the harness was a short loop,
+run after run, with no memory between them.
 
 ``learn`` reads those back from one run document and the project's current criteria, as
 proposals; ``reconcile`` keeps them in ``<state_dir>/lessons.json``, one record per lesson
 however many runs showed it, with the requester's answer; ``criteria`` turns the accepted ones
-into the project's criteria, so that the next run is profiled, produced and verified under them;
-``render_document`` writes them as ``<state_dir>/lessons.md``. Nothing here writes the project's
+that declare something into the project's criteria, so that the next run is profiled, produced
+and verified under them, and the ones that declare nothing travel as a fact to the role they
+bear on — the specifier for a ``note``, the reviewer of that perspective for a
+``false_positive``; ``render_document`` writes them as ``<state_dir>/lessons.md``. Nothing here writes the project's
 own files: a lesson enters ``.495/project.toml`` when the requester copies the lines
 ``toml_lines`` states, and is in force from the moment it is accepted either way
 (``docs/decisions/0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md``).
@@ -29,6 +32,7 @@ from harness495.core.models import (
     LessonStatus,
     ProjectCommand,
     ProjectConfig,
+    RequirementStatus,
     Retrospective,
     Run,
     Severity,
@@ -76,6 +80,7 @@ def learn(run: Run, project: ProjectConfig, retro: Retrospective | None = None) 
     out.extend(_conventions(run, project))
     out.extend(_allowed_paths(run, project))
     out.extend(_notes(run, retro))
+    out.extend(_false_positives(run))
     for lesson in out:
         lesson.run_ids = [run.id]
         lesson.observed = lesson.observed[:MAX_OBSERVED]
@@ -89,6 +94,7 @@ def _lesson(
     value: str = "",
     name: str = "",
     command_kind: VerificationKind | None = None,
+    perspective: str = "",
 ) -> Lesson:
     return Lesson(
         id=new_id("les"),
@@ -97,6 +103,7 @@ def _lesson(
         value=value,
         name=name,
         command_kind=command_kind,
+        perspective=perspective,
         observed=observed,
     )
 
@@ -261,6 +268,61 @@ def _notes(run: Run, retro: Retrospective | None) -> list[Lesson]:
     return out
 
 
+def _false_positives(run: Run) -> list[Lesson]:
+    """A claim a reviewer made that the requester may judge does not hold in this project.
+
+    Only the findings the harness acted on are put: one that blocked the change, and one a
+    reviewer read a requirement as violated for. Both cost the run — an iteration, or a
+    requirement left undetermined — and both cite an observation, without which 0001 reads the
+    claim as deciding nothing and there is nothing to refute.
+
+    The proposition is the refutation, so that accepting it is accepting something true: the
+    requester who agrees puts it in force and the next reviewer of that perspective is told,
+    the one who disagrees declines it with the reason the claim stood and it is not proposed
+    again. A blocking finding no requirement asked about is proposed twice over, here and as a
+    ``convention``: the same words are a rule to ask of every change or a claim that does not
+    hold, and which of the two it is is the requester's to say.
+    """
+    out: list[Lesson] = []
+    seen: list[str] = []
+    for review in run.reviews:
+        if review.discarded:
+            continue
+        for f in review.findings:
+            violated = (
+                f.requirement_id is not None
+                and review.requirement_assessment.get(f.requirement_id)
+                is RequirementStatus.violated
+            )
+            if (f.severity is not Severity.blocker and not violated) or not f.evidence.strip():
+                continue
+            title = _flat(f.title)
+            key = f"{review.perspective}:{title.casefold()}"
+            if not title or key in seen:
+                continue
+            seen.append(key)
+            cost = (
+                f"read requirement {f.requirement_id} as violated"
+                if violated
+                else "blocked the change"
+            )
+            out.append(
+                _lesson(
+                    LessonKind.false_positive,
+                    f"the {review.perspective} reviewer {cost} for “{title}”; that does not "
+                    "hold in this project, and every later reviewer of that perspective is told "
+                    "so rather than raising it again",
+                    value=title,
+                    perspective=review.perspective,
+                    observed=[
+                        f"{review.perspective}: {cost} — {title}; "
+                        f"observed: {_flat(f.evidence)[:200]}"
+                    ],
+                )
+            )
+    return out
+
+
 # --------------------------------------------------------------------------- keeping them
 
 
@@ -405,6 +467,7 @@ HEADING = {
     LessonKind.convention: "Conventions",
     LessonKind.allowed_path: "Scope",
     LessonKind.note: "For the next specification",
+    LessonKind.false_positive: "Reviewer claims that do not hold here",
 }
 
 

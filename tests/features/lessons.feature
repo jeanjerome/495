@@ -51,6 +51,81 @@ Feature: What a run showed about the project is put to the requester and carried
     Then a lesson of kind "convention" says "the security reviewer blocked the change for “a credential is committed”, which no requirement asked about"
     And that lesson would declare "a credential is committed"
 
+  Scenario: A claim a reviewer blocked the change for is put to the requester as one that may not hold
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    When the harness reads what the run showed
+    Then a lesson of kind "false_positive" says "the security reviewer blocked the change for “a credential is committed”; that does not hold in this project"
+    And that lesson answers the "security" reviewer
+    And that lesson holds what the run observed, ".env:1"
+
+  Scenario: One finding is both a rule to declare and a claim that may not hold
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    When the harness reads what the run showed
+    Then there is one lesson of kind "convention"
+    And there is one lesson of kind "false_positive"
+
+  Scenario: A claim a reviewer read a requirement as violated for is put to the requester
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "correctness" reviewer of "run-1" read requirement "req-1" as violated for "the loop is off by one" observed at "calc.py:12"
+    When the harness reads what the run showed
+    Then a lesson of kind "false_positive" says "the correctness reviewer read requirement req-1 as violated for “the loop is off by one”"
+
+  Scenario: A claim that cites no observation decided nothing and is not put
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observing nothing
+    When the harness reads what the run showed
+    Then no lesson of kind "false_positive" is proposed
+
+  Scenario: A claim of a review the harness discarded is not put
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the harness discarded that review
+    When the harness reads what the run showed
+    Then no lesson of kind "false_positive" is proposed
+
+  Scenario: The same claim made by two perspectives is one lesson each
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the "correctness" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    When the harness reads what the run showed
+    Then there are 2 lessons of kind "false_positive"
+
+  Scenario: An accepted refutation declares nothing in the project's criteria
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the harness has read what the run showed
+    When the requester accepts the lesson of kind "false_positive"
+    Then that lesson declares nothing
+    And the project's criteria declare no convention
+
+  Scenario: A refutation is not restated in the requester's own words
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the harness has read what the run showed
+    When the requester accepts the lesson of kind "false_positive" as "credentials here are fixtures"
+    Then the answer is refused with "declares nothing"
+    And that lesson is "open"
+
+  Scenario: A refutation the requester declined is not proposed again
+    Given a project whose criteria declare nothing
+    And a run "run-1" on it
+    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the harness has read what the run showed
+    When the requester declines the lesson of kind "false_positive" with the reason "the claim stood; the file was a real key"
+    And the harness reads what the run showed
+    Then there is one lesson of kind "false_positive"
+    And that lesson is "declined"
+
   Scenario: A convention the project already declares is not proposed
     Given a project whose criteria declare the convention "a credential is committed"
     And a run "run-1" on it
@@ -61,11 +136,11 @@ Feature: What a run showed about the project is put to the requester and carried
   Scenario: A lesson accepted in the requester's own words declares those words
     Given a project whose criteria declare nothing
     And a run "run-1" on it
-    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the requester corrected the change by hand with "docstrings on the public functions"
     And the harness has read what the run showed
-    When the requester accepts that lesson as "no credential is committed to the repository"
-    Then the project's criteria declare the convention "no credential is committed to the repository"
-    And that lesson still says what the run observed
+    When the requester accepts that lesson as "every public function carries a docstring"
+    Then the project's criteria declare the convention "every public function carries a docstring"
+    And that lesson still says what the run observed, "docstrings on the public functions"
 
   Scenario: The scope a produced change stayed within is proposed as the project's scope
     Given a project whose criteria declare nothing
@@ -143,19 +218,19 @@ Feature: What a run showed about the project is put to the requester and carried
   Scenario: A declined lesson keeps its reason and is not proposed again
     Given a project whose criteria declare nothing
     And a run "run-1" on it
-    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the requester corrected the change by hand with "docstrings on the public functions"
     And the harness has read what the run showed
-    When the requester declines that lesson with the reason "the file is a fixture, committed on purpose"
+    When the requester declines that lesson with the reason "that file is generated, and was right to have none"
     And the harness reads what the run showed
     Then there is one lesson of kind "convention"
     And that lesson is "declined"
-    And that lesson carries the reason "the file is a fixture, committed on purpose"
+    And that lesson carries the reason "that file is generated, and was right to have none"
     And the project's criteria declare no convention
 
   Scenario: Declining a lesson without a reason is refused
     Given a project whose criteria declare nothing
     And a run "run-1" on it
-    And the "security" reviewer of "run-1" blocked the change for "a credential is committed" observed at ".env:1"
+    And the requester corrected the change by hand with "docstrings on the public functions"
     And the harness has read what the run showed
     When the requester declines that lesson with no reason
     Then the answer is refused with "needs a reason"
@@ -213,3 +288,11 @@ Feature: What a run showed about the project is put to the requester and carried
     When a change run walks the workflow
     Then the facts given to the specifier hold that lesson
     And the untrusted content given to the specifier does not hold it
+
+  Scenario: A claim the requester found wrong is given to the reviewer of that perspective alone
+    Given the sample project
+    And a claim of the "correctness" reviewer in force saying "the error path is untested"
+    When a change run walks the workflow
+    Then the facts given to the "correctness" reviewer hold that claim
+    And the "spec_compliance" reviewer is not given it
+    And the specifier is not given it

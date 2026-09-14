@@ -38,6 +38,7 @@ from harness495.core.context import (
     render_mutation_reading,
     render_profile,
     render_reach_reading,
+    render_refuted,
     render_reviews,
     render_spec,
     render_stability_reading,
@@ -81,6 +82,7 @@ from harness495.core.models import (
     Intervention,
     InterventionStatus,
     Iteration,
+    LessonKind,
     PendingDecision,
     ReadinessCheck,
     ReportedCommand,
@@ -1185,10 +1187,12 @@ class Engine:
         if run.clarification.says_anything:
             pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
-        if run.profile.lessons:
+        # A refuted reviewer claim bears on a reviewer, not on how the change is specified.
+        for_spec = [x for x in run.profile.lessons if x.kind is not LessonKind.false_positive]
+        if for_spec:
             pack.add_fact(
                 "What earlier runs showed about this project",
-                render_lessons(run.profile.lessons),
+                render_lessons(for_spec),
             )
         pack.add_fact(
             "Test-library catalogue and the project's role coverage",
@@ -2886,6 +2890,16 @@ class Engine:
                 pack.add_fact(
                     "Wrong versions of the change, and what the verifications reported",
                     render_mutation_reading(mutation),
+                )
+            refuted = [
+                x
+                for x in run.profile.lessons
+                if x.kind is LessonKind.false_positive and x.perspective == reviewer.perspective
+            ]
+            if refuted:
+                pack.add_fact(
+                    "Claims of this perspective the requester found do not hold here",
+                    render_refuted(refuted),
                 )
             pack.add_untrusted("git diff base..head", truncate_diff(diff_text) or "(empty diff)")
             for e in evidence:

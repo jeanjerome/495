@@ -266,6 +266,13 @@ specification, a tool that reported nothing the change decided. A lesson several
 one record naming each of them, so a rule three runs blocked a change for reads as one line
 with three runs behind it.
 
+A claim a reviewer made is put to you the same way, as a lesson saying it does not hold in this
+project: every finding that blocked a change, and every one a reviewer read a requirement as
+violated for. Accept it when the claim was wrong and the next reviewer of that perspective is
+told so; decline it with the reason it stood and it is not proposed again. A blocking finding
+no requirement asked about is therefore put twice, as a rule to declare and as a claim that does
+not hold — the same words read two opposite ways, and which one it is is yours to say.
+
 ```bash
 ./run.sh lessons                                   # what the runs showed, and where each one stands
 ./run.sh lessons show les-7f21a0c39b               # what was observed, and the lines project.toml would take
@@ -275,11 +282,14 @@ with three runs behind it.
 
 An accepted lesson is part of the project's criteria from the next run on: a command is run at
 readiness and offered to the specifier, a convention travels as a fact, a scope bounds the
-change, and every lesson in force reaches the specifier as *what earlier runs showed about this
-project*. Nothing rewrites `.495/project.toml` — it is yours, comments and all; `495 lessons
+change, and every lesson that declares something reaches the specifier as *what earlier runs
+showed about this project*. A refuted claim declares nothing and goes to one place only: the
+reviewer of that perspective, which reads it as a claim already weighed here and raises it again
+only on an observation this version gives it. Nothing rewrites `.495/project.toml` — it is yours, comments and all; `495 lessons
 show` states the lines it would take, to copy or not, and `.495/lessons.md` keeps what is in
 force readable. A declined lesson keeps your reason and is never proposed again
-(`docs/decisions/0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md`).
+(`docs/decisions/0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md`,
+`docs/decisions/0028-a-reviewer-claim-the-requester-found-wrong-is-carried-to-the-next-reviewer.md`).
 
 `495 stats` reads every run of the store as a series: outcomes and statuses, iterations per run,
 cost per requirement assessed, the commands recorded unable to tell the change from its absence,

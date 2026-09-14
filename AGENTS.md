@@ -89,6 +89,10 @@ Keep these true in every change; each has a test or a record that names it.
   on the requester's acceptance alone; nothing writes `.495/project.toml`.
   `core/stats.py::summarise` reads the runs as a series, persists nothing and decides nothing
   (`0027`).
+- A lesson that declares nothing travels as a fact to the one role it bears on: a `note` to the
+  specifier, a `false_positive` — a reviewer's claim the requester found does not hold here — to
+  the reviewer of that perspective and to no other. The proposition put to the requester is the
+  refutation, so that accepting any lesson means the same thing (`0028`).
 - Cost is `reported`, `estimated` or `unknown` (`0008`).
 - Tests use `Scenario` and `FakeAgent` from `tests/conftest.py`. Mark a test that reaches a
   real agent CLI or the network `live`.

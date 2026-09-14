@@ -425,12 +425,23 @@ dont les agents disposent déjà ; troncature par section plutôt que par tête 
 diff, troncature par fichier avec la liste de ce qui a été coupé.
 
 **E22 · Aucune mémoire entre les runs.** Priorité haute · effort L. **Fait le 2026-09-14**
-(ADR 0027). Chaque run repartait d'une page blanche : les instruments recalibrés, les conventions
-violées, les décisions prises avant la spécification, les hypothèses fausses d'un run précédent
-sur le même projet n'étaient ni conservés ni réinjectés. C'est l'axe A11, traité en §7 (E44) :
-les leçons acceptées entrent dans les critères du projet et le spécificateur du run suivant les
-reçoit en fait. Ce qu'un réviseur a trouvé à tort n'a pas de route : un faux positif ne se
-consigne pas encore, faute d'une réponse du demandeur sur un finding pris un par un.
+(ADR 0027, 0028). Chaque run repartait d'une page blanche : les instruments recalibrés, les
+conventions violées, les décisions prises avant la spécification, les hypothèses fausses d'un run
+précédent sur le même projet n'étaient ni conservés ni réinjectés. C'est l'axe A11, traité en §7
+(E44) : les leçons acceptées entrent dans les critères du projet et le spécificateur du run
+suivant les reçoit en fait.
+
+Ce qu'un réviseur a trouvé à tort a désormais sa route (ADR 0028). `495 retro` propose en leçon
+`false_positive` chaque finding que le harnais a suivi — celui qui a bloqué le changement, celui
+pour lequel un réviseur a lu une exigence comme violée, l'un et l'autre citant une observation
+sans laquelle 0001 les lit comme ne décidant rien. La proposition *est* la réfutation, de sorte
+qu'accepter une leçon veut dire la même chose pour tous les genres : le demandeur qui juge la
+revendication fausse l'accepte, celui pour qui elle tenait la décline avec cette raison et elle
+n'est plus proposée. Acceptée, elle ne déclare rien dans `project.toml` et voyage en fait au seul
+réviseur de cette perspective, qui lit qu'elle ne tient pas ici à moins que cette version ne lui
+donne une observation que la précédente n'avait pas. Un finding bloquant qu'aucune exigence ne
+demandait est dès lors proposé deux fois, en `convention` et en `false_positive` : ce sont deux
+lectures opposées des mêmes mots, et laquelle des deux vaut appartient au demandeur.
 
 **E23 · Le réviseur ne voit pas ce que le harnais sait de la force des instruments.**
 Priorité moyenne · effort S. `render_evidence` donne PASS/FAIL ; `render_spec` mentionne la
@@ -986,7 +997,7 @@ semaine ou plus).
 | E02 | rien ne mesurait la stabilité d'une commande ; depuis le 2026-09-14 chaque commande qu'une exigence porte est rejouée une seconde fois sur la version évaluée, et une évidence `stability_check` qui dit qu'elle a rapporté deux choses différentes ne crédite ni ne charge l'exigence (fait) | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses ; depuis le 2026-09-14 une phase `clarify` met la frontière des décisions au demandeur, round par round, l'arbre étant recalculé à chaque fois et une question réglée jamais reposée, et ses réponses entrent en faits chez le spécificateur, le test designer, le producteur et chaque réviseur (fait, ADR 0025) | spécification | L | traite le problème de l'oracle à la source |
 | E20 | le `CLAUDE.md` du projet hôte était lu nativement comme instruction et injecté comme non fiable ; depuis le 2026-09-14 les CLI ne lisent plus rien de la cible d'eux-mêmes (`--setting-sources ""`, `project_doc_max_bytes=0`), un fichier du dépôt est non fiable quelle que soit la route, le profil en nomme les chemins et `conventions` porte ce que le demandeur veut voir obéi (fait, ADR 0026) | contexte | S | un seul statut de confiance par source ; test de non-régression |
-| E44 · E22 | rien ne remontait d'un run vers le dispositif ; depuis le 2026-09-14 `495 retro` énonce en leçons ce que le run a montré du projet — commande remplacée, correction écrite à la main, règle qu'un réviseur a bloquée, scope tenu, décision prise avant la spécification, outil défaillant — le demandeur les accepte ou non, une leçon acceptée entre dans les critères de tous les runs suivants et en fait chez le spécificateur, et `495 stats` lit les runs en série (fait, ADR 0027) | boucle longue | L | `495 retro`, `495 lessons`, `.495/lessons.md`, `495 stats` |
+| E44 · E22 | rien ne remontait d'un run vers le dispositif ; depuis le 2026-09-14 `495 retro` énonce en leçons ce que le run a montré du projet — commande remplacée, correction écrite à la main, règle qu'un réviseur a bloquée, scope tenu, décision prise avant la spécification, outil défaillant — le demandeur les accepte ou non, une leçon acceptée entre dans les critères de tous les runs suivants et en fait chez le spécificateur, et `495 stats` lit les runs en série (fait, ADR 0027) ; une revendication de réviseur que le demandeur juge fausse est une leçon `false_positive` qui ne déclare rien et que lit le seul réviseur de cette perspective au run suivant (fait, ADR 0028) | boucle longue | L | `495 retro`, `495 lessons`, `.495/lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017 ; le rapport montre sous chaque exigence le scénario qui la vérifie et ce qu'il a rapporté, ADR 0018), migration de la suite de 495 au fil des modifications (reste) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 

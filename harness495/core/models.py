@@ -454,7 +454,8 @@ REPLACED_PREFIX = "replaced `"
 
 
 class LessonKind(StrEnum):
-    """What a lesson of a run would change in the project's criteria (``Lesson``)."""
+    """What a lesson of a run bears on: a criterion of the project, or what a later role is
+    told about it (``Lesson``)."""
 
     command = "command"
     """A command the requester put in the place of the one the specification named, which
@@ -468,6 +469,10 @@ class LessonKind(StrEnum):
     note = "note"
     """Something the next specification is better written knowing. It declares nothing and
     reaches the specifier as a fact."""
+    false_positive = "false_positive"
+    """A claim a reviewer made that does not hold in this project. It declares nothing and
+    reaches the next reviewer of that perspective as a fact, so that a claim the requester has
+    already weighed is not raised against every change."""
 
 
 class LessonStatus(StrEnum):
@@ -502,6 +507,8 @@ class Lesson(StrictModel):
     name: str = ""
     """For a ``command`` lesson, the name its ``[[commands]]`` entry takes."""
     command_kind: VerificationKind | None = None
+    perspective: str = ""
+    """For a ``false_positive`` lesson, the reviewer whose claim it answers."""
     declared: str = ""
     """What the requester chose to declare in the place of ``value`` when accepting the lesson.
     Kept apart from it so that what the runs showed stays what the runs showed."""
@@ -517,13 +524,15 @@ class Lesson(StrictModel):
 
     @property
     def key(self) -> str:
-        """What tells one lesson from another: its kind and what it would declare."""
-        return f"{self.kind.value}:{self.value or self.statement}"
+        """What tells one lesson from another: its kind, the reviewer it answers when it
+        answers one, and what it would declare."""
+        head = f"{self.kind.value}:{self.perspective}" if self.perspective else self.kind.value
+        return f"{head}:{self.value or self.statement}"
 
     @property
     def declares(self) -> bool:
         """Whether accepting it adds something to the project's criteria."""
-        return self.kind is not LessonKind.note
+        return self.kind not in (LessonKind.note, LessonKind.false_positive)
 
     @property
     def answerable(self) -> bool:

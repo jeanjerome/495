@@ -38,6 +38,7 @@ from harness495.core.models import (
     Lessons,
     LessonStatus,
     ProjectProfile,
+    RequirementStatus,
     Retrospective,
     ReviewVerdict,
     Role,
@@ -240,6 +241,65 @@ def a_reviewer_blocked_the_change(
     )
 
 
+@given(
+    parsers.parse(
+        'the "{perspective}" reviewer of "{run_id}" read requirement "{requirement_id}" as '
+        'violated for "{title}" observed at "{evidence}"'
+    )
+)
+def a_reviewer_read_a_requirement_as_violated(
+    world: World,
+    perspective: str,
+    run_id: str,
+    requirement_id: str,
+    title: str,
+    evidence: str,
+) -> None:
+    """A finding that cost the run without blocking it: it drove the requirement's status."""
+    world.the_run(run_id).reviews.append(
+        ReviewVerdict(
+            intervention_id=new_id("int"),
+            perspective=perspective,
+            verdict=Verdict.reject,
+            findings=[
+                Finding(
+                    severity=Severity.major,
+                    title=title,
+                    evidence=evidence,
+                    requirement_id=requirement_id,
+                )
+            ],
+            requirement_assessment={requirement_id: RequirementStatus.violated},
+        )
+    )
+
+
+@given(
+    parsers.parse(
+        'the "{perspective}" reviewer of "{run_id}" blocked the change for "{title}" '
+        "observing nothing"
+    )
+)
+def a_reviewer_blocked_with_no_observation(
+    world: World, perspective: str, run_id: str, title: str
+) -> None:
+    world.the_run(run_id).reviews.append(
+        ReviewVerdict(
+            intervention_id=new_id("int"),
+            perspective=perspective,
+            verdict=Verdict.reject,
+            findings=[Finding(severity=Severity.blocker, title=title)],
+        )
+    )
+
+
+@given("the harness discarded that review")
+def the_harness_discarded_that_review(world: World) -> None:
+    review = world.the_run().reviews[-1]
+    review.discarded = True
+    review.discard_reason = "the reviewer modified the worktree"
+
+
 @given(parsers.parse('"{run_id}" was allowed "{globs}" for that run alone'))
 def a_run_allowed_for_itself(world: World, run_id: str, globs: str) -> None:
     """What ``495 new --allowed-path`` leaves on the run: a scope the file does not declare."""
@@ -408,6 +468,40 @@ def the_requester_declines_with_no_reason(world: World) -> None:
     world.store.save_lessons(lessons)
 
 
+def _of_kind(world: World, kind: str) -> tuple[Lessons, Lesson]:
+    lessons = world.store.load_lessons()
+    held = [x for x in lessons.lessons if x.kind is LessonKind(kind)]
+    assert len(held) == 1, held
+    world.last = held[0]
+    return lessons, held[0]
+
+
+@when(parsers.parse('the requester accepts the lesson of kind "{kind}"'))
+def the_requester_accepts_of_kind(world: World, kind: str) -> None:
+    lessons, lesson = _of_kind(world, kind)
+    memory.accept(lesson)
+    world.store.save_lessons(lessons)
+
+
+@when(parsers.parse('the requester accepts the lesson of kind "{kind}" as "{text}"'))
+def the_requester_accepts_of_kind_as(world: World, kind: str, text: str) -> None:
+    lessons, lesson = _of_kind(world, kind)
+    try:
+        memory.accept(lesson, text)
+    except memory.LessonError as exc:
+        world.error = str(exc)
+    world.store.save_lessons(lessons)
+
+
+@when(
+    parsers.parse('the requester declines the lesson of kind "{kind}" with the reason "{reason}"')
+)
+def the_requester_declines_of_kind(world: World, kind: str, reason: str) -> None:
+    lessons, lesson = _of_kind(world, kind)
+    memory.decline(lesson, reason)
+    world.store.save_lessons(lessons)
+
+
 @when(parsers.parse('the requester runs "495 {arguments}"'))
 def the_requester_runs(world: World, arguments: str, monkeypatch: pytest.MonkeyPatch) -> None:
     world.run_cli(*arguments.split(), monkeypatch=monkeypatch)
@@ -433,6 +527,23 @@ def one_lesson_of_kind(world: World, kind: str) -> None:
     held = world.of_kind(kind)
     assert len(held) == 1, held
     world.last = held[0]
+
+
+@then(parsers.parse('there are {count:d} lessons of kind "{kind}"'))
+def n_lessons_of_kind(world: World, count: int, kind: str) -> None:
+    held = world.of_kind(kind)
+    assert len(held) == count, held
+
+
+@then(parsers.parse('that lesson answers the "{perspective}" reviewer'))
+def that_lesson_answers_the_reviewer(world: World, perspective: str) -> None:
+    assert world.the_lesson().perspective == perspective
+
+
+@then(parsers.parse('that lesson holds what the run observed, "{text}"'))
+def that_lesson_holds_the_observation(world: World, text: str) -> None:
+    observed = world.reload().observed
+    assert any(text in line for line in observed), observed
 
 
 @then(parsers.parse('that lesson would declare "{value}"'))
@@ -480,11 +591,11 @@ def that_lesson_carries_the_reason(world: World, reason: str) -> None:
     assert world.reload().reason == reason
 
 
-@then("that lesson still says what the run observed")
-def that_lesson_still_says(world: World) -> None:
+@then(parsers.parse('that lesson still says what the run observed, "{text}"'))
+def that_lesson_still_says(world: World, text: str) -> None:
     held = world.reload()
-    assert "a credential is committed" in held.statement
-    assert held.value == "a credential is committed"
+    assert text in held.statement
+    assert held.value == text
 
 
 @then(parsers.parse('the answer is refused with "{text}"'))
@@ -602,3 +713,62 @@ def the_untrusted_does_not_hold_it(world: World) -> None:
     prompt = _prompt_of(world, Role.specifier)
     untrusted = prompt.partition("# Untrusted content")[2].partition("# Instructions")[0]
     assert world.extra["statement"] not in untrusted
+
+
+@given(parsers.parse('a claim of the "{perspective}" reviewer in force saying "{statement}"'))
+def a_claim_in_force(world: World, perspective: str, statement: str) -> None:
+    """A reviewer's claim the requester weighed on this project and found does not hold."""
+    world.store.save_lessons(
+        Lessons(
+            lessons=[
+                Lesson(
+                    id=new_id("les"),
+                    kind=LessonKind.false_positive,
+                    statement=f"the {perspective} reviewer blocked the change for “{statement}”",
+                    value=statement,
+                    perspective=perspective,
+                    run_ids=["run-earlier"],
+                    status=LessonStatus.accepted,
+                )
+            ]
+        )
+    )
+    world.extra["statement"] = statement
+
+
+PERSPECTIVE_MARK = "Review the change from the perspective: **"
+
+
+def _reviewer_prompt(world: World, perspective: str) -> str:
+    """The prompt of one reviewer; the perspective is read back from it, as the fake agent does."""
+    calls = [
+        t
+        for t in world.extra["scenario"].calls
+        if t.role is Role.reviewer
+        and t.prompt.split(PERSPECTIVE_MARK)[1].split("**")[0] == perspective
+    ]
+    assert calls, f"no review by {perspective} was made"
+    return calls[0].prompt
+
+
+def _facts(prompt: str) -> str:
+    return prompt.partition("# Established facts (produced by the 495 harness)")[2].partition(
+        "# Untrusted content"
+    )[0]
+
+
+@then(parsers.parse('the facts given to the "{perspective}" reviewer hold that claim'))
+def the_reviewer_facts_hold_the_claim(world: World, perspective: str) -> None:
+    facts = _facts(_reviewer_prompt(world, perspective))
+    assert "Claims of this perspective the requester found do not hold here" in facts, facts
+    assert world.extra["statement"] in facts, facts
+
+
+@then(parsers.parse('the "{perspective}" reviewer is not given it'))
+def the_other_reviewer_is_not_given_it(world: World, perspective: str) -> None:
+    assert world.extra["statement"] not in _reviewer_prompt(world, perspective)
+
+
+@then("the specifier is not given it")
+def the_specifier_is_not_given_it(world: World) -> None:
+    assert world.extra["statement"] not in _prompt_of(world, Role.specifier)

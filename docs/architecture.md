@@ -151,10 +151,13 @@ gap against the catalogue, identified by technology and role: the gap as last st
 verification measured: the tools, a `ToolVerdict` (`proven`, `faulty`, `inconclusive`), the
 counts and sentences of each measurement, and the catalogue row it yields. Outside any run
 too, a `Lessons` document holds one `Lesson` per thing a run showed about the project,
-identified by its `LessonKind` (`command`, `convention`, `allowed_path`, `note`) and by what it
+identified by its `LessonKind` (`command`, `convention`, `allowed_path`, `note`,
+`false_positive`), by the reviewer perspective it answers when it answers one, and by what it
 would declare: the runs that showed it, what each of them recorded in words, a `LessonStatus`
 (`open`, `accepted`, `declined` with the reason, `deferred`) and, on an acceptance, the words
-the requester chose to declare instead. The JSON schema of each document comes from these
+the requester chose to declare instead. The two kinds that declare nothing travel as a fact to
+the role they bear on, a `note` to the specifier and a `false_positive` to the reviewer of its
+perspective. The JSON schema of each document comes from these
 models, and `495 schema stats` publishes the shape of the series `core/stats.py` reads.
 
 ## State on disk

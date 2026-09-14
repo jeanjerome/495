@@ -139,6 +139,31 @@ def render_lessons(lessons: list[Lesson]) -> str:
     return "\n".join(lines)
 
 
+def render_refuted(lessons: list[Lesson]) -> str:
+    """The claims of one perspective the requester weighed on this project and found wrong.
+
+    A fact, like every other lesson in force: an earlier reviewer of this perspective wrote the
+    words, and the requester is who admitted that they do not hold here. It is given to the
+    reviewer of that perspective alone — what one perspective got wrong says nothing about
+    another, and a reviewer reading the refutations of every angle would read them as a list of
+    things not to look at.
+
+    It settles nothing about the change under review: a claim can be wrong about the project as
+    a rule and right about one version of it, so what is stated is what the requester answered
+    and the reviewer is asked to raise the claim only on what it observes in this version.
+    """
+    lines = [
+        "Earlier reviewers of this perspective raised these claims about this project, and the "
+        "requester weighed each one and found it does not hold here. Do not raise one again "
+        "unless this version gives you an observation the earlier one did not have:"
+    ]
+    for lesson in lessons:
+        lines.append(f"- {lesson.value or lesson.statement}")
+        for line in lesson.observed:
+            lines.append(f"  - raised as: {line}")
+    return "\n".join(lines)
+
+
 def render_catalogue(profile: ProjectProfile) -> str:
     """The catalogue's roles against the project, for the specifier.
 

@@ -35,6 +35,7 @@ from harness495.core.models import (
     GapKind,
     HarnessConfig,
     Lesson,
+    LessonKind,
     Lessons,
     LessonStatus,
     PendingDecision,
@@ -627,6 +628,8 @@ def _print_lesson(lesson: Lesson) -> None:
         Text(f"{lesson.id} ({lesson.kind.value}, {lesson.status.value}): ", style="bold")
         + Text(lesson.statement)
     )
+    if lesson.perspective:
+        console.print(Text(f"  answers the {lesson.perspective} reviewer"))
     for line in lesson.observed:
         console.print(Text(f"  observed — {line}"))
     console.print(Text(f"  shown by: {', '.join(lesson.run_ids)}"))
@@ -659,7 +662,7 @@ def _print_lessons(c: Ctx, lessons: Lessons, shown: list[Lesson] | None = None) 
             Text(x.status.value, style=LESSON_COLOURS[x.status]),
             str(len(x.run_ids)),
             Text(x.statement),
-            Text(x.declared or x.value),
+            Text(x.declared or x.value if x.declares else ""),
         )
     console.print(table)
     answerable = [x for x in held if x.status is LessonStatus.open]
@@ -744,6 +747,13 @@ def lessons_accept(
         _emit_json(_lesson_payload(lesson))
         return
     console.print(Text(f"accepted {lesson.id}: {lesson.statement}"))
+    if lesson.kind is LessonKind.false_positive:
+        console.print(
+            Text(
+                f"from the next run, the {lesson.perspective} reviewer is told this claim does "
+                "not hold here; no other perspective is"
+            )
+        )
     if lesson.declares:
         console.print(
             Text(
@@ -759,7 +769,10 @@ def lessons_accept(
 def lessons_decline(
     ctx: typer.Context,
     lesson_id: str,
-    reason: str = typer.Option(..., help="Why it is not a rule of this project; kept with it."),
+    reason: str = typer.Option(
+        ...,
+        help="Why the lesson does not hold — for a reviewer's claim, why it stood; kept with it.",
+    ),
 ) -> None:
     """Decline a lesson with a reason; the same lesson is not proposed again."""
     c = _ctx(ctx)
