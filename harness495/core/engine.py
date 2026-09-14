@@ -19,7 +19,7 @@ import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, assert_never
+from typing import Any, Protocol, assert_never
 
 from harness495 import __version__
 from harness495.agents.base import Agent, AgentResult, AgentTask
@@ -167,6 +167,53 @@ class EngineError(RuntimeError):
     pass
 
 
+class EmitEvent(Protocol):
+    """Append an event to the run's log and hand it to whoever is listening."""
+
+    def __call__(
+        self, run: Run, type_: str, message: str = "", data: dict[str, Any] | None = None
+    ) -> None: ...
+
+
+class RunServices:
+    """The infrastructure a region of the engine works through: the store it persists to, the
+    sandbox it executes in, the event and warning sinks, the worktree the run works in, the
+    check that says whether a stop was asked for, and the status setter.
+
+    These seven are what every region reaches for by way of infrastructure, and the only thing
+    most of them reach for at all. Naming them as one collaborator is what lets a region take
+    what it uses rather than reach for every method of :class:`Engine`.
+
+    Not a value object: ``set_status`` writes the run and emits an event, and ``store`` is the
+    state on disk. It is the engine's own services under one name.
+
+    ``sandbox`` is read through a callable rather than held, because the backend is selected on
+    the first phase that needs one — after the services are built.
+    """
+
+    def __init__(
+        self,
+        store: RunStore,
+        sandbox: Callable[[], Sandbox],
+        emit: EmitEvent,
+        warn: Callable[[Run, str], None],
+        worktree: Callable[[Run], Path],
+        stop_check: Callable[[Run], Callable[[], bool]],
+        set_status: Callable[[Run, RunStatus], None],
+    ) -> None:
+        self.store = store
+        self.emit = emit
+        self.warn = warn
+        self.worktree = worktree
+        self.stop_check = stop_check
+        self.set_status = set_status
+        self._sandbox = sandbox
+
+    @property
+    def sandbox(self) -> Sandbox:
+        return self._sandbox()
+
+
 class Engine:
     def __init__(
         self,
@@ -177,7 +224,6 @@ class Engine:
         agent_factory: Callable[[Any, Sandbox], Agent] | None = None,
         label: str = "495",
     ) -> None:
-        self.store = store
         self._sandbox = sandbox
         self._sandbox_warnings: list[str] = []
         self.on_event = on_event
@@ -186,6 +232,20 @@ class Engine:
         #: How this engine names itself to whoever finds the run already claimed.
         self.label = label
         self._stop = threading.Event()
+        self._services = RunServices(
+            store=store,
+            sandbox=lambda: self.sandbox,
+            emit=self.emit,
+            warn=self._warn,
+            worktree=self._worktree,
+            stop_check=self._stop_check,
+            set_status=self._set_status,
+        )
+
+    @property
+    def store(self) -> RunStore:
+        """The run store, which the services hold and the surfaces read."""
+        return self._services.store
 
     # ------------------------------------------------------------------ public API
 
@@ -218,9 +278,11 @@ class Engine:
         if spec is not None:
             run.spec = spec
             run.spec.source = "user"
-        self.store.save(run)
+        self._services.store.save(run)
         git.ensure_excluded(root, ".495/")
-        self.emit(run, "run.created", f"run {run.id} created ({mode.value})", {"intent": intent})
+        self._services.emit(
+            run, "run.created", f"run {run.id} created ({mode.value})", {"intent": intent}
+        )
         return run
 
     def run(self, run_id: str) -> Run:
@@ -230,10 +292,10 @@ class Engine:
         surface, a CI job — is refused rather than allowed to interleave its writes with
         these ones.
         """
-        run = self.store.load(run_id)
-        self.store.claim(run_id, self.label)
+        run = self._services.store.load(run_id)
+        self._services.store.claim(run_id, self.label)
         try:
-            self.store.clear_stop(run_id)
+            self._services.store.clear_stop(run_id)
             self._stop.clear()
             if run.status is RunStatus.paused or run.status is RunStatus.failed:
                 run = self.resume(run_id)
@@ -244,24 +306,24 @@ class Engine:
                     run = self._pause(run, "interrupted by user")
                     break
         finally:
-            self.store.release(run_id)
+            self._services.store.release(run_id)
         return run
 
     def resume(self, run_id: str) -> Run:
-        run = self.store.load(run_id)
-        self.store.clear_stop(run_id)
+        run = self._services.store.load(run_id)
+        self._services.store.clear_stop(run_id)
         self._stop.clear()
         if run.status in (RunStatus.paused, RunStatus.failed):
             target = run.resume_status or RunStatus.created
-            self.emit(run, "run.resumed", f"resuming at {target.value}")
+            self._services.emit(run, "run.resumed", f"resuming at {target.value}")
             run.status = target
             run.resume_status = None
             run.stop_reason = None
-            self.store.save(run)
+            self._services.store.save(run)
         return run
 
     def request_stop(self, run_id: str, reason: str = "stop requested") -> None:
-        self.store.request_stop(run_id, reason)
+        self._services.store.request_stop(run_id, reason)
         self._stop.set()
 
     def decide(
@@ -277,7 +339,7 @@ class Engine:
         ``answers`` carries one reply per question of a ``clarify`` round; every other decision
         is one question and answers it with ``choice`` alone.
         """
-        run = self.store.load(run_id)
+        run = self._services.store.load(run_id)
         if run.pending_decision is None:
             raise EngineError("no pending decision")
         return self._apply_decision(run, choice, note, made_by, answers)
@@ -307,7 +369,7 @@ class Engine:
             run = self._fail(run, f"version integrity violated: {exc}", entry)
         except git.GitError as exc:
             run = self._fail(run, f"git error: {exc}", entry)
-        self.store.save(run)
+        self._services.store.save(run)
         return run
 
     # ------------------------------------------------------------------ infrastructure
@@ -322,40 +384,40 @@ class Engine:
         if self._sandbox is None:
             self._sandbox, self._sandbox_warnings = select_sandbox(run.config.sandbox)
             for w in self._sandbox_warnings:
-                self._warn(run, w)
+                self._services.warn(run, w)
 
     def emit(
         self, run: Run, type_: str, message: str = "", data: dict[str, Any] | None = None
     ) -> None:
         ev = Event(run_id=run.id, type=type_, message=message, data=data or {})
-        self.store.append_event(ev)
+        self._services.store.append_event(ev)
         if self.on_event is not None:
             self.on_event(ev)
 
     def _warn(self, run: Run, message: str) -> None:
         if message not in run.warnings:
             run.warnings.append(message)
-        self.emit(run, "warning", message)
+        self._services.emit(run, "warning", message)
 
     def _stop_check(self, run: Run) -> Callable[[], bool]:
         def check() -> bool:
-            return self._stop.is_set() or self.store.stop_requested(run.id) is not None
+            return self._stop.is_set() or self._services.store.stop_requested(run.id) is not None
 
         return check
 
     def _set_status(self, run: Run, status: RunStatus) -> None:
         old = run.status
         run.status = status
-        self.store.save(run)
-        self.emit(
+        self._services.store.save(run)
+        self._services.emit(
             run, "status", f"{old.value} -> {status.value}", {"from": old.value, "to": status.value}
         )
 
     def _fail(self, run: Run, reason: str, retry_at: RunStatus) -> Run:
         run.stop_reason = reason
         run.resume_status = retry_at
-        self._set_status(run, RunStatus.failed)
-        self.emit(run, "run.failed", reason)
+        self._services.set_status(run, RunStatus.failed)
+        self._services.emit(run, "run.failed", reason)
         return run
 
     def _pause(self, run: Run, reason: str) -> Run:
@@ -367,15 +429,15 @@ class Engine:
         entry = PHASE_ENTRY.get(run.status, run.status)
         run.resume_status = entry
         run.stop_reason = reason
-        self._set_status(run, RunStatus.paused)
-        self.emit(run, "run.paused", reason)
+        self._services.set_status(run, RunStatus.paused)
+        self._services.emit(run, "run.paused", reason)
         return run
 
     def _abort(self, run: Run, reason: str) -> Run:
         run.stop_reason = reason
         run.pending_decision = None
-        self._set_status(run, RunStatus.aborted)
-        self.emit(run, "run.aborted", reason)
+        self._services.set_status(run, RunStatus.aborted)
+        self._services.emit(run, "run.aborted", reason)
         return run
 
     def worktree_path(self, run: Run) -> Path:
@@ -396,8 +458,10 @@ class Engine:
     def _raise_decision(self, run: Run, pending: PendingDecision, resume_at: RunStatus) -> Run:
         run.pending_decision = pending
         run.resume_status = resume_at
-        self._set_status(run, RunStatus.awaiting_decision)
-        self.emit(run, "decision.requested", pending.question, {"kind": pending.kind.value})
+        self._services.set_status(run, RunStatus.awaiting_decision)
+        self._services.emit(
+            run, "decision.requested", pending.question, {"kind": pending.kind.value}
+        )
         if self.decision_handler is not None:
             answer = self.decision_handler(run, pending)
             if answer is not None:
@@ -429,7 +493,7 @@ class Engine:
             answers=answers or [],
         )
         run.decisions.append(d)
-        self.emit(
+        self._services.emit(
             run,
             "decision",
             f"{kind.value}: {outcome} ({made_by.value})",
@@ -473,76 +537,76 @@ class Engine:
         match kind:
             case DecisionKind.clarify:
                 self._record_clarify_answers(run, answers)
-                self._set_status(run, RunStatus.clarifying)
+                self._services.set_status(run, RunStatus.clarifying)
             case DecisionKind.approve_spec:
                 if choice in ("approve", "approve_with_gaps"):
                     run.spec.approved = True
                     run.spec.approved_by = made_by
-                    self._set_status(run, RunStatus.ready)
+                    self._services.set_status(run, RunStatus.ready)
                 elif choice == "revise":
                     run.spec.approved = False
                     run.spec.assumptions.append(f"revision requested: {note}")
                     run.intent.text = run.intent.text  # unchanged; the note travels with the spec
-                    self._set_status(run, RunStatus.clarified)
+                    self._services.set_status(run, RunStatus.clarified)
             case DecisionKind.readiness:
                 if choice == "proceed":
-                    self._set_status(run, RunStatus.profiled)
+                    self._services.set_status(run, RunStatus.profiled)
                 elif choice == "allow_network":
                     run.config.sandbox.allow_network = True
-                    self._warn(
+                    self._services.warn(
                         run,
                         "verification commands now run with network access; "
                         "agent isolation is unchanged",
                     )
-                    self._set_status(run, RunStatus.created)
+                    self._services.set_status(run, RunStatus.created)
                 elif choice == "drop":
                     assert run.profile is not None
                     bad = {r.command_name for r in run.profile.readiness if not r.executable}
                     run.profile.commands = [c for c in run.profile.commands if c.name not in bad]
                     run.profile.readiness = [r for r in run.profile.readiness if r.executable]
-                    self._set_status(run, RunStatus.profiled)
+                    self._services.set_status(run, RunStatus.profiled)
                 elif choice == "retry":
-                    self._set_status(run, RunStatus.created)
+                    self._services.set_status(run, RunStatus.created)
             case DecisionKind.no_progress:
                 if choice == "respecify":
                     run.spec.approved = False
                     run.spec.assumptions.append(f"revision requested: {note}")
-                    self._set_status(run, RunStatus.clarified)
+                    self._services.set_status(run, RunStatus.clarified)
                 elif choice == "review_anyway":
-                    self._set_status(run, RunStatus.produced)
+                    self._services.set_status(run, RunStatus.produced)
                 elif choice == "stop":
                     run.result.outcome = Verdict.reject
                     run.result.summary = "rejected: the corrections produced no change"
-                    self._set_status(run, RunStatus.rejected)
+                    self._services.set_status(run, RunStatus.rejected)
             case DecisionKind.instrument_fault:
                 if choice == "recalibrate":
                     self._recalibrate(run, note)
-                    self._set_status(run, RunStatus.produced)
+                    self._services.set_status(run, RunStatus.produced)
                 elif choice == "respecify":
                     run.spec.approved = False
                     run.spec.assumptions.append(f"revision requested: {note}")
-                    self._set_status(run, RunStatus.clarified)
+                    self._services.set_status(run, RunStatus.clarified)
                 elif choice == "ignore":
                     # The verification keeps running and keeps being recorded, but goes on
                     # counting as proof of nothing, so the requirements it carries stay
                     # undetermined rather than becoming violations the producer would be sent to
                     # fix. The answer holds for the rest of the run: the fault is in the
                     # specification and has not moved.
-                    self._set_status(run, run.resume_status or RunStatus.reviewed)
+                    self._services.set_status(run, run.resume_status or RunStatus.reviewed)
             case DecisionKind.iteration_limit:
                 if choice == "continue":
                     run.budget.max_iterations += 1
-                    self._set_status(run, RunStatus.ready)
+                    self._services.set_status(run, RunStatus.ready)
                 elif choice == "stop":
                     run.result.outcome = Verdict.reject
                     run.result.summary = "rejected after reaching the iteration limit"
-                    self._set_status(run, RunStatus.rejected)
+                    self._services.set_status(run, RunStatus.rejected)
             case DecisionKind.undetermined:
                 if choice == "accept_with_risk":
                     run.result.summary = f"accepted by human despite undetermined evidence: {note}"
-                    self._set_status(run, RunStatus.accepted)
+                    self._services.set_status(run, RunStatus.accepted)
                 elif choice == "rerun":
-                    self._set_status(run, RunStatus.produced)
+                    self._services.set_status(run, RunStatus.produced)
                 elif choice == "correct":
                     it = run.current_iteration
                     if it is not None:
@@ -550,9 +614,9 @@ class Engine:
                     if run.mode is RunMode.evaluate:
                         run.result.outcome = Verdict.reject
                         run.result.summary = f"rejected by human: {note}"
-                        self._set_status(run, RunStatus.rejected)
+                        self._services.set_status(run, RunStatus.rejected)
                     else:
-                        self._set_status(run, RunStatus.ready)
+                        self._services.set_status(run, RunStatus.ready)
             case DecisionKind.budget:
                 if choice == "raise":
                     try:
@@ -563,7 +627,7 @@ class Engine:
                         ) from exc
                     run.budget.max_cost_usd = (run.budget.max_cost_usd or 0.0) + extra
                     run.budget.max_interventions += 5
-                    self._set_status(run, run.resume_status or RunStatus.ready)
+                    self._services.set_status(run, run.resume_status or RunStatus.ready)
             case DecisionKind.scope:
                 if choice == "allow":
                     it = run.current_iteration
@@ -571,7 +635,7 @@ class Engine:
                         it.correction_requests = [
                             c for c in it.correction_requests if not c.startswith("[scope]")
                         ]
-                    self._set_status(run, RunStatus.produced)
+                    self._services.set_status(run, RunStatus.produced)
             case DecisionKind.acceptance:
                 # The verdict the harness records for itself in _decide, from the evidence it
                 # measured. It is never raised as a question, so no answer to it arrives here;
@@ -580,14 +644,14 @@ class Engine:
             case _:
                 assert_never(kind)
         run.resume_status = None
-        self.store.save(run)
+        self._services.store.save(run)
         return run
 
     # ------------------------------------------------------------------ interventions
 
     def _agent_for(self, run: Run, name: str) -> Agent:
         spec = run.config.agent(name)
-        return self.agent_factory(spec, self.sandbox)
+        return self.agent_factory(spec, self._services.sandbox)
 
     def _intervene(
         self,
@@ -605,13 +669,13 @@ class Engine:
         if not check.ok:
             raise budget_mod.BudgetExceeded(check.reason)
         agent = self._agent_for(run, agent_name)
-        cwd = cwd or self._worktree(run)
+        cwd = cwd or self._services.worktree(run)
         project_before = project_snapshot(Path(run.project_root))
         iid = new_id("int")
-        idir = self.store.intervention_dir(run.id, iid)
+        idir = self._services.store.intervention_dir(run.id, iid)
         prompt_text = pack.render()
-        prompt_ref = self.store.write_text(run.id, str(idir / "prompt.md"), prompt_text)
-        self.store.write_json(run.id, str(idir / "context.json"), pack.to_json())
+        prompt_ref = self._services.store.write_text(run.id, str(idir / "prompt.md"), prompt_text)
+        self._services.store.write_json(run.id, str(idir / "context.json"), pack.to_json())
         version_before = git.head_commit(cwd)
         intervention = Intervention(
             id=iid,
@@ -627,8 +691,8 @@ class Engine:
             version_before=version_before,
         )
         run.interventions.append(intervention)
-        self.store.save(run)
-        self.emit(
+        self._services.store.save(run)
+        self._services.emit(
             run,
             "intervention.started",
             f"{role.value}{' (' + perspective + ')' if perspective else ''} by {agent.spec.kind.value}"
@@ -647,7 +711,7 @@ class Engine:
             max_budget_usd=budget_mod.per_intervention_budget(run, agent.spec.max_budget_usd),
             output_schema=schema,
             scratch_dir=scratch,
-            stop_check=self._stop_check(run),
+            stop_check=self._services.stop_check(run),
             max_steps=run.budget.local_max_steps,
         )
         result: AgentResult | None = None
@@ -661,7 +725,7 @@ class Engine:
                 intervention.duration_s = (
                     intervention.ended_at - intervention.started_at
                 ).total_seconds()
-                self.store.save(run)
+                self._services.store.save(run)
         assert result is not None
         intervention.status = result.status
         intervention.agent = result.identity
@@ -683,18 +747,18 @@ class Engine:
         intervention.error = result.error
         intervention.duration_s = result.duration_s
         intervention.activity = dict(result.activity)
-        intervention.transcript_ref = self.store.write_text(
+        intervention.transcript_ref = self._services.store.write_text(
             run.id, str(idir / "transcript.txt"), result.transcript
         )
         if result.structured is not None:
-            intervention.output_ref = self.store.write_json(
+            intervention.output_ref = self._services.store.write_json(
                 run.id, str(idir / "output.json"), result.structured
             )
         else:
-            intervention.output_ref = self.store.write_text(
+            intervention.output_ref = self._services.store.write_text(
                 run.id, str(idir / "output.md"), result.text
             )
-        self.store.write_json(
+        self._services.store.write_json(
             run.id,
             str(idir / "meta.json"),
             {
@@ -724,11 +788,11 @@ class Engine:
             run.evidence.append(escape)
             if run.current_iteration is not None:
                 run.current_iteration.evidence_ids.append(escape.id)
-            self._warn(run, escape.summary)
+            self._services.warn(run, escape.summary)
         for w in budget_mod.record(run, intervention):
-            self._warn(run, w)
-        self.store.save(run)
-        self.emit(
+            self._services.warn(run, w)
+        self._services.store.save(run)
+        self._services.emit(
             run,
             "intervention.ended",
             f"{role.value} {result.status.value} in {result.duration_s:.0f}s, "
@@ -763,10 +827,10 @@ class Engine:
         self._ensure_sandbox(run)
         root = Path(run.project_root)
         profile = detect_profile(root, run.config.project)
-        profile.declined_roles = proposals_mod.declined_roles(self.store.load_proposals())
-        profile.lessons = self.store.load_lessons().in_force
+        profile.declined_roles = proposals_mod.declined_roles(self._services.store.load_proposals())
+        profile.lessons = self._services.store.load_lessons().in_force
         run.profile = profile
-        self.emit(
+        self._services.emit(
             run,
             "profile.detected",
             f"languages: {', '.join(profile.languages) or 'unknown'}; commands: "
@@ -783,7 +847,9 @@ class Engine:
             profile.base_commit = base
         elif not wt.exists():
             git.add_worktree(root, wt, f"495/{run.id}", base)
-            self.emit(run, "worktree.created", f"{wt} on branch 495/{run.id} at {base[:12]}")
+            self._services.emit(
+                run, "worktree.created", f"{wt} on branch 495/{run.id} at {base[:12]}"
+            )
         # Readiness: run every command once on the base version.
         profile.readiness = []
         for cmd in profile.commands:
@@ -793,9 +859,9 @@ class Engine:
                 timeout_s=cmd.timeout_s or run.budget.command_timeout_s,
                 writable=True,
                 network=run.config.sandbox.allow_network,
-                stop_check=self._stop_check(run),
+                stop_check=self._services.stop_check(run),
             )
-            res = self.sandbox.run(req)
+            res = self._services.sandbox.run(req)
             executable = (
                 not res.timed_out
                 and res.exit_code not in (126, 127, None)
@@ -831,16 +897,16 @@ class Engine:
                 passed=res.exit_code == 0,
                 summary=f"{cmd.name} on the base version: {detail}",
                 duration_s=res.duration_s,
-                sandbox=self.sandbox.describe(req),
+                sandbox=self._services.sandbox.describe(req),
             )
-            baseline_ev.output_ref = self.store.write_text(
+            baseline_ev.output_ref = self._services.store.write_text(
                 run.id,
-                str(self.store.evidence_dir(run.id, baseline_ev.id) / "output.txt"),
+                str(self._services.store.evidence_dir(run.id, baseline_ev.id) / "output.txt"),
                 res.output,
             )
             baseline_ev.output_sha256 = git.sha256_text(res.output)
             run.evidence.append(baseline_ev)
-            self.emit(
+            self._services.emit(
                 run,
                 "readiness",
                 f"{cmd.name}: {'ok' if executable else 'NOT executable'} ({detail})",
@@ -937,8 +1003,10 @@ class Engine:
             )
             return self._raise_decision(run, pending, RunStatus.created)
         for r in red:
-            self._warn(run, f"baseline '{r.command_name}' exits {r.exit_code} on the base version")
-        self._set_status(run, RunStatus.profiled)
+            self._services.warn(
+                run, f"baseline '{r.command_name}' exits {r.exit_code} on the base version"
+            )
+        self._services.set_status(run, RunStatus.profiled)
         return run
 
     def _clarify(self, run: Run) -> Run:
@@ -958,16 +1026,16 @@ class Engine:
         """
         clar = run.clarification
         if clar.complete:
-            self._set_status(run, RunStatus.clarified)
+            self._services.set_status(run, RunStatus.clarified)
             return run
         if run.budget.max_clarify_rounds <= 0:
             clar.complete = True
-            self._set_status(run, RunStatus.clarified)
+            self._services.set_status(run, RunStatus.clarified)
             return run
         self._ensure_sandbox(run)
         assert run.profile is not None
-        wt = self._worktree(run)
-        self._set_status(run, RunStatus.clarifying)
+        wt = self._services.worktree(run)
+        self._services.set_status(run, RunStatus.clarifying)
         n = len(clar.rounds) + 1
         pack = ContextPack(role="clarifier")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
@@ -1004,30 +1072,30 @@ class Engine:
             # Nothing the clarifier produces is needed to specify: what it buys is that the
             # decisions were put to the requester, and one that never ran put none. The run
             # goes on with that said, rather than failing over a phase that asks questions.
-            self._warn(
+            self._services.warn(
                 run,
                 "the clarifier did not complete "
                 f"({(result.error or result.status.value) if result else 'no result'}); "
                 "no decision was put to you, and the specifier decides what the intent leaves open",
             )
             clar.complete = True
-            self._set_status(run, RunStatus.clarified)
+            self._services.set_status(run, RunStatus.clarified)
             return run
         data = result.structured or _parse_json_text(result.text) or {}
         questions, dropped = _clarify_frontier(data, clar)
         round_ = ClarifyRound(n=n, intervention_id=intervention.id, dropped=dropped)
         clar.rounds.append(round_)
         for reason in dropped:
-            self._warn(run, f"clarification round {n}: {reason}")
+            self._services.warn(run, f"clarification round {n}: {reason}")
         if not questions:
             clar.complete = True
-            self.emit(
+            self._services.emit(
                 run,
                 "clarify.settled",
                 f"round {n} returned no question: nothing is left to decide before the "
                 f"specification; {len(clar.answers)} decision(s) taken",
             )
-            self._set_status(run, RunStatus.clarified)
+            self._services.set_status(run, RunStatus.clarified)
             return run
         if clar.rounds_answered >= run.budget.max_clarify_rounds:
             clar.open_questions = questions
@@ -1037,14 +1105,14 @@ class Engine:
                 f"{len(questions)} question(s) recorded as unanswered: the cap of "
                 f"{run.budget.max_clarify_rounds} answered round(s) was reached"
             )
-            self._warn(
+            self._services.warn(
                 run,
                 f"the clarification stopped at {run.budget.max_clarify_rounds} answered round(s) "
                 f"with {len(questions)} question(s) still open: "
                 + "; ".join(q.title for q in questions)
                 + "; the specifier decides them and records each as an assumption",
             )
-            self._set_status(run, RunStatus.clarified)
+            self._services.set_status(run, RunStatus.clarified)
             return run
         round_.questions = questions
         if run.config.auto_approve:
@@ -1059,7 +1127,7 @@ class Engine:
                 answers=answers,
             )
             self._record_clarify_answers(run, answers)
-            self._set_status(run, RunStatus.clarifying)
+            self._services.set_status(run, RunStatus.clarifying)
             return run
         return self._raise_decision(
             run,
@@ -1121,7 +1189,7 @@ class Engine:
             return
         run.clarification.rounds[-1].answers = answers
         for answer in answers:
-            self.emit(
+            self._services.emit(
                 run,
                 "clarify.answered",
                 answer.statement,
@@ -1165,7 +1233,9 @@ class Engine:
             base_ref = git.rev_parse(root, base_spec)
             git.add_worktree(root, wt, f"495/{run.id}", head_ref)
             base, head = base_ref, head_ref
-        self.emit(run, "worktree.created", f"{wt} evaluating {head[:12]} against base {base[:12]}")
+        self._services.emit(
+            run, "worktree.created", f"{wt} evaluating {head[:12]} against base {base[:12]}"
+        )
         return base, head
 
     def _specify(self, run: Run) -> Run:
@@ -1185,16 +1255,16 @@ class Engine:
             run.spec.decisions_taken = decisions
             _normalise_spec(run.spec)
             assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
-            self.emit(
+            self._services.emit(
                 run,
                 "spec.provided",
                 f"{len(run.spec.requirements)} requirement(s) from user; {len(run.spec.gaps)} gap(s)",
             )
-            self._set_status(run, RunStatus.specified)
+            self._services.set_status(run, RunStatus.specified)
             return run
         pack = ContextPack(role="specifier")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         if run.clarification.says_anything:
             pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
@@ -1262,20 +1332,20 @@ class Engine:
         assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
         # Written before the gate, not after it: the specification is what the requester is
         # asked to approve, so it has to be readable at the moment the question is put.
-        run.spec.artifact_ref = self.store.write_json(
+        run.spec.artifact_ref = self._services.store.write_json(
             run.id,
-            str(self.store.artifacts_dir(run.id) / "spec.json"),
+            str(self._services.store.artifacts_dir(run.id) / "spec.json"),
             run.spec.model_dump(mode="json"),
         )
-        spec_path = self.store.resolve(run.id, run.spec.artifact_ref)
-        self.emit(
+        spec_path = self._services.store.resolve(run.id, run.spec.artifact_ref)
+        self._services.emit(
             run,
             "spec.proposed",
             f"{len(spec.requirements)} requirement(s), {len(spec.verifications)} verification(s), "
             f"{len(spec.gaps)} gap(s); written to {spec_path}",
             {"spec_ref": run.spec.artifact_ref},
         )
-        self._set_status(run, RunStatus.specified)
+        self._services.set_status(run, RunStatus.specified)
         return run
 
     def _preflight(self, run: Run) -> list[Evidence]:
@@ -1288,7 +1358,7 @@ class Engine:
         """
         if run.mode is not RunMode.change or run.profile is None:
             return []
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         if not wt.exists():
             return []
         already = {r.command for r in run.profile.readiness}
@@ -1306,9 +1376,9 @@ class Engine:
                 timeout_s=v.timeout_s or run.budget.command_timeout_s,
                 writable=True,
                 network=run.config.sandbox.allow_network,
-                stop_check=self._stop_check(run),
+                stop_check=self._services.stop_check(run),
             )
-            res = self.sandbox.run(req)
+            res = self._services.sandbox.run(req)
             if res.interrupted:
                 raise KeyboardInterrupt
             ev = Evidence(
@@ -1323,14 +1393,16 @@ class Engine:
                 passed=None,  # what it reports here is not yet about anything
                 summary=f"never run before: exit {res.exit_code} on the base version",
             )
-            ev.output_ref = self.store.write_text(
-                run.id, str(self.store.evidence_dir(run.id, ev.id) / "output.txt"), res.output
+            ev.output_ref = self._services.store.write_text(
+                run.id,
+                str(self._services.store.evidence_dir(run.id, ev.id) / "output.txt"),
+                res.output,
             )
             ev.output_sha256 = git.sha256_text(res.output)
             ev.duration_s = res.duration_s
-            ev.sandbox = self.sandbox.describe(req)
+            ev.sandbox = self._services.sandbox.describe(req)
             produced.append(ev)
-            self.emit(
+            self._services.emit(
                 run,
                 "preflight",
                 f"{v.id}: exit {res.exit_code} on the base version, before the change exists",
@@ -1352,10 +1424,12 @@ class Engine:
                 "approve",
                 "auto-approve enabled and no verification gap",
             )
-            self._set_status(run, RunStatus.ready)
+            self._services.set_status(run, RunStatus.ready)
             return run
         spec_path = (
-            str(self.store.resolve(run.id, run.spec.artifact_ref)) if run.spec.artifact_ref else ""
+            str(self._services.store.resolve(run.id, run.spec.artifact_ref))
+            if run.spec.artifact_ref
+            else ""
         )
         where = f" The full specification is at {spec_path}." if spec_path else ""
         question = (
@@ -1452,7 +1526,7 @@ class Engine:
         return self._raise_decision(run, pending, resume_at)
 
     def _evaluation_version(self, run: Run) -> Version:
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         assert run.profile is not None and run.profile.base_commit
         base = run.profile.base_commit
         head = git.head_commit(wt)
@@ -1467,21 +1541,21 @@ class Engine:
     def _produce(self, run: Run) -> Run:
         self._ensure_sandbox(run)
         assert run.profile is not None and run.profile.base_commit
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         n = run.iteration_number + 1
         if run.mode is RunMode.evaluate:
             if run.iterations:
                 run.result.outcome = Verdict.reject
                 run.result.summary = "evaluation rejected; no production agent in evaluate mode"
-                self._set_status(run, RunStatus.rejected)
+                self._services.set_status(run, RunStatus.rejected)
                 return run
             version = self._evaluation_version(run)
             version.patch_ref = self._save_patch(run, version)
             run.iterations.append(Iteration(n=n, version=version))
-            self.emit(
+            self._services.emit(
                 run, "iteration.started", f"iteration {n} (evaluation of {version.head_commit})"
             )
-            self._set_status(run, RunStatus.produced)
+            self._services.set_status(run, RunStatus.produced)
             return run
         blocked = self._design_tests(run)
         if blocked is not None:
@@ -1490,8 +1564,8 @@ class Engine:
         corrections = list(previous.correction_requests) if previous else []
         iteration = Iteration(n=n)
         run.iterations.append(iteration)
-        self._set_status(run, RunStatus.producing)
-        self.emit(
+        self._services.set_status(run, RunStatus.producing)
+        self._services.emit(
             run,
             "iteration.started",
             f"iteration {n}" + (" (corrections)" if corrections else ""),
@@ -1538,7 +1612,7 @@ class Engine:
                 if e and e.passed is False and e.output_ref:
                     pack.add_untrusted(
                         f"output of `{e.command}` (previous iteration)",
-                        trim_output(self.store.read_text(run.id, e.output_ref)),
+                        trim_output(self._services.store.read_text(run.id, e.output_ref)),
                     )
             prev_reviews = [r for r in run.reviews if r.intervention_id in previous.review_ids]
             pack.add_untrusted(
@@ -1581,7 +1655,7 @@ class Engine:
                 RunStatus.ready,
             )
         if result.status is not InterventionStatus.completed:
-            self._warn(
+            self._services.warn(
                 run,
                 f"producer ended with {result.status.value}: {result.error}; evaluating whatever was produced",
             )
@@ -1589,7 +1663,7 @@ class Engine:
             claims = result.structured.get("not_done") or []
             iteration.blocked_claims = [str(c).strip()[:500] for c in claims if str(c).strip()][:20]
             for claim in iteration.blocked_claims:
-                self.emit(run, "producer.blocked", claim)
+                self._services.emit(run, "producer.blocked", claim)
             iteration.commands_reported = [
                 ReportedCommand(
                     command=str(c["command"]).strip()[:500], exit_code=int(c["exit_code"])
@@ -1612,15 +1686,15 @@ class Engine:
         )
         version.patch_ref = self._save_patch(run, version)
         iteration.version = version
-        self.emit(
+        self._services.emit(
             run,
             "version.frozen",
             f"iteration {n} committed as {head[:12]} ({len(version.files_changed)} file(s))",
             {"head": head, "patch_sha256": version.patch_sha256},
         )
         if head == base_for_diff:
-            self._warn(run, f"iteration {n} produced no change")
-        self._set_status(run, RunStatus.produced)
+            self._services.warn(run, f"iteration {n} produced no change")
+        self._services.set_status(run, RunStatus.produced)
         previous_version = previous.version if previous is not None else None
         if (
             previous is not None
@@ -1699,8 +1773,8 @@ class Engine:
         ):
             return None
         assert run.profile is not None and run.profile.base_commit
-        wt = self._worktree(run)
-        self._set_status(run, RunStatus.producing)
+        wt = self._services.worktree(run)
+        self._services.set_status(run, RunStatus.producing)
         before = git.head_commit(wt)
         pack = ContextPack(role="test_designer")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
@@ -1752,7 +1826,7 @@ class Engine:
                 RunStatus.ready,
             )
         if result.status is not InterventionStatus.completed:
-            self._warn(
+            self._services.warn(
                 run,
                 f"test designer ended with {result.status.value}: {result.error}; keeping "
                 "whatever tests were written",
@@ -1762,7 +1836,7 @@ class Engine:
         discarded = [f for f in written if f not in kept]
         if discarded:
             git.discard_paths(wt, discarded)
-            self._warn(
+            self._services.warn(
                 run,
                 "the test designer wrote files that are not tests, put back as they were: "
                 + ", ".join(discarded),
@@ -1794,9 +1868,9 @@ class Engine:
             not_done=not_done,
         )
         for claim in not_done:
-            self.emit(run, "test_designer.blocked", claim)
+            self._services.emit(run, "test_designer.blocked", claim)
         if kept:
-            self.emit(
+            self._services.emit(
                 run,
                 "tests.designed",
                 f"{len(kept)} test file(s) written by the test designer, committed as "
@@ -1804,24 +1878,27 @@ class Engine:
                 {"files": kept, "commit": commit, "intervention": intervention.id},
             )
         else:
-            self._warn(
+            self._services.warn(
                 run,
                 "the test designer wrote no test file; the producer creates the tests to create "
                 "itself, and the test_quality reviewer reads them",
             )
-        self.store.save(run)
+        self._services.store.save(run)
         return None
 
     def _save_patch(self, run: Run, version: Version) -> str | None:
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         assert version.head_commit
         patch = git.diff(wt, version.base_commit, version.head_commit)
         version.patch_sha256 = git.sha256_text(patch)
         if not patch.strip():
             return None
-        ref = self.store.write_text(
+        ref = self._services.store.write_text(
             run.id,
-            str(self.store.artifacts_dir(run.id) / f"iteration-{run.iteration_number or 1}.patch"),
+            str(
+                self._services.store.artifacts_dir(run.id)
+                / f"iteration-{run.iteration_number or 1}.patch"
+            ),
             patch,
         )
         return ref
@@ -1830,8 +1907,8 @@ class Engine:
         self._ensure_sandbox(run)
         it = run.current_iteration
         assert it is not None and it.version is not None and it.version.head_commit
-        wt = self._worktree(run)
-        self._set_status(run, RunStatus.verifying)
+        wt = self._services.worktree(run)
+        self._services.set_status(run, RunStatus.verifying)
         git.reset_hard_clean(wt, it.version.head_commit)
         evidence: list[Evidence] = []
         # Scope check.
@@ -1848,7 +1925,7 @@ class Engine:
             summary=report.summary(),
         )
         evidence.append(scope_ev)
-        self.emit(
+        self._services.emit(
             run,
             "evidence",
             f"scope: {'ok' if report.ok else 'VIOLATION'} - {report.summary()}",
@@ -1879,7 +1956,7 @@ class Engine:
                 ),
             )
             evidence.append(protected_ev)
-            self.emit(
+            self._services.emit(
                 run,
                 "evidence",
                 f"protected tests: {'ok' if not touched else 'VIOLATION'} - {protected_ev.summary}",
@@ -1896,7 +1973,7 @@ class Engine:
                     v,
                     wt,
                     it.version.head_commit,
-                    self.sandbox,
+                    self._services.sandbox,
                     it.n,
                     run.budget.command_timeout_s,
                     lambda _e, _t: "",
@@ -1906,27 +1983,29 @@ class Engine:
                 )
                 evidence.append(ev)
                 continue
-            self.emit(run, "verification.started", f"{v.id}: {v.command}", {"verification": v.id})
+            self._services.emit(
+                run, "verification.started", f"{v.id}: {v.command}", {"verification": v.id}
+            )
 
             def sink(eid: str, text: str) -> str:
-                return self.store.write_text(
-                    run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), text
+                return self._services.store.write_text(
+                    run.id, str(self._services.store.evidence_dir(run.id, eid) / "output.txt"), text
                 )
 
             ev = run_verification(
                 v,
                 wt,
                 it.version.head_commit,
-                self.sandbox,
+                self._services.sandbox,
                 it.n,
                 run.budget.command_timeout_s,
                 sink,
-                self._stop_check(run),
+                self._services.stop_check(run),
                 req_by_verification.get(v.id, []),
                 network=run.config.sandbox.allow_network,
             )
             evidence.append(ev)
-            self.emit(
+            self._services.emit(
                 run,
                 "evidence",
                 f"{v.id}: {'PASS' if ev.passed else 'FAIL' if ev.passed is False else 'NOT RUN'} ({ev.summary})",
@@ -1949,7 +2028,7 @@ class Engine:
         git.reset_hard_clean(wt, it.version.head_commit)
         run.evidence.extend(evidence)
         it.evidence_ids.extend(e.id for e in evidence)
-        self._set_status(run, RunStatus.verified)
+        self._services.set_status(run, RunStatus.verified)
         if it.instrument_faults and not self._instrument_fault_settled(run):
             # Nothing downstream can recover from this. Reviewers would be handed a failure that
             # is not the change's, or a success that is not the change's either, and would spend a
@@ -2015,7 +2094,7 @@ class Engine:
                 continue
             watchers.append(v)
         for vid in sorted(slow):
-            self._warn(
+            self._services.warn(
                 run,
                 f"{vid} took {durations[vid]:.0f}s on the change, over the "
                 f"{run.budget.repeat_command_max_s}s a second run is given: whether it reports "
@@ -2052,7 +2131,7 @@ class Engine:
         for r in run.spec.requirements:
             for vid in r.verification_ids:
                 req_by_verification.setdefault(vid, []).append(r.id)
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         produced: list[Evidence] = []
         for v in watchers:
             assert v.command is not None
@@ -2063,15 +2142,15 @@ class Engine:
                 timeout_s=v.timeout_s or run.budget.command_timeout_s,
                 writable=True,
                 network=run.config.sandbox.allow_network,
-                stop_check=self._stop_check(run),
+                stop_check=self._services.stop_check(run),
             )
-            res = self.sandbox.run(req)
+            res = self._services.sandbox.run(req)
             if res.interrupted:
                 raise KeyboardInterrupt
             stable, summary = reports_the_same_twice(
                 v.expected_exit_code,
                 first.exit_code,
-                self.store.read_text(run.id, first.output_ref or ""),
+                self._services.store.read_text(run.id, first.output_ref or ""),
                 first.summary == "timed out",
                 res,
             )
@@ -2089,15 +2168,17 @@ class Engine:
                 expected_exit_code=v.expected_exit_code,
                 passed=stable,
                 summary=f"{v.id} {summary}",
-                output_ref=self.store.write_text(
-                    run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), res.output
+                output_ref=self._services.store.write_text(
+                    run.id,
+                    str(self._services.store.evidence_dir(run.id, eid) / "output.txt"),
+                    res.output,
                 ),
                 output_sha256=git.sha256_text(res.output),
                 duration_s=res.duration_s,
-                sandbox=self.sandbox.describe(req),
+                sandbox=self._services.sandbox.describe(req),
             )
             produced.append(ev)
-            self.emit(
+            self._services.emit(
                 run,
                 "evidence",
                 f"stability: {'ok' if stable else 'UNSTABLE'} - {ev.summary}",
@@ -2111,7 +2192,7 @@ class Engine:
         non-regression requirement leans on (the base's from the baseline run of the same
         command, the change's from this iteration)."""
         assert it.version is not None and it.version.head_commit
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         changes = read_suite_changes(git.diff(wt, it.version.base_commit, it.version.head_commit))
         baseline_by_command = {
             e.command: e
@@ -2136,8 +2217,8 @@ class Engine:
                 continue
             comparison = compare_counts(
                 vid,
-                self.store.read_text(run.id, base.output_ref or ""),
-                self.store.read_text(run.id, result.output_ref or ""),
+                self._services.store.read_text(run.id, base.output_ref or ""),
+                self._services.store.read_text(run.id, result.output_ref or ""),
             )
             if comparison is not None:
                 counts.append(comparison)
@@ -2168,7 +2249,7 @@ class Engine:
             passed=not reading.weakened,
             summary=reading.summary(),
         )
-        self.emit(
+        self._services.emit(
             run,
             "evidence",
             f"suite: {'ok' if ev.passed else 'WEAKENED'} - {ev.summary}",
@@ -2245,7 +2326,7 @@ class Engine:
         ]
         if not pairs:
             return []
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         head = it.version.head_commit
         test_commands = [
             v.command
@@ -2267,7 +2348,7 @@ class Engine:
                 # it; a report left by the command before is not read as this one's.
                 shutil.rmtree(wt / REPORT_DIR, ignore_errors=True)
                 (wt / REPORT_DIR).mkdir(parents=True, exist_ok=True)
-                res = self.sandbox.run(
+                res = self._services.sandbox.run(
                     ExecRequest(
                         command=recipe.command,
                         cwd=wt,
@@ -2275,7 +2356,7 @@ class Engine:
                         writable=True,
                         network=run.config.sandbox.allow_network,
                         env=dict(recipe.env),
-                        stop_check=self._stop_check(run),
+                        stop_check=self._services.stop_check(run),
                     )
                 )
                 if res.interrupted:
@@ -2287,7 +2368,7 @@ class Engine:
                     merge(found, READERS[recipe.reader](text))
                 if not found:
                     state = "timed out" if res.timed_out else f"exit {res.exit_code}"
-                    self._warn(
+                    self._services.warn(
                         run,
                         f"{v.id} under {recipe.tool} wrote no coverage report ({state}): which "
                         "lines of the change it executes is not measured",
@@ -2319,11 +2400,11 @@ class Engine:
             summary=reading.summary(),
         )
         if not measured or reading.missed:
-            ev.output_ref = self.store.write_text(
-                run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), last
+            ev.output_ref = self._services.store.write_text(
+                run.id, str(self._services.store.evidence_dir(run.id, eid) / "output.txt"), last
             )
             ev.output_sha256 = git.sha256_text(last)
-        self.emit(
+        self._services.emit(
             run,
             "evidence",
             f"coverage: {'ok' if ev.passed else 'NOT EXECUTED' if ev.passed is False else 'not measured'}"
@@ -2367,7 +2448,7 @@ class Engine:
                 continue
             watchers.append(v)
         for vid in sorted(slow):
-            self._warn(
+            self._services.warn(
                 run,
                 f"{vid} took {durations[vid]:.0f}s on the change, over the "
                 f"{run.budget.mutant_command_max_s}s a mutant run is given: what it lets "
@@ -2399,7 +2480,7 @@ class Engine:
         ]
         if not watchers or not stakes:
             return []
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         head = it.version.head_commit
         mutants = plan_mutants(
             git.diff(wt, it.version.base_commit, head),
@@ -2420,7 +2501,9 @@ class Engine:
         try:
             git.add_worktree_detached(root, mutant_wt, head)
         except git.GitError as exc:
-            self._warn(run, f"cannot measure the verifications against wrong versions: {exc}")
+            self._services.warn(
+                run, f"cannot measure the verifications against wrong versions: {exc}"
+            )
             return []
         try:
             for mutant in mutants:
@@ -2469,14 +2552,14 @@ class Engine:
         try:
             for v in watchers:
                 assert v.command is not None
-                res = self.sandbox.run(
+                res = self._services.sandbox.run(
                     ExecRequest(
                         command=v.command,
                         cwd=mutant_wt,
                         timeout_s=run.budget.mutant_command_max_s * 2,
                         writable=True,
                         network=run.config.sandbox.allow_network,
-                        stop_check=self._stop_check(run),
+                        stop_check=self._services.stop_check(run),
                     )
                 )
                 if res.interrupted:
@@ -2506,12 +2589,12 @@ class Engine:
             requirement_ids=[] if killer is not None else stakes,
             passed=killer is not None,
             summary=summary,
-            output_ref=self.store.write_text(
-                run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), last
+            output_ref=self._services.store.write_text(
+                run.id, str(self._services.store.evidence_dir(run.id, eid) / "output.txt"), last
             ),
             output_sha256=git.sha256_text(last),
         )
-        self.emit(
+        self._services.emit(
             run,
             "evidence",
             f"mutation: {'reported' if ev.passed else 'LET THROUGH'} - {ev.summary}",
@@ -2558,12 +2641,12 @@ class Engine:
             it.instrument_faults = [
                 f for f in it.instrument_faults if not f.startswith(f"{chosen.id}:")
             ]
-        run.spec.artifact_ref = self.store.write_json(
+        run.spec.artifact_ref = self._services.store.write_json(
             run.id,
-            str(self.store.artifacts_dir(run.id) / "spec.json"),
+            str(self._services.store.artifacts_dir(run.id) / "spec.json"),
             run.spec.model_dump(mode="json"),
         )
-        self.emit(
+        self._services.emit(
             run,
             "verification.replaced",
             f"{chosen.id}: `{command}` replaces `{previous}`; it is measured on both versions "
@@ -2674,26 +2757,28 @@ class Engine:
             return [], {}
         produced: list[Evidence] = []
         proposals: dict[str, str] = {}
-        control_wt = self._worktree(run).parent / f"{run.id}.control"
+        control_wt = self._services.worktree(run).parent / f"{run.id}.control"
         root = Path(run.project_root)
         git.remove_worktree(root, control_wt)
         shutil.rmtree(control_wt, ignore_errors=True)
         try:
             git.add_worktree_detached(root, control_wt, base)
         except git.GitError as exc:
-            self._warn(run, f"cannot check the verifications against the base version: {exc}")
+            self._services.warn(
+                run, f"cannot check the verifications against the base version: {exc}"
+            )
             return [], {}
 
         def sink(eid: str, text: str) -> str:
-            return self.store.write_text(
-                run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), text
+            return self._services.store.write_text(
+                run.id, str(self._services.store.evidence_dir(run.id, eid) / "output.txt"), text
             )
 
         try:
             wanted = instrument_files(it.version.files_changed)
             applied = git.checkout_paths(control_wt, head, wanted) if wanted else []
             if wanted:
-                self.emit(
+                self._services.emit(
                     run,
                     "control.prepared",
                     f"base version {base[:12]} with {len(applied)} test file(s) of the change "
@@ -2705,18 +2790,18 @@ class Engine:
                     v,
                     control_wt,
                     base,
-                    self.sandbox,
+                    self._services.sandbox,
                     it.n,
                     run.budget.command_timeout_s,
                     sink,
-                    self._stop_check(run),
+                    self._services.stop_check(run),
                     network=run.config.sandbox.allow_network,
                     applied=applied,
                 )
                 if control.interrupted:
                     raise KeyboardInterrupt
                 produced.append(control_ev)
-                subject_output = self.store.read_text(run.id, ev.output_ref or "")
+                subject_output = self._services.store.read_text(run.id, ev.output_ref or "")
                 discriminates, sufficiency, rationale = classify_instrument(
                     v,
                     ev.passed,
@@ -2732,7 +2817,7 @@ class Engine:
                 if rationale:
                     v.rationale = rationale
                 if discriminates:
-                    self.emit(
+                    self._services.emit(
                         run,
                         "control.ended",
                         f"{v.id}: reports something else without the change, so what it reports "
@@ -2750,10 +2835,10 @@ class Engine:
                     )
                     continue
                 if sufficiency is Sufficiency.sufficient:
-                    self._warn(run, f"{v.id} could not be calibrated: {rationale}")
+                    self._services.warn(run, f"{v.id} could not be calibrated: {rationale}")
                     continue
                 it.instrument_faults.append(f"{v.id}: {v.rationale}")
-                self.emit(
+                self._services.emit(
                     run,
                     "instrument.fault",
                     f"{v.id} does not observe the change: {v.rationale}",
@@ -2797,16 +2882,16 @@ class Engine:
         if candidate is None:
             return None
         probe = v.model_copy(update={"command": candidate})
-        wt = self._worktree(run)
+        wt = self._services.worktree(run)
         on_change, change_res = run_control(
             probe,
             wt,
             it.version.head_commit,
-            self.sandbox,
+            self._services.sandbox,
             it.n,
             run.budget.command_timeout_s,
             sink,
-            self._stop_check(run),
+            self._services.stop_check(run),
             network=run.config.sandbox.allow_network,
             label=f"command reported by the producer, run on the change for {v.id}",
         )
@@ -2814,11 +2899,11 @@ class Engine:
             probe,
             control_wt,
             run.profile.base_commit,
-            self.sandbox,
+            self._services.sandbox,
             it.n,
             run.budget.command_timeout_s,
             sink,
-            self._stop_check(run),
+            self._services.stop_check(run),
             network=run.config.sandbox.allow_network,
             applied=applied,
             label=f"the same command run without the change for {v.id}",
@@ -2835,7 +2920,7 @@ class Engine:
             else f"exits {change_res.exit_code} with the change and "
             f"{without_res.exit_code} without it"
         )
-        self.emit(
+        self._services.emit(
             run,
             "proposal.measured",
             f"{v.id}: `{candidate}` {verdict}",
@@ -2849,8 +2934,8 @@ class Engine:
         self._ensure_sandbox(run)
         it = run.current_iteration
         assert it is not None and it.version is not None and it.version.head_commit
-        wt = self._worktree(run)
-        self._set_status(run, RunStatus.reviewing)
+        wt = self._services.worktree(run)
+        self._services.set_status(run, RunStatus.reviewing)
         diff_text = git.diff(wt, it.version.base_commit, it.version.head_commit)
         evidence = [e for e in (run.evidence_by_id(x) for x in it.evidence_ids) if e]
         suite_reading = self._suite_reading(run, it, evidence)
@@ -2920,7 +3005,7 @@ class Engine:
                 if e.kind is EvidenceKind.command_result and e.output_ref and e.passed is False:
                     pack.add_untrusted(
                         f"output of `{e.command}`",
-                        trim_output(self.store.read_text(run.id, e.output_ref)),
+                        trim_output(self._services.store.read_text(run.id, e.output_ref)),
                     )
             pack.instructions = P.REVIEWER_TASK.format(
                 perspective=reviewer.perspective,
@@ -2953,7 +3038,7 @@ class Engine:
                 verdict.discard_reason = (
                     "the reviewer modified the worktree; verdict discarded and tree restored"
                 )
-                self._warn(
+                self._services.warn(
                     run,
                     f"reviewer {reviewer.perspective} modified the read-only worktree; verdict discarded",
                 )
@@ -2982,14 +3067,14 @@ class Engine:
             )
             run.evidence.append(rv_ev)
             it.evidence_ids.append(rv_ev.id)
-            self.emit(
+            self._services.emit(
                 run,
                 "review",
                 rv_ev.summary,
                 {"perspective": reviewer.perspective, "verdict": verdict.verdict.value},
             )
-            self.store.save(run)
-        self._set_status(run, RunStatus.reviewed)
+            self._services.store.save(run)
+        self._services.set_status(run, RunStatus.reviewed)
         return run
 
     def _verdict_from(
@@ -3086,16 +3171,16 @@ class Engine:
             [e.id for e in evidence],
         )
         it.decision_id = decision.id
-        self.emit(run, "iteration.assessed", f"iteration {it.n}: {assessment.summary}")
+        self._services.emit(run, "iteration.assessed", f"iteration {it.n}: {assessment.summary}")
         if assessment.outcome is Verdict.accept:
             run.result.outcome = Verdict.accept
             run.result.summary = assessment.summary
-            self._set_status(run, RunStatus.accepted)
+            self._services.set_status(run, RunStatus.accepted)
         elif assessment.outcome is Verdict.reject:
             if run.mode is RunMode.evaluate:
                 run.result.outcome = Verdict.reject
                 run.result.summary = assessment.summary
-                self._set_status(run, RunStatus.rejected)
+                self._services.set_status(run, RunStatus.rejected)
             elif it.n >= run.budget.max_iterations:
                 pending = PendingDecision(
                     kind=DecisionKind.iteration_limit,
@@ -3136,16 +3221,16 @@ class Engine:
                 )
                 return self._raise_decision(run, pending, RunStatus.reviewed)
             else:
-                self.emit(
+                self._services.emit(
                     run,
                     "iteration.rejected",
                     f"iteration {it.n} rejected; {len(assessment.correction_requests)} correction(s) requested",
                 )
-                self._set_status(run, RunStatus.ready)
+                self._services.set_status(run, RunStatus.ready)
         else:
             run.result.outcome = Verdict.undetermined
             run.result.summary = assessment.summary
-            self._set_status(run, RunStatus.undetermined)
+            self._services.set_status(run, RunStatus.undetermined)
         return run
 
     def _ask_undetermined(self, run: Run) -> Run:
@@ -3214,12 +3299,12 @@ class Engine:
         run.result.head_commit = it.version.head_commit
         run.result.branch = it.version.branch
         run.result.patch_ref = it.version.patch_ref
-        report = render_markdown(run, self.store)
-        run.result.report_ref = self.store.write_text(
-            run.id, str(self.store.artifacts_dir(run.id) / "report.md"), report
+        report = render_markdown(run, self._services.store)
+        run.result.report_ref = self._services.store.write_text(
+            run.id, str(self._services.store.artifacts_dir(run.id) / "report.md"), report
         )
-        self._set_status(run, RunStatus.delivered)
-        self.emit(
+        self._services.set_status(run, RunStatus.delivered)
+        self._services.emit(
             run,
             "run.delivered",
             f"branch {it.version.branch} at {it.version.head_commit}; patch {it.version.patch_ref or 'none'}; report {run.result.report_ref}",
@@ -3244,15 +3329,15 @@ class Engine:
         check exists to inspect, and a merge left unchecked would be the only integration 495
         ever performed and never verified.
         """
-        self.store.claim(run_id, self.label)
+        self._services.store.claim(run_id, self.label)
         try:
             self._merge_delivery(run_id, how)
             return self._check_integration(run_id, "HEAD", rerun_verifications)
         finally:
-            self.store.release(run_id)
+            self._services.store.release(run_id)
 
     def _merge_delivery(self, run_id: str, how: str) -> Run:
-        run = self.store.load(run_id)
+        run = self._services.store.load(run_id)
         it = run.current_iteration
         if it is None or it.version is None or not it.version.head_commit:
             raise EngineError("the run has no evaluated version")
@@ -3286,13 +3371,13 @@ class Engine:
             it.version.base_commit,
         )
         run.result.integrated_as = how
-        self.emit(
+        self._services.emit(
             run,
             "integration.merged",
             f"{branch} integrated into {into} as {how}: {before[:12]} -> {merged[:12]}",
             {"branch": branch, "into": into, "how": how, "before": before, "after": merged},
         )
-        self.store.save(run)
+        self._services.store.save(run)
         return run
 
     @staticmethod
@@ -3313,14 +3398,14 @@ class Engine:
     def check_integration(
         self, run_id: str, target_ref: str = "HEAD", rerun_verifications: bool = False
     ) -> Run:
-        self.store.claim(run_id, self.label)
+        self._services.store.claim(run_id, self.label)
         try:
             return self._check_integration(run_id, target_ref, rerun_verifications)
         finally:
-            self.store.release(run_id)
+            self._services.store.release(run_id)
 
     def _check_integration(self, run_id: str, target_ref: str, rerun_verifications: bool) -> Run:
-        run = self.store.load(run_id)
+        run = self._services.store.load(run_id)
         self._ensure_sandbox(run)
         it = run.current_iteration
         if it is None or it.version is None or not it.version.head_commit:
@@ -3377,7 +3462,7 @@ class Engine:
                         writable=True,
                         network=run.config.sandbox.allow_network,
                     )
-                    res = self.sandbox.run(req)
+                    res = self._services.sandbox.run(req)
                     ok = res.exit_code == v.expected_exit_code
                     passed = passed and ok
                     details.append(
@@ -3405,17 +3490,17 @@ class Engine:
                 else "differences found"
             ),
         )
-        self.emit(
+        self._services.emit(
             run,
             "integration.checked",
             f"{target_ref} ({target[:12]}): contains commit={contains}, files identical={identical}"
             + (f", verifications passed={passed}" if rerun_verifications else ""),
         )
-        self.store.save(run)
+        self._services.store.save(run)
         return run
 
     def cleanup_worktree(self, run_id: str) -> None:
-        run = self.store.load(run_id)
+        run = self._services.store.load(run_id)
         wt = self.worktree_path(run)
         if wt.exists():
             git.remove_worktree(Path(run.project_root), wt)
