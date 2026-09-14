@@ -244,6 +244,32 @@ def render_suite_reading(reading: SuiteReading) -> str:
     return "\n".join(lines)
 
 
+def render_mutation_reading(evidence: list[Evidence]) -> str:
+    """What the verifications reported on wrong versions of the change, as the reviewers read it.
+
+    Each line is one mutant: a line the change added, altered in one way, and what the commands
+    watching it said. A survivor is a place the tests do not look, or an alteration that changes
+    nothing; the reviewer is asked which of the two it is, since only a reader of the code can
+    tell them apart.
+    """
+    lines = [
+        "The harness ran every command that passed on the change again, on versions of the "
+        "change with one line altered each (a comparison inverted, an operand sign flipped, a "
+        "constant moved, a call dropped, a return short-circuited), stopping at the first that "
+        "reported the altered version. A version none of them reported is either a line the "
+        "tests do not observe, and a finding on the verification quoting the assertion that "
+        "should have caught it, or an alteration that leaves the behaviour as it was, and a "
+        "line of your summary saying so.",
+        "\n".join(
+            f"- [{'reported' if e.passed else 'not reported' if e.passed is False else 'not run'}]"
+            f" {e.summary}"
+            for e in evidence
+        )
+        or "(none)",
+    ]
+    return "\n".join(lines)
+
+
 def render_version(version: Version) -> str:
     lines = [
         f"- base commit: {version.base_commit}",

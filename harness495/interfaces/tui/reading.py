@@ -116,3 +116,10 @@ def scope_checks(run: Run) -> list[Evidence]:
 
 def suite_checks(run: Run) -> list[Evidence]:
     return [e for e in run.evidence if e.kind is EvidenceKind.suite_check]
+
+
+def mutation_checks(run: Run) -> list[Evidence]:
+    """One per wrong version of the change measured on the current iteration."""
+    it = run.current_iteration
+    ids = set(it.evidence_ids if it else [])
+    return [e for e in run.evidence if e.kind is EvidenceKind.mutation_check and e.id in ids]

@@ -96,6 +96,18 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
             for rid in e.requirement_ids:
                 weakened_suite.setdefault(rid, []).append(e.summary)
 
+    # The harness has run every command that passed against wrong versions of the change,
+    # each one line of the diff altered in a stated way. A version all of them reported
+    # success on is one the evidence does not tell from the change itself, and what those
+    # commands report on the change is then not enough to call the requirement demonstrated.
+    # It is not a defect either — the alteration may leave the behaviour as it was — so the
+    # requirement waits for the requester rather than going back to the producer.
+    let_through: dict[str, list[str]] = {}
+    for e in evidence:
+        if e.kind is EvidenceKind.mutation_check and e.passed is False:
+            for rid in e.requirement_ids:
+                let_through.setdefault(rid, []).append(e.summary)
+
     for r in spec.requirements:
         failed: list[str] = []
         passed: list[str] = []
@@ -224,6 +236,20 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 ]
             )
             uncredited.append(f"{r.id}: {', '.join(passed)} ran a suite weaker than the base's")
+            undetermined.append(f"{r.id}: {reasons[r.id]}")
+        elif r.id in let_through:
+            statuses[r.id] = RequirementStatus.undetermined
+            observed = "; ".join(dict.fromkeys(let_through[r.id]))
+            reasons[r.id] = "; ".join(
+                [
+                    "verifications passed: "
+                    + ", ".join(passed)
+                    + ", and so did every command watching the change, on a wrong version of "
+                    "it: " + observed,
+                    *_set_aside_for(r.id, set_aside),
+                ]
+            )
+            uncredited.append(f"{r.id}: no command told the change from a wrong version of it")
             undetermined.append(f"{r.id}: {reasons[r.id]}")
         elif (
             review_undetermined

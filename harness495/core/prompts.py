@@ -277,7 +277,11 @@ PERSPECTIVES: dict[str, str] = {
     "correctness": (
         "Look for defects: wrong logic, unhandled edge cases, error paths, concurrency or state "
         "problems, broken invariants, misuse of the project's APIs. Check that the tests added "
-        "or modified actually exercise the new behaviour and would fail without the change."
+        "or modified actually exercise the new behaviour and would fail without the change. "
+        'When the facts list mutants under "Wrong versions of the change", each one no command '
+        "reported is a line whose alteration nothing observed: say whether that alteration "
+        "changes the behaviour the requirement states, and if it does, the requirement is "
+        "`undetermined` and the missing check is a finding on the verification."
     ),
     "security": (
         "Look for security weaknesses introduced or left by the change: injection, unsafe "
@@ -309,7 +313,12 @@ PERSPECTIVES: dict[str, str] = {
         'change", read each modified test against the requirement it covered: an assertion '
         "loosened, a case dropped, an expected value moved to what the implementation now "
         "returns, is a finding on the non-regression requirement, quoting the hunk, unless a "
-        "requirement states the new behaviour."
+        'requirement states the new behaviour. When the facts list mutants under "Wrong '
+        'versions of the change", the harness has run the verifications on versions of the '
+        "change with one line altered each: a mutant no command reported is a line the tests "
+        "let through, and the finding names the verification and quotes the assertion that "
+        "should have caught it, unless the alteration leaves the behaviour the requirement "
+        "states unchanged, which you say in your summary."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

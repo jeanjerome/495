@@ -283,6 +283,12 @@ class Budget(StrictModel):
     context_warn_ratio: float = 0.75
     context_abort_ratio: float = 0.95
     local_max_steps: int = 60
+    max_mutants: int = 5
+    """Wrong versions of the change measured per iteration, each one line of the diff altered
+    in one way; 0 leaves the mutation check out."""
+    mutant_command_max_s: int = 60
+    """A verification that took longer than this on the change is not run against a mutant: the
+    mutation check is bounded by what it costs, and a slow command spends the whole budget."""
 
 
 class SandboxConfig(StrictModel):
@@ -801,6 +807,9 @@ class EvidenceKind(StrEnum):
     suite_check = "suite_check"
     """Whether the existing test suite is, on the change, the suite that passed on the base:
     no test file deleted, no test removed or skipped, no smaller tally printed by the runner."""
+    mutation_check = "mutation_check"
+    """Whether the verifications that observe the change also constrain it: one mutant, a line
+    the change added altered in one stated way, and what the commands reported on it."""
 
 
 class Evidence(StrictModel):

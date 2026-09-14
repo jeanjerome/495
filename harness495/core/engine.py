@@ -32,6 +32,7 @@ from harness495.core.context import (
     render_behaviour_test_form,
     render_catalogue,
     render_evidence,
+    render_mutation_reading,
     render_profile,
     render_reviews,
     render_spec,
@@ -88,6 +89,7 @@ from harness495.core.models import (
     new_id,
     utcnow,
 )
+from harness495.core.mutation import Mutant, mutated_source, plan_mutants
 from harness495.core.profile import detect_profile, read_doc_excerpts
 from harness495.core.report import render_markdown
 from harness495.core.schemas import (
@@ -1649,6 +1651,10 @@ class Engine:
         it.instrument_faults = []
         calibration, proposals = self._calibrate(run, it, evidence)
         evidence.extend(calibration)
+        if not it.instrument_faults:
+            # An instrument the calibration found blind is about to stop the run; measuring
+            # what it lets through would describe that instrument, not the tests.
+            evidence.extend(self._mutate(run, it, evidence))
         # Verification runs may write caches; restore the exact version for the reviewers.
         git.reset_hard_clean(wt, it.version.head_commit)
         run.evidence.extend(evidence)
@@ -1731,6 +1737,191 @@ class Engine:
             "evidence",
             f"suite: {'ok' if ev.passed else 'WEAKENED'} - {ev.summary}",
             {"id": ev.id},
+        )
+        return ev
+
+    def _mutation_watchers(self, run: Run, evidence: list[Evidence]) -> list[Verification]:
+        """The commands worth running against a wrong version of the change.
+
+        Every command that reported success on the evaluated commit and can say something
+        else on another tree: a command already failing is being corrected, and what it
+        reports on an altered version of the same code is not a statement about anything. The
+        set is not restricted to the requirement a mutated line belongs to, because the
+        harness does not know which requirement a line belongs to: what a mutant asks is
+        whether the evidence the run rests on, taken together, tells this version of the
+        change from a wrong one. A command slower on the change than the budget allows is left
+        out with a warning, since the check costs one run per mutant; the rest are ordered by
+        what they took, so that the cheapest gets the chance to settle the mutant first.
+        """
+        durations = {
+            e.verification_id: e.duration_s or 0.0
+            for e in evidence
+            if e.kind is EvidenceKind.command_result and e.passed is True and e.verification_id
+        }
+        watchers: list[Verification] = []
+        slow: set[str] = set()
+        for v in run.spec.verifications:
+            if (
+                v.command is None
+                or v.sufficiency not in ADMISSIBLE
+                or v.discriminates is False
+                or v.id not in durations
+            ):
+                continue
+            if durations[v.id] > run.budget.mutant_command_max_s:
+                slow.add(v.id)
+                continue
+            watchers.append(v)
+        for vid in sorted(slow):
+            self._warn(
+                run,
+                f"{vid} took {durations[vid]:.0f}s on the change, over the "
+                f"{run.budget.mutant_command_max_s}s a mutant run is given: what it lets "
+                "through is not measured",
+            )
+        return sorted(watchers, key=lambda v: durations[v.id])
+
+    def _mutate(self, run: Run, it: Iteration, evidence: list[Evidence]) -> list[Evidence]:
+        """Measure what the verifications let through, on wrong versions of the change itself.
+
+        The calibration says each command reports something else without the change; it cannot
+        say the command would report something else if the change were wrong. So the harness
+        writes a few wrong versions: one line of the diff altered in one stated way each, on a
+        worktree of the evaluated commit. A wrong version every command reports success on is
+        one the run's evidence does not tell from the change, and the behaviour requirements
+        resting on those commands are left undetermined for the requester to rule on: a mutant
+        may be equivalent to the line it replaces, and only a reader can tell that from a hole
+        in the tests (``docs/decisions/0022``).
+        """
+        assert it.version is not None and it.version.head_commit
+        watchers = self._mutation_watchers(run, evidence)
+        # What a mutant nothing reports leaves undetermined: a requirement that states the
+        # change makes something true, and rests on one of the commands that passed it.
+        watched = {v.id for v in watchers}
+        stakes = [
+            r.id
+            for r in run.spec.requirements
+            if r.kind is RequirementKind.behaviour and watched.intersection(r.verification_ids)
+        ]
+        if not watchers or not stakes:
+            return []
+        wt = self._worktree(run)
+        head = it.version.head_commit
+        mutants = plan_mutants(
+            git.diff(wt, it.version.base_commit, head),
+            run.budget.max_mutants,
+            [
+                v.command
+                for v in run.spec.verifications
+                if v.command and v.kind is VerificationKind.test
+            ],
+        )
+        if not mutants:
+            return []
+        produced: list[Evidence] = []
+        mutant_wt = wt.parent / f"{run.id}.mutant"
+        root = Path(run.project_root)
+        git.remove_worktree(root, mutant_wt)
+        shutil.rmtree(mutant_wt, ignore_errors=True)
+        try:
+            git.add_worktree_detached(root, mutant_wt, head)
+        except git.GitError as exc:
+            self._warn(run, f"cannot measure the verifications against wrong versions: {exc}")
+            return []
+        try:
+            for mutant in mutants:
+                produced.append(self._run_mutant(run, it, mutant, watchers, stakes, mutant_wt))
+        finally:
+            git.remove_worktree(root, mutant_wt)
+            shutil.rmtree(mutant_wt, ignore_errors=True)
+        return produced
+
+    def _run_mutant(
+        self,
+        run: Run,
+        it: Iteration,
+        mutant: Mutant,
+        watchers: list[Verification],
+        stakes: list[str],
+        mutant_wt: Path,
+    ) -> Evidence:
+        """Apply one mutant, run the commands watching it, and record what they reported.
+
+        The first command that fails settles it: one report is enough to say the change is
+        told from this wrong version of it, and the commands that would have run after it say
+        nothing more. A mutant no command reports is charged to every behaviour requirement
+        those commands carry, since which of them the altered line serves is exactly what the
+        harness cannot read.
+        """
+        assert it.version is not None
+        source = mutant_wt / mutant.file
+        original = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+        written = mutated_source(original, mutant) if original else None
+        eid = new_id("ev")
+        if written is None:
+            return Evidence(
+                id=eid,
+                kind=EvidenceKind.mutation_check,
+                iteration=it.n,
+                subject_version=it.version.head_commit,
+                passed=None,
+                summary=f"{mutant.describe()}: the line is not where the diff put it; not applied",
+            )
+        ran: list[str] = []
+        killer: str | None = None
+        last = ""
+        state = ""
+        source.write_text(written, encoding="utf-8")
+        try:
+            for v in watchers:
+                assert v.command is not None
+                res = self.sandbox.run(
+                    ExecRequest(
+                        command=v.command,
+                        cwd=mutant_wt,
+                        timeout_s=run.budget.mutant_command_max_s * 2,
+                        writable=True,
+                        network=run.config.sandbox.allow_network,
+                        stop_check=self._stop_check(run),
+                    )
+                )
+                if res.interrupted:
+                    raise KeyboardInterrupt
+                ran.append(v.id)
+                last = res.output
+                # A command that times out on the mutant is counted as having reported it: it
+                # did not report success, and calling that "let through" would be an
+                # accusation resting on a run that did not finish.
+                state = "timed out" if res.timed_out else f"exit {res.exit_code}"
+                if res.timed_out or res.exit_code != v.expected_exit_code:
+                    killer = v.id
+                    break
+        finally:
+            source.write_text(original, encoding="utf-8")
+        summary = f"{mutant.describe()}: " + (
+            f"{killer} reported it ({state})"
+            if killer is not None
+            else f"passed by every command that watches the change ({', '.join(ran)})"
+        )
+        ev = Evidence(
+            id=eid,
+            kind=EvidenceKind.mutation_check,
+            iteration=it.n,
+            subject_version=it.version.head_commit,
+            verification_id=killer,
+            requirement_ids=[] if killer is not None else stakes,
+            passed=killer is not None,
+            summary=summary,
+            output_ref=self.store.write_text(
+                run.id, str(self.store.evidence_dir(run.id, eid) / "output.txt"), last
+            ),
+            output_sha256=git.sha256_text(last),
+        )
+        self.emit(
+            run,
+            "evidence",
+            f"mutation: {'reported' if ev.passed else 'LET THROUGH'} - {ev.summary}",
+            {"id": ev.id, "mutant": mutant.id},
         )
         return ev
 
@@ -2092,9 +2283,18 @@ class Engine:
                     "Existing tests modified by the change",
                     render_suite_reading(suite_reading),
                 )
+            mutation = [e for e in evidence if e.kind is EvidenceKind.mutation_check]
+            if mutation:
+                pack.add_fact(
+                    "Wrong versions of the change, and what the verifications reported",
+                    render_mutation_reading(mutation),
+                )
             pack.add_untrusted("git diff base..head", truncate_diff(diff_text) or "(empty diff)")
             for e in evidence:
-                if e.output_ref and e.passed is False:
+                # What a command printed where it failed on the change. A mutation check also
+                # keeps an output, of a command that passed on a tree that is not the one
+                # under review; handing that over as the output of a failure would misread it.
+                if e.kind is EvidenceKind.command_result and e.output_ref and e.passed is False:
                     pack.add_untrusted(
                         f"output of `{e.command}`",
                         trim_output(self.store.read_text(run.id, e.output_ref)),

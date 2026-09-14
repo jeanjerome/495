@@ -240,6 +240,7 @@ CHECK_REPEAT = check_script(
     """
 repeat() {
     expect "./scripts/greeter.sh --repeat 3 | wc -l | tr -d ' '" "3"
+    expect "./scripts/greeter.sh --repeat 10 | wc -l | tr -d ' '" "10"
     expect "./scripts/greeter.sh --repeat two 2>/dev/null || echo \\$?" "2"
 }
 """,

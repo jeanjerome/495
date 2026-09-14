@@ -146,6 +146,8 @@ intervention_timeout_s = 1800
 command_timeout_s = 600
 context_warn_ratio = 0.75
 context_abort_ratio = 0.95
+max_mutants = 5             # wrong versions of the change measured per iteration; 0 leaves the check out
+mutant_command_max_s = 60   # a command slower than this on the change is not run against a mutant
 
 [sandbox]
 backend = "auto"            # auto | host | seatbelt | docker

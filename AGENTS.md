@@ -48,6 +48,10 @@ Keep these true in every change; each has a test or a record that names it.
   deleted, removed or skipped, or a smaller tally, is a failed `suite_check`, and a passing
   command on such a suite credits no `non_regression` requirement (`undetermined` until the
   requester rules); every existing test the change touched is listed to the reviewers (`0021`).
+- Every command that passed on the change is run again against a few wrong versions of it, one
+  line of the diff altered in a stated way each; a wrong version none of them reports leaves the
+  behaviour requirements resting on those commands `undetermined`, never `violated`, and never
+  becomes a correction request (`0022`).
 - A correction request carries the requirement, the claim and the observation. Reviewer
   explanations and remedies stay out of the producer's context; the producer's transcript stays
   out of every reviewer's context (`0004`, `0005`).

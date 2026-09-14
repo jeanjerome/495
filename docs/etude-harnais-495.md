@@ -187,7 +187,9 @@ adoptée ; pas de designer en mode `evaluate` (ADR 0020, `tests/features/test_de
 E03 est clos.
 
 **E04 · Le contrôle d'instrument n'a qu'un mutant : l'absence du changement.** Priorité haute ·
-effort M. Traité en §6 (E30).
+effort M. Traité en §6 (E30). Fait le 2026-09-14 avec E30 : le harnais écrit lui-même quelques
+autres mutants, sur les lignes ajoutées par le diff, et mesure ce que les commandes en
+rapportent (ADR 0022). E04 est clos.
 
 **E05 · Reproductibilité par enregistrement, pas par contrôle, et sans version des prompts.**
 Priorité moyenne · effort S. Pour Claude Code et Codex, aucun paramètre de génération n'est
@@ -406,13 +408,17 @@ résorption est la plus grande.
   fichiers de test du changement* (identifiés par convention de nommage : `tests/`, `test_*`,
   `*_test.go`, `*.spec.ts`, `*Test.java`, `.feature`, `conftest.py`) ; `broken`/`vacuous` sortent
   de l'évidence ; une commande rapportée par le producteur peut être proposée après la même mesure.
+- **Mutation ciblée** : quelques lignes du diff sont altérées une à une et les V de comportement
+  sont réexécutées sur chaque version fausse ; une évidence `mutation_check` par mutant dit si
+  une commande l'a rapporté (depuis le 2026-09-14, E30).
 - **Périmètre** : les fichiers du changement sont confrontés aux `allowed_paths` et
   `forbidden_paths`.
 
 Autrement dit, 495 sait dire si une commande du projet **observe** le changement (au sens : son
 résultat dépend de la présence du changement), ce que l'article ne demande même pas explicitement
-et que peu d'outils font. Il ne sait pas dire si elle **le contraint** : un test peut observer la
-nouvelle fonction et laisser passer presque toutes ses implémentations fausses.
+et que peu d'outils font ; et il sait dire, pour une poignée de lignes et d'altérations
+textuelles, si elle **le contraint**. Ce qu'il ne sait toujours pas dire, c'est quelles lignes du
+changement aucune V n'exécute (E31).
 
 ### 6.2 Lecture par le tableau des contrats
 
@@ -423,7 +429,7 @@ nouvelle fonction et laisser passer presque toutes ses implémentations fausses.
 | **API** | échanges autorisés | schémas, OpenAPI, types | `typecheck` détecté (mypy, pyright, tsc) ; pas de validation de schéma ni de diff d'API | partiel |
 | **Architecture** | dépendances et frontières | tests d'architecture | rien : `allowed_paths` est un périmètre de fichiers, pas une règle de dépendance ; import-linter, dependency-cruiser, ArchUnit, `deptry` ne sont pas détectés | absent |
 | **Qualité** | complexité, duplication, conventions | analyse statique | `lint` détecté (ruff, flake8, clippy, go vet, eslint via script) ; conventions en texte libre pour les agents ; pas de complexité (radon, gocyclo), pas de duplication (jscpd), pas de mode « nouveau code seulement » | partiel |
-| **Tests** | capacité de détection des tests | mutation testing | un seul mutant implicite (absence du changement) ; pas de couverture du diff ; mutmut, cosmic-ray, Stryker, pitest non détectés | quasi absent |
+| **Tests** | capacité de détection des tests | mutation testing | mutation ciblée sur le diff à chaque itération : quelques mutants textuels, une évidence `mutation_check` par mutant, un mutant non rapporté laisse l'exigence `undetermined` (E30) ; l'outil du catalogue (mutmut, Stryker, cargo-mutants, gremlins, pitest) est détecté au profil et proposé s'il manque (E50) ; pas de couverture du diff (E31) | partiel |
 | **Sécurité** | comportements et dépendances interdits | SAST, politiques | réviseur LLM `security` par défaut ; bandit, semgrep, gitleaks, `pip-audit`, `npm audit`, `cargo audit` non détectés ; aucune politique déterministe (secrets dans le diff, nouvelles dépendances) | jugement là où un outil existe : contraire à A5 |
 | **Performance** | latence, mémoire, débit | benchmarks | rien | absent, acceptable au stade actuel |
 | **Exploitation** | comportement en production | métriques, logs, traces, SLO | hors périmètre (495 est local, avant fusion) | hors périmètre |
@@ -447,6 +453,37 @@ gate `undetermined` sait déjà présenter. Plafonner le nombre de mutants et la
 tourner que les V rapides ; laisser la place à un outil détecté (`mutmut`, `stryker`) via un
 `VerificationKind.mutation` déclaré par le projet, exécuté après acceptation plutôt qu'à chaque
 itération.
+Fait le 2026-09-14 : `core/mutation.py` planifie, sur les lignes que le diff ajoute hors
+commentaires, dans un langage du catalogue et hors instrument — un fichier que la convention de
+nommage reconnaît comme test, ou qu'une commande d'une V `test` nomme, ce qui couvre le projet
+dont les tests sont un script (`./scripts/check.sh repeat`) ; la commande d'un linter ou d'un
+build n'est pas lue ainsi, elle nomme la source même sur laquelle un mutant s'écrit —, quelques
+mutants textuels — inversion
+d'une comparaison, `and`/`or`, changement de signe d'un opérande, littéral booléen inversé,
+constante numérique décalée, ligne d'appel supprimée, `return` court-circuité à la valeur neutre
+du langage — plafonnés par `budget.max_mutants` (5 par défaut, 0 laisse le contrôle de côté) et
+répartis sur les fichiers touchés plutôt que dépensés sur les premières lignes rencontrées.
+`Engine._mutate` les applique un à un dans un worktree détaché du commit évalué et exécute
+contre chacun toutes les V qui ont réussi sur le changement et que la calibration n'a pas
+trouvées aveugles, quelle que soit l'exigence qu'elles portent, de la plus rapide à la plus
+lente ; une V plus lente que `budget.mutant_command_max_s` est écartée avec un avertissement.
+La première commande qui échoue clôt le mutant : un rapport suffit à dire que l'évidence
+distingue le changement de cette version fausse. Une évidence `mutation_check` par mutant dit
+si une commande l'a rapporté et, sinon, met à la charge de chaque exigence de comportement qui
+repose sur ces commandes — la ligne altérée sert une exigence que le harnais ne sait pas lire,
+et exécuter les seules V de « l'exigence concernée » signalerait comme survivant un mutant que
+le test d'une autre exigence rapporte. `decide.assess` lit un mutant non rapporté comme une suite
+affaiblie (0021) : l'exigence passe en `undetermined` avec le mutant en motif et figure dans
+`uncredited`, jamais en `violated` — un mutant peut être équivalent à la ligne qu'il remplace, et
+seul un lecteur distingue cela d'un trou dans les tests ; `correctness` et `test_quality`
+reçoivent le fait « Wrong versions of the change, and what the verifications reported » et la
+question. Le contrôle est sauté quand la calibration a trouvé un instrument fautif : le run
+s'arrête déjà là-dessus. Les opérateurs sont textuels et ne lisent qu'une ligne : ils ne se
+déclenchent que sur un opérateur entouré d'espaces, ignorent la grammaire du langage, et un
+mutant qui ne compile pas est rapporté par toutes les commandes donc lu comme tué — le coût est
+l'exécution perdue, pas la conclusion. L'outil du catalogue reste la voie du projet hôte, par
+`CatalogueRole.mutation` et une proposition (ADR 0022, `tests/features/mutation.feature`).
+E30 est clos ; E31 reste ouvert.
 
 **E31 · La couverture du diff n'est pas mesurée.** Priorité haute · effort M.
 Plus simple que la mutation et complémentaire : instrumenter l'exécution des V (coverage.py,
@@ -825,7 +862,8 @@ semaine ou plus).
 | E01 | `requirement_assessment: violated` sans finding étayé rendait l'exigence violée ; lue comme `undetermined` depuis le 2026-09-13 (fait) | déterminisme | S | ferme la seule brèche du principe *evidence-required* |
 | E03 · E32 | le producteur écrivait ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise. Depuis le 2026-09-14 : la V est `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer ; les tests à créer sont écrits par le rôle `test_designer` avant le producteur, qui ne peut plus les modifier (faits) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, rôle test designer |
 | E33 | la suite existante pouvait être affaiblie (suppression, skip) sans détection ; depuis le 2026-09-14 le diff sur les tests existants et le décompte du runner sur les deux versions donnent une évidence `suite_check`, une suite affaiblie laisse la non-régression `undetermined` jusqu'à l'arbitrage du demandeur, et les réviseurs reçoivent la liste des tests existants touchés (fait) | tests hôtes | M | comptage des tests base/changement, lecture du diff des tests existants, liste aux réviseurs |
-| E30 · E31 | force de la suite non mesurée : ni couverture du diff ni mutation ciblée | tests hôtes | M à L | dit *où* la spécification ne regarde pas ; sort du « satisfied = passe et ne passait pas » |
+| E30 | force de la suite non mesurée, un seul mutant (l'absence du changement) ; depuis le 2026-09-14 quelques lignes du diff sont altérées une à une, les V de comportement réexécutées sur chaque version fausse, et un mutant qu'aucune commande ne rapporte laisse l'exigence `undetermined` (fait) | tests hôtes | M à L | sort du « satisfied = passe et ne passait pas » |
+| E31 | la couverture du diff n'est pas mesurée | tests hôtes | M | dit *où* la spécification ne regarde pas |
 | E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |

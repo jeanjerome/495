@@ -14,6 +14,7 @@ from harness495.interfaces.tui.reading import (
     evidence_for,
     instrument_faults,
     latest_results,
+    mutation_checks,
     scope_checks,
     suite_checks,
     verification_state,
@@ -104,6 +105,22 @@ def build_checks(ctx: ViewContext) -> StageContent:
                 Text(
                     suite[-1].summary,
                     style="req.satisfied" if suite[-1].passed else "req.undetermined",
+                ),
+            )
+        )
+    mutants = mutation_checks(run)
+    survivors = [e for e in mutants if e.passed is False]
+    if mutants:
+        notes.append(
+            (
+                "mutation check",
+                Text(
+                    f"{len(survivors)} of {len(mutants)} wrong version(s) of the change no "
+                    f"verification reported: {survivors[-1].summary}"
+                    if survivors
+                    else f"{len(mutants)} wrong version(s) of the change, each reported by a "
+                    "verification that watches it",
+                    style="req.undetermined" if survivors else "req.satisfied",
                 ),
             )
         )

@@ -30,3 +30,4 @@ carries the decision.
 | [0019](0019-an-execution-error-without-the-change-does-not-confirm-a-test.md) | A test that fails without the change by an execution error is unconfirmed, and a test to create calls for the test_quality reviewer | accepted | 2026-09-14 |
 | [0020](0020-the-tests-to-create-are-written-by-a-test-designer-before-the-producer.md) | The tests to create are written by a test designer before the producer, and the producer may not touch them | accepted | 2026-09-14 |
 | [0021](0021-the-existing-suite-is-measured-on-the-change.md) | The existing test suite is measured on the change, and a passing command on a weaker suite credits no non-regression requirement | accepted | 2026-09-14 |
+| [0022](0022-the-verifications-are-measured-against-wrong-versions-of-the-change.md) | The verifications are measured against wrong versions of the change, and one that reports success on such a version credits no requirement | accepted | 2026-09-14 |
