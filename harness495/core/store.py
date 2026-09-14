@@ -3,6 +3,8 @@
 Layout under ``<state_dir>``::
 
     proposals.json      the project's conformance proposals (:class:`Proposals`)
+    lessons.json        what the runs have shown about the project (:class:`Lessons`)
+    lessons.md          the lessons in force, rendered for a reader
 
 and under ``<state_dir>/runs/<run_id>/``::
 
@@ -30,10 +32,13 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from harness495.core.models import Event, Proposals, Retrospective, Run, utcnow
+from harness495.core.lessons import render_document
+from harness495.core.models import Event, Lessons, Proposals, Retrospective, Run, utcnow
 
 STATE_DIR_NAME = ".495"
 PROPOSALS_FILE = "proposals.json"
+LESSONS_FILE = "lessons.json"
+LESSONS_DOC = "lessons.md"
 RETROSPECTIVE_FILE = "retrospective.json"
 STOP_FLAG = "STOP"
 DRIVER_FLAG = "DRIVER"
@@ -180,6 +185,30 @@ class RunStore:
 
     def save_proposals(self, proposals: Proposals) -> None:
         _atomic_write_text(self.proposals_path(), proposals.model_dump_json(indent=2))
+
+    # ---- lessons, one document per state directory, with the reading a person opens
+
+    def lessons_path(self) -> Path:
+        return self.state_dir / LESSONS_FILE
+
+    def lessons_doc_path(self) -> Path:
+        return self.state_dir / LESSONS_DOC
+
+    def load_lessons(self) -> Lessons:
+        path = self.lessons_path()
+        if not path.exists():
+            return Lessons()
+        return Lessons.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def save_lessons(self, lessons: Lessons) -> None:
+        """Write the document and, next to it, what it says in force as Markdown.
+
+        The two are written together because the Markdown is a rendering and never a source:
+        a state directory where they disagree would leave a reader wondering which one a run
+        was given.
+        """
+        _atomic_write_text(self.lessons_path(), lessons.model_dump_json(indent=2))
+        _atomic_write_text(self.lessons_doc_path(), render_document(lessons))
 
     # ---- retrospective, one document per run, written from the run document alone
 

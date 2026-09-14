@@ -13,6 +13,8 @@ from harness495.core.models import (
     Clarification,
     ClarifyQuestion,
     Evidence,
+    Lesson,
+    LessonKind,
     ProjectProfile,
     RequirementKind,
     ReviewVerdict,
@@ -105,6 +107,35 @@ def render_profile(profile: ProjectProfile, working_dir: str | None = None) -> s
         "read them if you need them): "
         + (", ".join(profile.doc_files) if profile.doc_files else "none")
     )
+    return "\n".join(lines)
+
+
+DECLARED_AS = {
+    LessonKind.command: "declared as a command",
+    LessonKind.convention: "declared as a convention",
+    LessonKind.allowed_path: "declared as the scope",
+}
+
+
+def render_lessons(lessons: list[Lesson]) -> str:
+    """What earlier runs on this project showed and the requester accepted.
+
+    A fact, and not repository content: each line was read from a run document the harness
+    wrote and then admitted by the requester, one answer at a time. What a lesson declares is
+    already part of the profile — a command, a convention, the scope — and is named again here
+    with what the runs showed, since a specification is written differently when it knows why a
+    criterion is there.
+    """
+    lines = [
+        "Read from earlier runs of this project and accepted by the requester, in the order "
+        "they were learned:"
+    ]
+    for lesson in lessons:
+        line = f"- {lesson.statement}"
+        declared = DECLARED_AS.get(lesson.kind)
+        if declared:
+            line += f" [{declared}: {lesson.declared or lesson.value}]"
+        lines.append(line)
     return "\n".join(lines)
 
 

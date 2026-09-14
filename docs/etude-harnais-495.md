@@ -308,8 +308,9 @@ rounds soumis au demandeur, un round de plus tournant après le dernier répondu
 frontière est vide, ses questions étant alors consignées comme restées ouvertes. Un intent sans
 ambiguïté coûte une intervention en lecture seule et aucun arrêt ; `max_clarify_rounds = 0`
 supprime la phase. Le rapport affiche les décisions prises, qui les a prises, ce qui est resté
-ouvert et ce que le harnais n'a pas demandé (E47). Elles restent l'état d'un run : les reporter
-d'un run au suivant est le sujet d'E44. Reste ouvert : personne ne compare encore le diff à
+ouvert et ce que le harnais n'a pas demandé (E47). Elles restent l'état d'un run ; depuis le
+2026-09-14 chacune est proposée en leçon `note` au demandeur, qui la porte d'un run au suivant
+en l'acceptant (E44, ADR 0027). Reste ouvert : personne ne compare encore le diff à
 l'intention (E41), même si les décisions en texte lisible rendent cette perspective bon marché.
 
 **E11 · Aucune notion d'interface de test convenue (*seam*).** Priorité moyenne · effort M.
@@ -423,10 +424,13 @@ une ligne chacun, arborescence de premier niveau) et la lecture à la demande pa
 dont les agents disposent déjà ; troncature par section plutôt que par tête de fichier ; pour le
 diff, troncature par fichier avec la liste de ce qui a été coupé.
 
-**E22 · Aucune mémoire entre les runs.** Priorité haute · effort L. Chaque run repart d'une page
-blanche : les instruments recalibrés, les conventions violées, les faux positifs des réviseurs, les
-hypothèses fausses d'un run précédent sur le même projet ne sont ni conservés ni réinjectés.
-C'est l'axe A11, traité en §7 (E44) ; il est aussi une question de contexte.
+**E22 · Aucune mémoire entre les runs.** Priorité haute · effort L. **Fait le 2026-09-14**
+(ADR 0027). Chaque run repartait d'une page blanche : les instruments recalibrés, les conventions
+violées, les décisions prises avant la spécification, les hypothèses fausses d'un run précédent
+sur le même projet n'étaient ni conservés ni réinjectés. C'est l'axe A11, traité en §7 (E44) :
+les leçons acceptées entrent dans les critères du projet et le spécificateur du run suivant les
+reçoit en fait. Ce qu'un réviseur a trouvé à tort n'a pas de route : un faux positif ne se
+consigne pas encore, faute d'une réponse du demandeur sur un finding pris un par un.
 
 **E23 · Le réviseur ne voit pas ce que le harnais sait de la force des instruments.**
 Priorité moyenne · effort S. `render_evidence` donne PASS/FAIL ; `render_spec` mentionne la
@@ -733,7 +737,8 @@ source étant `retrospective <date> (<projet>, run <id>)` ; l'observation dit si
 recommande déjà l'outil (la ligne est alors une source de plus). La commande n'écrit jamais
 `docs/test-libraries.md` : une observation sur un projet est admise par le mainteneur
 (`tests/features/retrospective.feature`). Ce que le run a appris sur les commandes, les
-conventions et le scope du projet (E44 (a)) reste à lire dans la même commande.
+conventions et le scope du projet se lit dans la même commande depuis le 2026-09-14, en leçons
+que le demandeur accepte ou non (E44, ADR 0027).
 Études par technologie : Python fait le 2026-09-13 ; Shell **fait** le 2026-09-13
 (`docs/studies/2026-09-13-shell-test-libraries.md` : bats, et shellspec quand le projet y
 garde ses specs ou mesure la couverture ; cucumber avec aruba faute de runner Gherkin écrit en
@@ -857,24 +862,50 @@ les deux tests live existants (`test_live.py`) ne couvrent qu'un run accepté et
 
 ### 7.3 La boucle longue : chaque erreur renforce le système (A11)
 
-**E44 · Rien ne remonte d'un run vers le dispositif.** Priorité haute · effort L.
-Un instrument recalibré par l'humain ne devient pas une commande déclarée dans `project.toml` ;
-une convention violée trois runs de suite ne devient pas une convention ni un lint ; un chemin
-autorisé élargi au cas par cas ne devient pas un scope ; les hypothèses fausses d'un run ne
-préviennent pas le spécificateur du suivant ; aucune statistique inter-run (taux d'instruments
-défaillants, itérations moyennes, coût par exigence, findings récurrents par perspective) n'est
-calculée alors que tout est sur disque. 495 est une boucle courte parfaite et une boucle longue
-absente. Pistes, par ordre de coût :
-(a) `495 retro <id>` : *la commande existe depuis E50 (e) et lit ce que le run a montré des
-outils du projet pour le catalogue (`docs/decisions/0015`) ; le reste de (a) s'y ajoute.*
-À partir de `run.json`, proposer des modifications concrètes de
-`project.toml` (commande recalibrée → `[[commands]]`, correction humaine → `conventions`,
-scope accordé → `allowed_paths`) que l'humain accepte ou non ;
-(b) un fichier `lessons.md` dans `.495/` alimenté par ces rétrospectives et injecté comme fait au
-spécificateur (« ce que les runs précédents ont appris sur ce projet ») ;
-(c) `495 stats` sur le store : les indicateurs ci-dessus, pour piloter les résorptions du côté
-du projet hôte (quelle perspective trouve quelque chose, quel kind de V est le plus souvent
-`vacuous`).
+**E44 · Rien ne remontait d'un run vers le dispositif.** Priorité haute · effort L.
+**Fait le 2026-09-14** (ADR 0027).
+Un instrument recalibré par l'humain ne devenait pas une commande déclarée dans `project.toml` ;
+une convention violée trois runs de suite ne devenait pas une convention ; un chemin autorisé
+élargi au cas par cas ne devenait pas un scope ; les décisions prises avant la spécification et
+les hypothèses fausses d'un run ne prévenaient pas le spécificateur du suivant ; aucune
+statistique inter-run (taux d'instruments défaillants, itérations moyennes, coût par exigence,
+findings récurrents par perspective) n'était calculée alors que tout est sur disque. 495 était
+une boucle courte parfaite et une boucle longue absente.
+
+(a) et (b) sont une seule pièce. `495 retro <id>`, qui lisait déjà ce que le run a montré des
+outils du projet pour le catalogue (E50 (e), ADR 0015), lit désormais ce qu'il a montré du
+*projet* et en énonce des **leçons** contre les critères tels qu'ils sont. `core/lessons.py::learn`
+est une fonction pure du document de run, des critères et de la rétrospective quand elle est
+écrite ; quatre genres : `command` (une V dont le demandeur a remplacé la commande, que les
+critères ne déclarent pas — donc une commande que le harnais a déjà mesurée sur les deux
+versions), `convention` (une correction écrite à la main par le demandeur, et un finding
+bloquant qu'aucune exigence ne demandait ; les mots d'un réviseur restent une proposition,
+l'acceptation est ce qui en fait un fait), `allowed_path` (les chemins dans lesquels une version
+produite est restée, lus d'un contrôle de scope qui a passé, jamais d'une spécification seule),
+`note` (une décision prise par le demandeur avant la spécification, une spécification renvoyée à
+réécrire, un outil que la rétrospective a trouvé incapable de rapporter quoi que ce soit du
+changement). Une leçon est identifiée par son genre et par ce qu'elle déclarerait : plusieurs
+runs qui la montrent font un seul enregistrement nommant chacun d'eux, et la convention violée
+trois runs de suite est une ligne avec trois runs derrière elle. Le demandeur accepte, décline
+ou reporte ; `accept --as` la déclare dans ses mots à lui sans toucher à ce que les runs ont
+montré ; une leçon déclinée garde sa raison et n'est jamais reproposée. Une leçon acceptée entre
+dans les critères du projet (`criteria`, appelé par `load_config`) : la commande est exécutée à
+la préparation et proposée au spécificateur, la convention voyage en fait, le scope borne le
+changement ; toutes les leçons en vigueur sont portées par `ProjectProfile.lessons` et données
+au spécificateur en fait (« What earlier runs showed about this project »). Rien ne réécrit
+`.495/project.toml` — il est écrit à la main, commentaires et ordre compris : `toml_lines` en
+énonce les lignes, à coller ou non, et `.495/lessons.md`, écrit à côté du document à chaque
+changement, garde lisible ce qui est en vigueur.
+
+(c) `495 stats` lit les runs du store en série (`core/stats.py::summarise`, pure) : issues et
+statuts, itérations par run produit, coût par exigence arbitrée, commandes que le harnais a
+notées incapables de distinguer le changement de son absence ou que le demandeur a remplacées,
+kinds de V les plus souvent non discriminants ou jugés insuffisants, et par perspective ce
+qu'elle a revu, rejeté, trouvé — avec les findings qu'elle a retrouvés dans plus d'un run,
+comptés une fois par run. Rien n'est persisté et rien n'en décide.
+
+Reste ouvert : une convention violée ne devient toujours pas un *lint* — l'outil entre par une
+proposition de conformité (E14/E50), jamais par la leçon.
 
 ### 7.4 Le dépôt de 495 comme base de connaissance (A8)
 
@@ -955,7 +986,7 @@ semaine ou plus).
 | E02 | rien ne mesurait la stabilité d'une commande ; depuis le 2026-09-14 chaque commande qu'une exigence porte est rejouée une seconde fois sur la version évaluée, et une évidence `stability_check` qui dit qu'elle a rapporté deux choses différentes ne crédite ni ne charge l'exigence (fait) | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses ; depuis le 2026-09-14 une phase `clarify` met la frontière des décisions au demandeur, round par round, l'arbre étant recalculé à chaque fois et une question réglée jamais reposée, et ses réponses entrent en faits chez le spécificateur, le test designer, le producteur et chaque réviseur (fait, ADR 0025) | spécification | L | traite le problème de l'oracle à la source |
 | E20 | le `CLAUDE.md` du projet hôte était lu nativement comme instruction et injecté comme non fiable ; depuis le 2026-09-14 les CLI ne lisent plus rien de la cible d'eux-mêmes (`--setting-sources ""`, `project_doc_max_bytes=0`), un fichier du dépôt est non fiable quelle que soit la route, le profil en nomme les chemins et `conventions` porte ce que le demandeur veut voir obéi (fait, ADR 0026) | contexte | S | un seul statut de confiance par source ; test de non-régression |
-| E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
+| E44 · E22 | rien ne remontait d'un run vers le dispositif ; depuis le 2026-09-14 `495 retro` énonce en leçons ce que le run a montré du projet — commande remplacée, correction écrite à la main, règle qu'un réviseur a bloquée, scope tenu, décision prise avant la spécification, outil défaillant — le demandeur les accepte ou non, une leçon acceptée entre dans les critères de tous les runs suivants et en fait chez le spécificateur, et `495 stats` lit les runs en série (fait, ADR 0027) | boucle longue | L | `495 retro`, `495 lessons`, `.495/lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017 ; le rapport montre sous chaque exigence le scénario qui la vérifie et ce qu'il a rapporté, ADR 0018), migration de la suite de 495 au fil des modifications (reste) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 

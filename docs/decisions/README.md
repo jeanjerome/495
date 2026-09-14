@@ -35,3 +35,4 @@ carries the decision.
 | [0024](0024-a-verification-is-run-twice-on-the-same-version.md) | A verification is run twice on the same version, and one that does not report the same thing twice decides nothing | accepted | 2026-09-14 |
 | [0025](0025-the-decisions-are-taken-before-the-specification-in-rounds.md) | The requester's decisions are taken before the specification, in rounds, and a settled question is never asked again | accepted | 2026-09-14 |
 | [0026](0026-the-harness-is-the-only-source-an-agent-takes-instructions-from.md) | The harness is the only source an agent takes instructions from, and a repository file is untrusted content whatever the route | accepted | 2026-09-14 |
+| [0027](0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md) | What a run learns about the project is put to the requester as a lesson, and an accepted lesson is part of the criteria of every run that follows | accepted | 2026-09-14 |

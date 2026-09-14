@@ -66,7 +66,9 @@ them.
   the command was rejected: the catalogue lives in 495's repository, not in the host
   project's, and a rejected row written on one timed-out run would bind every project.
 - The retrospective covers the catalogue only. What a run learned about the project's
-  commands, conventions and scope belongs to the same command and is not yet read.
+  commands, conventions and scope is read by the same command, as lessons the requester answers
+  (0027); the two readings are separate, since the catalogue is 495's document and the criteria
+  are the project's.
 
 ## Where in the code
 

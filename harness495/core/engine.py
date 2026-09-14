@@ -34,6 +34,7 @@ from harness495.core.context import (
     render_catalogue,
     render_decisions_taken,
     render_evidence,
+    render_lessons,
     render_mutation_reading,
     render_profile,
     render_reach_reading,
@@ -51,6 +52,7 @@ from harness495.core.diff import code_lines
 from harness495.core.models import (
     ADMISSIBLE,
     NON_DISCRIMINATING,
+    REPLACED_PREFIX,
     AgentIdentity,
     BehaviourScenario,
     Capability,
@@ -122,7 +124,7 @@ from harness495.core.schemas import (
     SPEC_SCHEMA,
     TEST_DESIGNER_SUMMARY_SCHEMA,
 )
-from harness495.core.scope import check_scope
+from harness495.core.scope import check_scope, effective_allowed
 from harness495.core.store import RunStore
 from harness495.core.suite import (
     CountComparison,
@@ -749,6 +751,7 @@ class Engine:
         root = Path(run.project_root)
         profile = detect_profile(root, run.config.project)
         profile.declined_roles = proposals_mod.declined_roles(self.store.load_proposals())
+        profile.lessons = self.store.load_lessons().in_force
         run.profile = profile
         self.emit(
             run,
@@ -1182,6 +1185,11 @@ class Engine:
         if run.clarification.says_anything:
             pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+        if run.profile.lessons:
+            pack.add_fact(
+                "What earlier runs showed about this project",
+                render_lessons(run.profile.lessons),
+            )
         pack.add_fact(
             "Test-library catalogue and the project's role coverage",
             render_catalogue(run.profile),
@@ -1483,7 +1491,7 @@ class Engine:
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
         pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
         scope_lines = [
-            "Allowed paths: " + (", ".join(_effective_allowed(run)) or "any path"),
+            "Allowed paths: " + (", ".join(effective_allowed(run)) or "any path"),
             "Forbidden paths: " + ", ".join(run.config.project.scope.forbidden_paths),
         ]
         design = run.test_design
@@ -1689,7 +1697,7 @@ class Engine:
         pack.add_fact(
             "Scope",
             "Test files only, within the allowed paths: "
-            + (", ".join(_effective_allowed(run)) or "any path")
+            + (", ".join(effective_allowed(run)) or "any path")
             + ". Any other file you write is put back as it was.",
         )
         pack.add_fact(
@@ -1812,7 +1820,7 @@ class Engine:
         git.reset_hard_clean(wt, it.version.head_commit)
         evidence: list[Evidence] = []
         # Scope check.
-        allowed = _effective_allowed(run)
+        allowed = effective_allowed(run)
         report = check_scope(
             it.version.files_changed, allowed, run.config.project.scope.forbidden_paths
         )
@@ -2530,7 +2538,7 @@ class Engine:
         chosen.command = command
         chosen.sufficiency = Sufficiency.sufficient
         chosen.discriminates = None
-        chosen.rationale = f"replaced `{previous}` on the requester's instruction"
+        chosen.rationale = f"{REPLACED_PREFIX}{previous}` on the requester's instruction"
         if it is not None:
             it.instrument_faults = [
                 f for f in it.instrument_faults if not f.startswith(f"{chosen.id}:")
@@ -3403,12 +3411,6 @@ def _looks_unavailable(output: str) -> bool:
         "is not installed",
     )
     return any(m in tail for m in markers)
-
-
-def _effective_allowed(run: Run) -> list[str]:
-    if run.config.project.scope.allowed_paths:
-        return list(run.config.project.scope.allowed_paths)
-    return list(run.spec.allowed_paths)
 
 
 def _parse_json_text(text: str) -> dict[str, Any] | None:

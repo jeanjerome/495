@@ -84,6 +84,11 @@ Keep these true in every change; each has a test or a record that names it.
 - `core/retro.py::retrospect` is a pure function of the run document; `495 retro` writes
   `retrospective.json` under the run and never the catalogue, whose rows are admitted by hand
   (`0015`).
+- What a run showed about the project is stated as a lesson against the criteria as they stand
+  (`core/lessons.py::learn`, pure), kept once however many runs show it, and enters the criteria
+  on the requester's acceptance alone; nothing writes `.495/project.toml`.
+  `core/stats.py::summarise` reads the runs as a series, persists nothing and decides nothing
+  (`0027`).
 - Cost is `reported`, `estimated` or `unknown` (`0008`).
 - Tests use `Scenario` and `FakeAgent` from `tests/conftest.py`. Mark a test that reaches a
   real agent CLI or the network `live`.

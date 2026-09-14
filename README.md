@@ -59,6 +59,7 @@ software change is cleared to merge.
 - [x] **Every check measured before it counts**: each one runs twice, on the change and on the base version carrying the change's own test files; one that reports the same thing both times proves nothing — whether it failed both times or passed both times — and is taken out of the evidence instead of becoming work
 - [x] **The suite that passed stays passing**: the tests the base version passed are measured on the change; a test deleted, removed or skipped, or a smaller tally, is a failed check, and a passing command on such a suite credits nothing
 - [x] **Measured against a catalogue of test libraries**: which tool the project measures each test role with, per technology; every gap is a proposal you answer once, and a retrospective states what the run showed about each tool that measured one
+- [x] **A loop that closes**: what a run showed about your project — a command you replaced, a correction you wrote, a rule a reviewer blocked the change for, the scope a change stayed inside, a decision you took before the specification — is stated as a lesson you answer once; accepted, it is part of the criteria of every run that follows, and `495 stats` reads the whole store as a series
 - [x] **A rich terminal UI**: eight stops in the order the engine walks them — where the run is, what each stage produced, and the controls that act on it
 - [x] **Merge on request only**, in four shapes, followed by the integration check that inspects it
 - [x] **Scoped permissions**: read-only roles and one write role, each under the isolation its client offers, with what was actually applied recorded per intervention
@@ -254,8 +255,37 @@ change, or contradicted the agent; **faulty** when it timed out, failed identica
 versions, failed before any change too, or you replaced its command; **inconclusive** when
 nothing shows whether it observed the change. Each measurement is stated with its verification
 and iteration, and a proven or faulty tool comes with the Markdown row `docs/test-libraries.md`
-takes, the run as its source. The command keeps `retrospective.json` under the run and writes
-nothing else: the catalogue is 495's document, and the row is admitted by hand.
+takes, the run as its source. The command keeps `retrospective.json` under the run and never
+writes the catalogue: it is 495's document, and the row is admitted by hand.
+
+The same command reads what the run showed about the **project**, and states each thing as a
+lesson you answer once: a command you put in the place of one that could not measure anything,
+a correction you wrote by hand, a rule a reviewer blocked the change for that no requirement
+asked about, the paths a produced version stayed inside, a decision you took before the
+specification, a tool that reported nothing the change decided. A lesson several runs show is
+one record naming each of them, so a rule three runs blocked a change for reads as one line
+with three runs behind it.
+
+```bash
+./run.sh lessons                                   # what the runs showed, and where each one stands
+./run.sh lessons show les-7f21a0c39b               # what was observed, and the lines project.toml would take
+./run.sh lessons accept les-7f21a0c39b --as "no credential is committed to the repository"
+./run.sh lessons decline les-91b4c2e087 --reason "the file is a fixture, committed on purpose"
+```
+
+An accepted lesson is part of the project's criteria from the next run on: a command is run at
+readiness and offered to the specifier, a convention travels as a fact, a scope bounds the
+change, and every lesson in force reaches the specifier as *what earlier runs showed about this
+project*. Nothing rewrites `.495/project.toml` — it is yours, comments and all; `495 lessons
+show` states the lines it would take, to copy or not, and `.495/lessons.md` keeps what is in
+force readable. A declined lesson keeps your reason and is never proposed again
+(`docs/decisions/0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md`).
+
+`495 stats` reads every run of the store as a series: outcomes and statuses, iterations per run,
+cost per requirement assessed, the commands recorded unable to tell the change from its absence,
+the kinds of verification that most often decided nothing, and what each reviewer perspective
+found — with the findings it found again in more than one run. It is computed on every call and
+decides nothing.
 
 Detection is not a contract. Every command is run once on the base version at the start of a
 run — that is the **readiness** check — and a command that cannot run there, or that already
@@ -590,12 +620,14 @@ source of history.
 495 watch [<id>] [--stage checks] [--read-only] [--print] [--export view.svg]
 495 merge <id> [--how fast-forward|rebase|squash|merge] [--rerun]
 495 check-integration <id> [--ref main] [--rerun]
-495 retro <id>
-495 export <id> | cleanup <id> [--delete] | schema run|event|spec|config|proposals|retrospective
-    | validate run.json
+495 retro <id> | stats
+495 export <id> | cleanup <id> [--delete]
+495 schema run|event|spec|config|proposals|retrospective|lessons|stats | validate run.json
 495 profile | init | doctor | serve [--port 4950]
 495 proposals [list] | proposals accept <id> [--no-start] | proposals decline <id> --reason "..."
     | proposals defer <id> [--note "..."]
+495 lessons [list [--status open]] | lessons show <id> | lessons accept <id> [--as "..."]
+    | lessons decline <id> --reason "..." | lessons defer <id> [--note "..."]
 ```
 
 | Command | Purpose | Uses an agent? | Writes to the target project? |
@@ -610,7 +642,9 @@ source of history.
 | `495 profile`, `doctor`, `init` | Detection, availability, configuration | No | `init` writes `.495/`; `profile` records the proposals under it |
 | `495 proposals` | List the conformance proposals, accept, decline or defer one | `accept` starts a run unless `--no-start` | `.495/proposals.json` |
 | `495 status`, `list`, `events`, `spec`, `report`, `export`, `schema`, `validate` | Read what a run recorded | No | No (`export` writes its archive to the working directory) |
-| `495 retro` | What the run showed about each tool that measured a catalogue role, with the rows for the catalogue | No | `retrospective.json` under the run |
+| `495 retro` | What the run showed about each tool that measured a catalogue role, and about the project itself | No | `retrospective.json` under the run; `.495/lessons.json` and `.495/lessons.md` |
+| `495 lessons` | List what the runs showed about the project, accept, decline or defer one | No | `.495/lessons.json` and `.495/lessons.md` |
+| `495 stats` | Read every run of the store as a series | No | No |
 | `495 serve` | Expose the same workflow over HTTP | Through the runs it starts | No |
 
 Global options, before the command: `--project`/`-C` (target project, default the working
@@ -740,6 +774,11 @@ command = "pytest -q"
 kind = "test"             # command | test | lint | build | typecheck
 ```
 
+The criteria a run works under are that file **and** the lessons earlier runs showed that you
+accepted (`495 lessons`): they add commands, conventions and allowed paths to what it declares,
+and a command that comes from one says so in its source. `495 lessons` and `.495/lessons.md`
+state what is in force.
+
 Built-in reviewer perspectives: `spec_compliance`, `correctness`, `security`, `test_quality`,
 `standards`, `maintainability`; any other name works with a generic brief, and `instructions`
 in a reviewer entry replaces the brief. `test_quality` compares, for every verification that
@@ -788,7 +827,7 @@ form, and says so.
 
 ### JSON documents and the HTTP API
 
-`495 schema run|event|spec|config|proposals|retrospective` prints the JSON schema of each persisted document,
+`495 schema run|event|spec|config|proposals|retrospective|lessons|stats` prints the JSON schema of each persisted document,
 generated from the models 495 itself validates against. `495 validate <run.json>` checks a
 run document.
 

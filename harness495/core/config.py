@@ -3,6 +3,11 @@
 Precedence (lowest to highest): built-in defaults, ``~/.config/495/config.toml``,
 ``<project>/.495/config.toml``, ``<project>/.495/project.toml`` (project criteria only),
 then command-line overrides applied by the interface layer.
+
+The project criteria carry one thing no file states: the lessons earlier runs showed and the
+requester accepted (``core/lessons.py``). They are read from ``<state_dir>/lessons.json`` and
+added to what ``project.toml`` declares, so that a command, a convention or a scope admitted
+once is in force in every run that follows, whether or not anyone copied it into the file.
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from harness495.core.lessons import criteria
 from harness495.core.models import (
     AgentSpec,
     Budget,
@@ -24,6 +30,7 @@ from harness495.core.models import (
     ScopeConfig,
     VerificationKind,
 )
+from harness495.core.store import RunStore
 
 USER_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config")).expanduser() / "495"
 
@@ -108,7 +115,9 @@ def load_config(project_root: Path, state_dir: Path | None = None) -> HarnessCon
     for path in (USER_CONFIG / "config.toml", state_dir / "config.toml"):
         data = _deep_merge(data, _read_toml(path))
     project_data = _deep_merge(data.get("project") or {}, _read_toml(state_dir / "project.toml"))
-    return build_config(data, project_data)
+    config = build_config(data, project_data)
+    config.project = criteria(config.project, RunStore(state_dir).load_lessons())
+    return config
 
 
 CONFIG_TEMPLATE = """# 495 harness configuration (TOML). All keys are optional.
@@ -162,6 +171,8 @@ allow_network = false
 
 PROJECT_TEMPLATE = """# Project criteria for 495 (TOML). Commands are run from the worktree root.
 # Top-level keys must stay above the [[commands]] tables.
+# The lessons you accept (495 lessons) add commands, conventions and allowed paths to what this
+# file declares; 495 lessons show <id> states the lines each one would take here.
 
 conventions = [
   # "All public functions carry a docstring",

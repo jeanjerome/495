@@ -20,8 +20,10 @@ from rich.text import Text
 
 from harness495 import __version__
 from harness495.core import git
+from harness495.core import lessons as memory
 from harness495.core import proposals as conformance
 from harness495.core import retro as retrospection
+from harness495.core import stats as indicators
 from harness495.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
 from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
@@ -32,6 +34,9 @@ from harness495.core.models import (
     Event,
     GapKind,
     HarnessConfig,
+    Lesson,
+    Lessons,
+    LessonStatus,
     PendingDecision,
     ProjectProfile,
     Proposal,
@@ -584,6 +589,307 @@ def proposals_defer(
         )
 
 
+lessons_app = typer.Typer(
+    name="lessons",
+    help="What the runs showed about the project itself, to accept, decline or defer.",
+    invoke_without_command=True,
+    no_args_is_help=False,
+    rich_markup_mode="markdown",
+)
+app.add_typer(lessons_app, name="lessons")
+
+LESSON_COLOURS = {
+    LessonStatus.open: "yellow",
+    LessonStatus.accepted: "green",
+    LessonStatus.declined: "dim",
+    LessonStatus.deferred: "cyan",
+}
+
+
+def _lesson_payload(lesson: Lesson) -> dict[str, Any]:
+    payload = lesson.model_dump(mode="json")
+    payload["toml"] = memory.toml_lines(lesson)
+    return payload
+
+
+def _load_lesson(c: Ctx, lesson_id: str) -> tuple[Lessons, Lesson]:
+    lessons = c.store.load_lessons()
+    lesson = lessons.get(lesson_id)
+    if lesson is None:
+        _error(c, f"lesson {lesson_id} not found; 495 lessons lists them")
+        raise AssertionError("unreachable")
+    return lessons, lesson
+
+
+def _print_lesson(lesson: Lesson) -> None:
+    """One lesson in full: what it says, what the runs showed, what it would declare."""
+    console.print(
+        Text(f"{lesson.id} ({lesson.kind.value}, {lesson.status.value}): ", style="bold")
+        + Text(lesson.statement)
+    )
+    for line in lesson.observed:
+        console.print(Text(f"  observed — {line}"))
+    console.print(Text(f"  shown by: {', '.join(lesson.run_ids)}"))
+    if lesson.reason:
+        console.print(Text(f"  {lesson.status.value}: {lesson.reason}"))
+    lines = memory.toml_lines(lesson)
+    if lines:
+        console.print("  in .495/project.toml, merged into the keys already there:")
+        for line in lines.splitlines():
+            console.print(Text(f"    {line}"))
+
+
+def _print_lessons(c: Ctx, lessons: Lessons, shown: list[Lesson] | None = None) -> None:
+    held = lessons.lessons if shown is None else shown
+    if c.json:
+        _emit_json([_lesson_payload(x) for x in held])
+        return
+    if not held:
+        console.print(
+            "no lesson recorded; 495 retro <id> reads what a run showed about the project"
+        )
+        return
+    table = Table(title=f"lessons in {c.store.lessons_path()}")
+    for col in ("id", "kind", "status", "runs", "lesson", "declares"):
+        table.add_column(col)
+    for x in held:
+        table.add_row(
+            x.id,
+            x.kind.value,
+            Text(x.status.value, style=LESSON_COLOURS[x.status]),
+            str(len(x.run_ids)),
+            Text(x.statement),
+            Text(x.declared or x.value),
+        )
+    console.print(table)
+    answerable = [x for x in held if x.status is LessonStatus.open]
+    if answerable:
+        console.print(
+            f"{len(answerable)} open lesson(s): answer with 495 lessons accept|decline|defer <id>"
+        )
+
+
+def _print_learned(c: Ctx, run_id: str, touched: list[Lesson]) -> None:
+    """What the run showed about the project, after the tools it showed something about."""
+    if not touched:
+        console.print("the run showed nothing about the project that its criteria do not state")
+        return
+    opened = [x for x in touched if x.status is LessonStatus.open]
+    console.print(
+        f"what run {run_id} showed about the project: {len(touched)} lesson(s), "
+        f"{len(opened)} awaiting an answer"
+    )
+    for lesson in touched:
+        _print_lesson(lesson)
+
+
+@lessons_app.callback()
+def lessons_main(ctx: typer.Context) -> None:
+    """List what the runs showed about the project (`495 retro <id>` reads it from a run)."""
+    if ctx.invoked_subcommand is None:
+        _print_lessons(_ctx(ctx), _ctx(ctx).store.load_lessons())
+
+
+@lessons_app.command("list")
+def lessons_list(
+    ctx: typer.Context,
+    status: str = typer.Option("", help="Show only the lessons in this state."),
+) -> None:
+    """List the lessons and where each one stands."""
+    c = _ctx(ctx)
+    lessons = c.store.load_lessons()
+    if not status:
+        _print_lessons(c, lessons)
+        return
+    try:
+        wanted = LessonStatus(status)
+    except ValueError:
+        raise typer.BadParameter(
+            f"unknown status '{status}'; choose from {[s.value for s in LessonStatus]}"
+        ) from None
+    _print_lessons(c, lessons, [x for x in lessons.lessons if x.status is wanted])
+
+
+@lessons_app.command("show")
+def lessons_show(ctx: typer.Context, lesson_id: str) -> None:
+    """Show one lesson: what the runs observed, and the lines project.toml takes."""
+    c = _ctx(ctx)
+    _, lesson = _load_lesson(c, lesson_id)
+    if c.json:
+        _emit_json(_lesson_payload(lesson))
+        return
+    _print_lesson(lesson)
+
+
+@lessons_app.command("accept")
+def lessons_accept(
+    ctx: typer.Context,
+    lesson_id: str,
+    text: str = typer.Option(
+        "",
+        "--as",
+        help="Declare it in your own words instead of the ones the run showed.",
+    ),
+) -> None:
+    """Put a lesson in force: every run that follows is given it."""
+    c = _ctx(ctx)
+    lessons, lesson = _load_lesson(c, lesson_id)
+    try:
+        memory.accept(lesson, text)
+    except memory.LessonError as exc:
+        _error(c, str(exc))
+        return
+    c.store.save_lessons(lessons)
+    if c.json:
+        _emit_json(_lesson_payload(lesson))
+        return
+    console.print(Text(f"accepted {lesson.id}: {lesson.statement}"))
+    if lesson.declares:
+        console.print(
+            Text(
+                f"in force as {lesson.kind.value} `{lesson.declared or lesson.value}` from the "
+                "next run; the lines for .495/project.toml are under 495 lessons show "
+                f"{lesson.id}"
+            )
+        )
+    console.print(f"written to {c.store.lessons_doc_path()}")
+
+
+@lessons_app.command("decline")
+def lessons_decline(
+    ctx: typer.Context,
+    lesson_id: str,
+    reason: str = typer.Option(..., help="Why it is not a rule of this project; kept with it."),
+) -> None:
+    """Decline a lesson with a reason; the same lesson is not proposed again."""
+    c = _ctx(ctx)
+    lessons, lesson = _load_lesson(c, lesson_id)
+    try:
+        memory.decline(lesson, reason)
+    except memory.LessonError as exc:
+        _error(c, str(exc))
+        return
+    c.store.save_lessons(lessons)
+    if c.json:
+        _emit_json(_lesson_payload(lesson))
+    else:
+        console.print(Text(f"declined {lesson.id}: {lesson.reason}"))
+
+
+@lessons_app.command("defer")
+def lessons_defer(
+    ctx: typer.Context,
+    lesson_id: str,
+    note: str = typer.Option("", help="Free-text note, kept with the lesson."),
+) -> None:
+    """Defer a lesson: it stays listed, to accept or decline later."""
+    c = _ctx(ctx)
+    lessons, lesson = _load_lesson(c, lesson_id)
+    try:
+        memory.defer(lesson, note)
+    except memory.LessonError as exc:
+        _error(c, str(exc))
+        return
+    c.store.save_lessons(lessons)
+    if c.json:
+        _emit_json(_lesson_payload(lesson))
+    else:
+        console.print(
+            Text(f"deferred {lesson.id}" + (f": {lesson.reason}" if lesson.reason else ""))
+        )
+
+
+@app.command()
+def stats(ctx: typer.Context) -> None:
+    """Read every run of the project as a series: what keeps costing, and what finds something."""
+    c = _ctx(ctx)
+    runs = c.store.list_runs()
+    summary = indicators.summarise(c.project.name, runs, c.store.load_lessons())
+    if c.json:
+        _emit_json(summary.model_dump(mode="json"))
+        return
+    if not summary.runs:
+        console.print(f"no run recorded under {c.store.runs_dir}")
+        return
+    _print_stats(summary)
+
+
+def _print_stats(s: indicators.Stats) -> None:
+    """The series in four tables: the runs, the instruments, the verifications, the reviewers."""
+    overview = Table(title=f"{s.runs} run(s) of {s.project}")
+    overview.add_column("indicator")
+    overview.add_column("value")
+    outcomes = ", ".join(f"{k} {n}" for k, n in s.by_outcome.items()) or "none concluded"
+    requirements = ", ".join(f"{k} {n}" for k, n in s.requirements_by_status.items()) or "none"
+    overview.add_row("outcomes", outcomes)
+    overview.add_row("statuses", ", ".join(f"{k} {n}" for k, n in s.by_status.items()))
+    overview.add_row("iterations", f"{s.iterations} total, {s.iterations_mean} per run produced")
+    overview.add_row("correction requests", str(s.corrections))
+    overview.add_row("requirements", f"{s.requirements} ({requirements})")
+    overview.add_row(
+        "cost",
+        f"{s.cost_usd:.4f} USD over {s.interventions} intervention(s)"
+        + (
+            f", {s.cost_unknown_interventions} of unknown cost"
+            if s.cost_unknown_interventions
+            else ""
+        ),
+    )
+    overview.add_row(
+        "cost per requirement assessed",
+        f"{s.cost_per_requirement:.4f} USD" if s.cost_per_requirement else "unknown",
+    )
+    overview.add_row(
+        "decisions before the specification",
+        f"{s.decisions_taken} taken over {s.clarify_rounds} round(s), "
+        f"{s.questions_left_open} left open",
+    )
+    overview.add_row("instrument faults", str(s.instrument_faults))
+    if s.lessons_by_status:
+        overview.add_row("lessons", ", ".join(f"{k} {n}" for k, n in s.lessons_by_status.items()))
+    console.print(overview)
+
+    faulty = [i for i in s.instruments if i.faults or i.replaced]
+    if faulty:
+        table = Table(title="commands that could not decide")
+        for col in ("command", "runs", "faults", "replaced"):
+            table.add_column(col)
+        for i in faulty:
+            table.add_row(Text(i.command), str(i.runs), str(i.faults), str(i.replaced))
+        console.print(table)
+
+    if s.kinds:
+        table = Table(title="verifications by kind")
+        for col in ("kind", "verifications", "non-discriminating", "insufficient"):
+            table.add_column(col)
+        for k in s.kinds:
+            table.add_row(
+                k.kind.value,
+                str(k.verifications),
+                str(k.non_discriminating),
+                str(k.insufficient),
+            )
+        console.print(table)
+
+    if s.perspectives:
+        table = Table(title="what each perspective found")
+        for col in ("perspective", "reviews", "rejected", "discarded", "findings", "blockers"):
+            table.add_column(col)
+        for p in s.perspectives:
+            table.add_row(
+                p.perspective,
+                str(p.reviews),
+                str(p.rejected),
+                str(p.discarded),
+                str(p.findings),
+                str(p.blockers),
+            )
+        console.print(table)
+        for p in s.perspectives:
+            for line in p.recurring:
+                console.print(Text(f"{p.perspective}: {line}"))
+
+
 @app.command()
 def doctor(ctx: typer.Context) -> None:
     """Check agents, sandboxes and git availability without spending tokens."""
@@ -1010,7 +1316,7 @@ def _print_retrospective(retro: Retrospective) -> None:
 
 @app.command()
 def retro(ctx: typer.Context, run_id: str) -> None:
-    """What the run showed about the project's tools, with the rows the catalogue takes."""
+    """What the run showed about the project's tools and about the project itself."""
     c = _ctx(ctx)
     try:
         run = c.store.load(run_id)
@@ -1019,10 +1325,16 @@ def retro(ctx: typer.Context, run_id: str) -> None:
         return
     retro = retrospection.retrospect(run)
     path = c.store.save_retrospective(retro)
+    lessons = c.store.load_lessons()
+    touched = memory.reconcile(lessons, memory.learn(run, c.config().project, retro))
+    c.store.save_lessons(lessons)
     if c.json:
-        _emit_json(retro.model_dump(mode="json"))
+        payload = retro.model_dump(mode="json")
+        payload["lessons"] = [_lesson_payload(x) for x in touched]
+        _emit_json(payload)
         return
     _print_retrospective(retro)
+    _print_learned(c, run.id, touched)
     console.print(f"saved at {path}")
 
 
@@ -1224,10 +1536,10 @@ def watch(
 def schema(
     ctx: typer.Context,
     name: str = typer.Argument(
-        "run", help="run | event | spec | config | proposals | retrospective"
+        "run", help="run | event | spec | config | proposals | retrospective | lessons | stats"
     ),
 ) -> None:
-    """Print the JSON schema of the persisted documents."""
+    """Print the JSON schema of the persisted documents, and of what `495 stats` reports."""
     from harness495.core.models import Event as EventModel
 
     models: dict[str, type[BaseModel]] = {
@@ -1237,6 +1549,8 @@ def schema(
         "config": HarnessConfig,
         "proposals": Proposals,
         "retrospective": Retrospective,
+        "lessons": Lessons,
+        "stats": indicators.Stats,
     }
     if name not in models:
         raise typer.BadParameter(f"unknown schema '{name}'; choose from {list(models)}")

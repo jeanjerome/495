@@ -19,7 +19,7 @@ created ─► profiled ─► clarifying ─► clarified ─► specified ─�
 
 | Phase | Who | What it establishes |
 |---|---|---|
-| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
+| profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, the lessons earlier runs showed and the requester accepted, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
 | clarify | clarifier agent, read-only, one intervention per round | the decisions the intent leaves open, as the frontier: the questions whose prerequisites are settled, each with at least two options, what each option does to the specification, a recommended answer and what the clarifier read to recommend it. The harness completes the options with `other`, drops a question already answered, one offering fewer than two options and one whose option states no consequence, and raises one decision for the whole round; the answers are facts for the specifier, the test designer, the producer and every reviewer. The phase ends when a round returns no question, or at `budget.max_clarify_rounds`, the questions still open being recorded as unanswered (`docs/decisions/0025-the-decisions-are-taken-before-the-specification-in-rounds.md`) |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any; a test stated as a given/when/then scenario), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure or a test to create without a scenario being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
@@ -30,7 +30,8 @@ created ─► profiled ─► clarifying ─► clarified ─► specified ─�
 | decide | harness | each requirement `satisfied`, `violated` or `undetermined`; violations become correction requests and a new iteration; `undetermined` stops and asks |
 | deliver | harness | patch, branch `495/<run-id>`, Markdown report; nothing merged |
 | merge, check-integration | harness, on request | the delivered branch brought into the checked-out branch in one of four shapes, then the target ref compared with what was verified |
-| retro | harness, on request | what the run showed about each tool that measured a catalogue role, read from the run document: proven, faulty or inconclusive, with the row the catalogue takes by hand |
+| retro | harness, on request | what the run showed about each tool that measured a catalogue role, read from the run document: proven, faulty or inconclusive, with the row the catalogue takes by hand; and what it showed about the project itself, as lessons the requester accepts, declines or defers — a replaced command, a correction written by hand, a rule a reviewer blocked the change for, the scope a produced version stayed inside, a decision taken before the specification. An accepted lesson is part of the project's criteria from the next run on and reaches the specifier as a fact (`docs/decisions/0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md`) |
+| stats | harness, on request | every run of the store read as a series: outcomes, iterations, cost per requirement assessed, the commands recorded unable to tell the change from its absence, the kinds of verification that decided nothing, what each perspective found and found again. Computed on every call, persisted nowhere |
 
 `495 eval` runs the same machine without a producer: the existing change (a commit, a range, a
 patch or the working tree) is materialised as one commit in the worktree and enters at `produced`.
@@ -54,8 +55,9 @@ Dependencies point downwards only (`docs/decisions/0011-package-boundaries.md`):
 - `interfaces` may import anything. Nothing outside `interfaces` imports it.
 - Inside `core`, only `engine` imports `agents`, and only `engine` and `verification` import
   `sandbox`. The rest of `core` (`models`, `decide`, `scope`, `context`, `prompts`, `schemas`,
-  `profile`, `catalogue`, `coverage`, `proposals`, `retro`, `suite`, `diff`, `mutation`,
-  `reach`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on `core` alone.
+  `profile`, `catalogue`, `coverage`, `proposals`, `retro`, `lessons`, `stats`, `suite`,
+  `diff`, `mutation`, `reach`, `git`, `store`, `report`, `config`, `pricing`, `budget`)
+  depends on `core` alone.
 - `agents` imports `core.models`, `core.pricing` and `sandbox`; never `core.engine`, `core.store`
   or `core.decide`.
 - `sandbox` imports `core.models` and nothing else of 495.
@@ -76,15 +78,17 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `catalogue` | the catalogue's recommended entries per technology and role (`RECOMMENDED`), what a test of each role must show (`ROLE_CONTRACTS`), the roles whose measure can contradict the agent (`CONTRADICTING_ROLES`), `compare()`: the profile's gaps against them, and `unmeasured_role()`: why a verification of a role cannot run in the project |
 | `proposals` | the conformance proposals: `reconcile()` opens one per gap and resolves those no longer stated, `intent_for()` writes the intent of the run an acceptance creates, `accept()`, `decline()`, `defer()` record the requester's answer |
 | `retro` | the retrospective of a run: `measurements()` pairs each run of a verification on the change with its control run, `read()` turns a pair into a verdict, a contradiction, a fault or nothing, `retrospect()` states one `ToolObservation` per technology and role with the catalogue row it yields |
-| `scope` | which files a change may touch |
+| `lessons` | what a run showed about the project: `learn()` reads a replaced command, a correction written by hand, a blocking finding no requirement asked about, the scope a produced version stayed inside, a decision taken before the specification and a tool the retrospective found faulty; `reconcile()` keeps one record per lesson however many runs show it; `accept()`, `decline()`, `defer()` record the answer; `criteria()` adds the accepted ones to the project's criteria; `toml_lines()` and `render_document()` state them |
+| `stats` | `summarise()`: the runs of the store read as a series — outcomes, iterations, cost per requirement, `InstrumentStat` per command, `KindStat` per kind of verification, `PerspectiveStat` per reviewer perspective with what it found again |
+| `scope` | which files a change may touch, and `effective_allowed()`: the project's criteria, or the specification's where it declares none |
 | `suite` | what the change did to the test suite that passed on the base: `read_suite_changes()` reads the diff over the test files that existed there (deleted, renamed out of the runner's reach, tests removed, skips added), `count_tests()` reads the tally a runner prints, `compare_counts()` pairs the base's with the change's |
 | `context` | `ContextPack`: facts versus untrusted content, the only route by which anything reaches an agent, and the renderers of spec, profile, evidence, reviews |
 | `prompts` | system prompts and tasks for the five roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
-| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`; a run's `retrospective.json` |
+| `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`, `lessons.json` and `lessons.md`; a run's `retrospective.json` |
 | `report` | the Markdown restitution of a run from its persisted state; under each requirement, the scenario of every verification stated as one and what it reported on the evaluated commit |
-| `config` | precedence: defaults, `~/.config/495/config.toml`, `.495/config.toml`, `.495/project.toml`, command line |
+| `config` | precedence: defaults, `~/.config/495/config.toml`, `.495/config.toml`, `.495/project.toml`, command line; the criteria then take the lessons in force |
 | `budget`, `pricing` | limits checked before each intervention; cost `reported`, `estimated` or `unknown` |
 
 ### `agents`
@@ -118,7 +122,8 @@ renders from the store and drives the engine through the same public methods as 
 
 A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
 `ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the `CatalogueGap`s
-against the catalogue, the `DeclinedRole`s read from the proposals, `ReadinessCheck`s), one
+against the catalogue, the `DeclinedRole`s read from the proposals, the `Lesson`s in force,
+`ReadinessCheck`s), one
 `Clarification`, one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
 `Decision`, linked by identifiers. A `Clarification` is the `ClarifyRound`s the phase walked —
@@ -144,8 +149,13 @@ gap against the catalogue, identified by technology and role: the gap as last st
 `deferred`, `resolved`), and the intent an acceptance turns into a run. Next to a run, a
 `Retrospective` holds one `ToolObservation` per technology and `CatalogueRole` a
 verification measured: the tools, a `ToolVerdict` (`proven`, `faulty`, `inconclusive`), the
-counts and sentences of each measurement, and the catalogue row it yields. The JSON schema of
-each document comes from these models.
+counts and sentences of each measurement, and the catalogue row it yields. Outside any run
+too, a `Lessons` document holds one `Lesson` per thing a run showed about the project,
+identified by its `LessonKind` (`command`, `convention`, `allowed_path`, `note`) and by what it
+would declare: the runs that showed it, what each of them recorded in words, a `LessonStatus`
+(`open`, `accepted`, `declined` with the reason, `deferred`) and, on an acceptance, the words
+the requester chose to declare instead. The JSON schema of each document comes from these
+models, and `495 schema stats` publishes the shape of the series `core/stats.py` reads.
 
 ## State on disk
 
@@ -153,6 +163,7 @@ each document comes from these models.
 <project>/.495/                        excluded from git by .git/info/exclude
   config.toml  project.toml            configuration and project criteria
   proposals.json                       the conformance proposals and the requester's answers
+  lessons.json  lessons.md             what the runs showed about the project, and what is in force
   runs/<run-id>/
     run.json                           the Run document, atomic writes
     retrospective.json                 what the run showed about the tools, written by 495 retro

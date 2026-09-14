@@ -5,6 +5,19 @@ from __future__ import annotations
 import fnmatch
 from dataclasses import dataclass, field
 
+from harness495.core.models import Run
+
+
+def effective_allowed(run: Run) -> list[str]:
+    """The paths a run's change may touch: the project's criteria, or the specification's.
+
+    The requester's own declaration wins whole and is never widened by a specification: what the
+    specifier proposed stands only where the project declares nothing.
+    """
+    if run.config.project.scope.allowed_paths:
+        return list(run.config.project.scope.allowed_paths)
+    return list(run.spec.allowed_paths)
+
 
 def _match(path: str, pattern: str) -> bool:
     pattern = pattern.strip()
