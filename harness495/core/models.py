@@ -43,6 +43,8 @@ class RunMode(StrEnum):
 class RunStatus(StrEnum):
     created = "created"
     profiled = "profiled"
+    clarifying = "clarifying"
+    clarified = "clarified"
     specified = "specified"
     ready = "ready"
     producing = "producing"
@@ -74,6 +76,9 @@ class AgentKind(StrEnum):
 
 
 class Role(StrEnum):
+    clarifier = "clarifier"
+    """Asks the requester the decisions the intent leaves open, before anything is specified;
+    reads the repository, decides nothing itself."""
     specifier = "specifier"
     test_designer = "test_designer"
     """Writes the tests the specification says to create, before the producer, in an
@@ -202,6 +207,8 @@ class InterventionStatus(StrEnum):
 
 
 class DecisionKind(StrEnum):
+    clarify = "clarify"
+    """One round of the clarification: every question of the frontier, answered in one stop."""
     approve_spec = "approve_spec"
     readiness = "readiness"
     acceptance = "acceptance"
@@ -240,6 +247,8 @@ class ReviewerSpec(StrictModel):
 
 
 class RolesConfig(StrictModel):
+    clarifier: str = "default"
+    """The agent that asks the requester what the intent leaves open, before the specifier."""
     specifier: str = "default"
     test_designer: str | None = "default"
     """The agent that writes the tests to create before the producer runs; None hands them to
@@ -278,6 +287,10 @@ class Budget(StrictModel):
     max_total_tokens: int | None = None
     max_interventions: int = 40
     max_iterations: int = 3
+    max_clarify_rounds: int = 2
+    """Rounds of the clarification the requester is asked to answer. One further round runs
+    after the last answered one to see whether the frontier is empty; if it is not, its
+    questions are recorded unanswered. 0 leaves the clarification out, agent and stop alike."""
     intervention_timeout_s: int = 1800
     command_timeout_s: int = 600
     context_warn_ratio: float = 0.75
@@ -615,6 +628,175 @@ class Retrospective(StrictModel):
         return None
 
 
+# --------------------------------------------------------------------------- clarification
+
+
+class ClarifyOption(StrictModel):
+    """One answer a question offers, and what taking it does to the specification.
+
+    ``consequence`` is the whole point of the option: which requirement appears or disappears,
+    which verification changes kind. An option that states none says nothing about what is
+    being decided, and its question is dropped rather than put to the requester.
+    """
+
+    key: str
+    label: str
+    consequence: str = ""
+
+
+class ClarifyQuestion(StrictModel):
+    """One decision the intent leaves open, as the clarifier puts it.
+
+    ``checked`` is what the clarifier read or ran to reach ``recommended``: a question whose
+    answer is in the repository then shows as one, in front of the requester, instead of
+    resting on the prompt. The harness completes ``options`` with ``other``, which takes a
+    note, so that the tree never forces a false choice.
+    """
+
+    id: str
+    title: str
+    body: str = ""
+    options: list[ClarifyOption] = Field(default_factory=list)
+    recommended: str = ""
+    checked: list[str] = Field(default_factory=list)
+
+    def option(self, key: str) -> ClarifyOption | None:
+        for o in self.options:
+            if o.key == key:
+                return o
+        return None
+
+
+class ClarifyAnswer(StrictModel):
+    """What was decided on one question, and by whom.
+
+    ``recommended`` says whether the answer is the one the clarifier advised, and ``taken_by``
+    whether the requester chose it or the harness took it on their behalf under
+    ``--auto-approve``; the report shows both, because they are not the same record.
+    """
+
+    question_id: str
+    question: str
+    option: str
+    label: str = ""
+    note: str = ""
+    recommended: bool = False
+    taken_by: DecisionMaker = DecisionMaker.human
+    answered_at: dt.datetime = Field(default_factory=utcnow)
+
+    @property
+    def statement(self) -> str:
+        """The decision in one sentence, as the later roles read it."""
+        chosen = self.label or self.option
+        return f"{self.question} — {chosen}" + (f": {self.note}" if self.note else "")
+
+
+class ClarifyRound(StrictModel):
+    """One intervention of the clarification: the frontier it returned, and the answers.
+
+    ``dropped`` names what the harness took out of the round and why — a question already
+    settled, one with fewer than two options, one whose option states no consequence. The
+    round holds only what was actually put to the requester.
+    """
+
+    n: int
+    intervention_id: str
+    questions: list[ClarifyQuestion] = Field(default_factory=list)
+    answers: list[ClarifyAnswer] = Field(default_factory=list)
+    dropped: list[str] = Field(default_factory=list)
+    asked_at: dt.datetime = Field(default_factory=utcnow)
+
+    def question(self, qid: str) -> ClarifyQuestion | None:
+        for q in self.questions:
+            if q.id == qid:
+                return q
+        return None
+
+
+class Clarification(StrictModel):
+    """The decisions taken before the specification, round by round.
+
+    ``open_questions`` are the ones the last round returned and nobody was asked: the round cap
+    was reached, so the frontier was not empty when the phase ended. They are recorded rather
+    than dropped, so that the specifier states an assumption knowing it stands on a question
+    that was never put.
+    """
+
+    rounds: list[ClarifyRound] = Field(default_factory=list)
+    open_questions: list[ClarifyQuestion] = Field(default_factory=list)
+    complete: bool = False
+    stopped_at_cap: bool = False
+
+    @property
+    def answers(self) -> list[ClarifyAnswer]:
+        return [a for r in self.rounds for a in r.answers]
+
+    def answered(self, question: ClarifyQuestion) -> ClarifyAnswer | None:
+        """The answer a question already has, matched on its id or on its words.
+
+        Both, because the clarifier chooses the ids: the same decision can come back under a
+        new id, and a fresh decision can reuse one. Either match settles it.
+        """
+        title = normalise_question(question.title)
+        for a in self.answers:
+            if a.question_id == question.id or normalise_question(a.question) == title:
+                return a
+        return None
+
+    @property
+    def rounds_answered(self) -> int:
+        return sum(1 for r in self.rounds if r.answers)
+
+    @property
+    def says_anything(self) -> bool:
+        """Whether the phase left the later roles something to read.
+
+        A round that came back with an empty frontier settled nothing and left nothing: telling
+        the specifier that no decision was taken is not a fact, it is a blank section.
+        """
+        return bool(self.answers or self.open_questions)
+
+
+def normalise_question(text: str) -> str:
+    """A question reduced to its words, for telling one already answered from a new one."""
+    return " ".join(text.lower().split()).strip(" ?.:;!")
+
+
+class DecisionTaken(StrictModel):
+    """One requester's decision as the specification carries it: what was asked, what was
+    chosen among what was offered, and who chose.
+
+    Kept on the specification rather than read back from the run, so that the artifact the
+    requester approves and the reviewers are given states the decisions it was written under.
+    """
+
+    question: str
+    options: list[str] = Field(default_factory=list)
+    choice: str
+    note: str = ""
+    taken_by: DecisionMaker = DecisionMaker.human
+
+
+class ClarifyReply(StrictModel):
+    """One answer as the requester gives it: which option, and the note an ``other`` needs."""
+
+    question_id: str
+    option: str
+    note: str = ""
+
+
+class DecisionAnswer(StrictModel):
+    """What an interface hands back when it has put a pending decision to the requester.
+
+    ``answers`` is empty for every decision that is one question; a ``clarify`` round carries
+    one reply per question of the round.
+    """
+
+    choice: str
+    note: str = ""
+    answers: list[ClarifyReply] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- specification
 
 
@@ -688,6 +870,10 @@ class Spec(StrictModel):
     verifications: list[Verification] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
+    """What the specifier could not verify and nobody was asked about. A question that was put
+    to the requester is a ``decisions_taken`` entry, not an assumption."""
+    decisions_taken: list[DecisionTaken] = Field(default_factory=list)
+    """The requester's decisions the specification was written under, from the clarification."""
     allowed_paths: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
     """Human-readable list of verification gaps detected by the harness."""
@@ -891,6 +1077,9 @@ class PendingDecision(StrictModel):
     kind: DecisionKind
     question: str
     options: list[DecisionOption]
+    questions: list[ClarifyQuestion] = Field(default_factory=list)
+    """The questions of a ``clarify`` round, answered one by one under the option that says so.
+    Empty for every decision that is itself one question."""
     context: dict[str, Any] = Field(default_factory=dict)
     raised_at: dt.datetime = Field(default_factory=utcnow)
 
@@ -904,6 +1093,8 @@ class Decision(StrictModel):
     evidence_ids: list[str] = Field(default_factory=list)
     iteration: int = 0
     question: str | None = None
+    answers: list[ClarifyAnswer] = Field(default_factory=list)
+    """What was answered question by question, when the decision carried several."""
     created_at: dt.datetime = Field(default_factory=utcnow)
 
 
@@ -1026,6 +1217,8 @@ class Run(StrictModel):
     project_root: str
     config: HarnessConfig = Field(default_factory=HarnessConfig)
     profile: ProjectProfile | None = None
+    clarification: Clarification = Field(default_factory=Clarification)
+    """The decisions the requester took before the specification, and the questions left open."""
     spec: Spec = Field(default_factory=Spec)
     test_design: TestDesign | None = None
     """The tests to create as written by the test designer for the approved specification;

@@ -15,6 +15,8 @@ from rich.table import Table
 from rich.text import Text
 
 from harness495.core.models import (
+    ClarifyReply,
+    DecisionAnswer,
     DecisionKind,
     Event,
     PendingDecision,
@@ -100,6 +102,11 @@ def print_spec(spec: Spec) -> None:
                 keyword, _, rest = step.partition(" ")
                 console.print(f"      [bold]{keyword}[/] {rest}")
 
+    if spec.decisions_taken:
+        console.print("\n[bold]decisions you took before this was written[/]")
+        for d in spec.decisions_taken:
+            note = f": {d.note}" if d.note else ""
+            console.print(f"  - {_clip(d.question, 160)} — [bold]{_clip(d.choice, 120)}[/]{note}")
     for title, items in (
         ("allowed paths", spec.allowed_paths),
         ("out of scope", spec.out_of_scope),
@@ -141,8 +148,26 @@ def print_requirement_status(run: Run) -> None:
     console.print(table)
 
 
+def print_clarify_questions(pending: PendingDecision) -> None:
+    """The round, laid out: each decision, what each answer does, what was checked for it."""
+    for i, q in enumerate(pending.questions, start=1):
+        console.print(f"\n[bold]{i}. {q.id}[/]  {q.title}")
+        if q.body:
+            console.print(f"   [dim]{_clip(q.body, 600)}[/]")
+        for o in q.options:
+            mark = " [green](recommended)[/]" if o.key == q.recommended else ""
+            console.print(f"     [bold]{o.key}[/]: {o.label}{mark}")
+            if o.consequence:
+                console.print(f"         [dim]{o.consequence}[/]")
+        if q.checked:
+            console.print(f"     [dim]checked: {_clip('; '.join(q.checked), 300)}[/]")
+
+
 def print_decision_detail(pending: PendingDecision, run: Run) -> None:
     """The facts behind the question, laid out, so the question itself can stay one sentence."""
+    if pending.kind is DecisionKind.clarify:
+        print_clarify_questions(pending)
+        return
     if pending.kind is DecisionKind.approve_spec:
         print_spec(run.spec)
         return
@@ -195,7 +220,7 @@ def paused_display() -> Iterator[None]:
         yield
 
 
-def prompt_decision(run: Run, pending: PendingDecision) -> tuple[str, str] | None:
+def prompt_decision(run: Run, pending: PendingDecision) -> DecisionAnswer | None:
     with paused_display():
         print_decision(pending, run)
         keys = [o.key for o in pending.options]
@@ -205,7 +230,33 @@ def prompt_decision(run: Run, pending: PendingDecision) -> tuple[str, str] | Non
         if option.needs_note:
             while not note.strip():
                 note = Prompt.ask("note", console=console)
-        return choice, note
+        answers: list[ClarifyReply] = []
+        if pending.kind is DecisionKind.clarify and choice == "answer":
+            answers = prompt_clarify_answers(pending)
+        return DecisionAnswer(choice=choice, note=note, answers=answers)
+
+
+def prompt_clarify_answers(pending: PendingDecision) -> list[ClarifyReply]:
+    """One answer per question of the round; the round is answered whole or not at all."""
+    answers: list[ClarifyReply] = []
+    for q in pending.questions:
+        console.print(f"\n[bold]{q.id}[/]  {q.title}")
+        for o in q.options:
+            mark = " [green](recommended)[/]" if o.key == q.recommended else ""
+            console.print(f"  [bold]{o.key}[/]: {o.label}{mark}")
+        key = Prompt.ask(
+            "answer",
+            choices=[o.key for o in q.options],
+            default=q.recommended,
+            console=console,
+            show_choices=False,
+        )
+        note = ""
+        if key == "other":
+            while not note.strip():
+                note = Prompt.ask("in your own words", console=console)
+        answers.append(ClarifyReply(question_id=q.id, option=key, note=note))
+    return answers
 
 
 def print_run_summary(

@@ -12,6 +12,7 @@ from harness495.interfaces.tui.views.change import build_change
 from harness495.interfaces.tui.views.checks import build_checks
 from harness495.interfaces.tui.views.decision import (
     ask_decision,
+    clarify_replies,
     decision_panel,
     decision_question,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "HomeContext",
     "ViewContext",
     "ask_decision",
+    "clarify_replies",
     "ask_intent",
     "build_home",
     "build_log",

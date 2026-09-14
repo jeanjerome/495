@@ -23,7 +23,7 @@ from typing import Protocol
 
 from harness495.core.config import load_config
 from harness495.core.engine import Engine
-from harness495.core.models import DecisionMaker, Event, RunMode
+from harness495.core.models import ClarifyReply, DecisionMaker, Event, RunMode
 from harness495.core.store import RunStore
 
 
@@ -67,7 +67,9 @@ class Driver(Protocol):
 
     def pause(self, run_id: str) -> None: ...
 
-    def decide(self, run_id: str, choice: str, note: str) -> None: ...
+    def decide(
+        self, run_id: str, choice: str, note: str, answers: list[ClarifyReply] | None = None
+    ) -> None: ...
 
     def integrate(self, run_id: str, ref: str, rerun: bool) -> None: ...
 
@@ -102,7 +104,9 @@ class ReadOnly:
     def pause(self, run_id: str) -> None:
         self._refuse()
 
-    def decide(self, run_id: str, choice: str, note: str) -> None:
+    def decide(
+        self, run_id: str, choice: str, note: str, answers: list[ClarifyReply] | None = None
+    ) -> None:
         self._refuse()
 
     def integrate(self, run_id: str, ref: str, rerun: bool) -> None:
@@ -189,13 +193,15 @@ class StoreDriver:
         """
         self.store.request_stop(run_id, "paused from the run surface")
 
-    def decide(self, run_id: str, choice: str, note: str) -> None:
+    def decide(
+        self, run_id: str, choice: str, note: str, answers: list[ClarifyReply] | None = None
+    ) -> None:
         """Record the answer, then carry on — the decision is asked for the run to continue.
 
         Applying it is a file write, so it happens here rather than on the thread: the caller
         has just taken the screen down for a prompt and can say straight away that it failed.
         """
-        run = self.engine().decide(run_id, choice, note, DecisionMaker.human)
+        run = self.engine().decide(run_id, choice, note, DecisionMaker.human, answers)
         if not run.is_blocked():
             self.start(run_id)
 

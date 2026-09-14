@@ -18,6 +18,8 @@ from rich.table import Table
 from rich.text import Text
 
 from harness495.core.models import (
+    ClarifyQuestion,
+    ClarifyReply,
     DecisionKind,
     PendingDecision,
     RequirementStatus,
@@ -131,6 +133,10 @@ def decision_facts(run: Run, pending: PendingDecision) -> list[tuple[str, Render
         )
         for gap in run.spec.gaps:
             out.append(("gap", Text(gap, style="suf.insufficient")))
+    for question in pending.questions:
+        recommended = question.option(question.recommended)
+        advised = f" — advised: {recommended.label}" if recommended is not None else ""
+        out.append((question.id, Text(f"{question.title}{advised}", style="h.value")))
     if pending.kind is DecisionKind.budget and run.budget.max_cost_usd:
         out.append(
             (
@@ -167,6 +173,13 @@ def decision_question(run: Run, pending: PendingDecision) -> Question:
                 hint="a sentence; it is kept with the run",
                 required=True,
             )
+        if answers["choice"] == "answer":
+            # The round walked question by question: what is asked next is a function of what
+            # has been answered, which is what going back undoes, one answer at a time.
+            for question in pending.questions:
+                nested = _question_step(question, answers)
+                if nested is not None:
+                    return nested
         return None
 
     return Question(
@@ -177,7 +190,46 @@ def decision_question(run: Run, pending: PendingDecision) -> Question:
     )
 
 
-def ask_decision(console: Console, run: Run, pending: PendingDecision) -> tuple[str, str] | None:
+def _question_step(question: ClarifyQuestion, answers: Answers) -> Step | None:
+    """The step one question of a round is at: its options, then the words an ``other`` needs."""
+    if question.id not in answers:
+        options = tuple(
+            Choice(
+                o.key,
+                o.label + (" (recommended)" if o.key == question.recommended else ""),
+                o.consequence,
+                o.key == "other",
+            )
+            for o in question.options
+        )
+        return Step(question.id, question.title, options=options, default=question.recommended)
+    note_key = f"{question.id}.note"
+    if answers[question.id] == "other" and note_key not in answers:
+        return Step(
+            note_key,
+            f"{question.id} — say what, in your own words",
+            hint="it goes to the specifier in place of the options",
+            required=True,
+        )
+    return None
+
+
+def clarify_replies(pending: PendingDecision, answers: Answers) -> list[ClarifyReply]:
+    """The answers the surface collected, as one reply per question of the round."""
+    return [
+        ClarifyReply(
+            question_id=q.id,
+            option=answers[q.id],
+            note=answers.get(f"{q.id}.note", ""),
+        )
+        for q in pending.questions
+        if q.id in answers
+    ]
+
+
+def ask_decision(
+    console: Console, run: Run, pending: PendingDecision
+) -> tuple[str, str, list[ClarifyReply]] | None:
     """The same question where there is no surface to draw it on. Deliberately blocking.
 
     The run is stopped until it is answered, and a dialog you could tab away from would be
@@ -196,4 +248,4 @@ def ask_decision(console: Console, run: Run, pending: PendingDecision) -> tuple[
             (f" — {option.consequence}" if option.consequence else "", "h.meta"),
         )
     )
-    return choice, answers.get("note", "")
+    return choice, answers.get("note", ""), clarify_replies(pending, answers)

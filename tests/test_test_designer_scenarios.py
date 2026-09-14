@@ -316,7 +316,7 @@ def a_configuration_without_a_designer(world: World) -> None:
 def the_agent_is_set_for_every_role(world: World, agent: str) -> None:
     assert world.config is not None
     world.config = _apply_overrides(
-        world.config, agent, None, None, None, None, None, None, False, None, None
+        world.config, agent, None, None, None, None, None, None, None, False, None, None
     )
 
 

@@ -10,9 +10,9 @@ saving the document before and after each phase, and stops in `awaiting_decision
 question is the requester's to answer, or in `paused` on interruption.
 
 ```
-created ─► profiled ─► specified ─► ready ─► producing ─► produced ─► verifying ─► verified
-                                        (design tests, then produce)
-        ─► reviewing ─► reviewed ─► accepted ─► delivered
+created ─► profiled ─► clarifying ─► clarified ─► specified ─► ready ─► producing ─►
+                  (one round per stop)                   (design tests, then produce)
+        ─► produced ─► verifying ─► verified ─► reviewing ─► reviewed ─► accepted ─► delivered
                                  └► rejected ─► ready        (one more iteration)
                                  └► undetermined             (the run asks)
 ```
@@ -20,6 +20,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | Phase | Who | What it establishes |
 |---|---|---|
 | profile | harness | languages, tooling, verification commands, role coverage (which tool measures each catalogue role), the gaps against the catalogue and the proposals the requester declined, conventions, documents; every command run once on the base version (readiness and baseline). Outside a run, `495 init` and `495 profile` also turn each gap into a conformance proposal recorded under `.495/` |
+| clarify | clarifier agent, read-only, one intervention per round | the decisions the intent leaves open, as the frontier: the questions whose prerequisites are settled, each with at least two options, what each option does to the specification, a recommended answer and what the clarifier read to recommend it. The harness completes the options with `other`, drops a question already answered, one offering fewer than two options and one whose option states no consequence, and raises one decision for the whole round; the answers are facts for the specifier, the test designer, the producer and every reviewer. The phase ends when a round returns no question, or at `budget.max_clarify_rounds`, the questions still open being recorded as unanswered (`docs/decisions/0025-the-decisions-are-taken-before-the-specification-in-rounds.md`) |
 | specify | specifier agent, read-only | requirements `R1..Rn` tied to verifications `V1..Vm` (each naming the catalogue role it measures, if any; a test stated as a given/when/then scenario), out of scope, assumptions, allowed paths; the specifier is given the catalogue against the project's role coverage, and the harness then audits sufficiency, a role the project does not measure or a test to create without a scenario being insufficient |
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | design tests | test designer agent, write | once per approved specification with a test to create: the tests, written from their scenarios' steps as a feature file where the project measures `bdd` and in the project's runner otherwise, on a tree where the behaviour does not exist; the harness keeps the test files, puts every other file back, commits them (`Run.test_design`) and protects them from the change |
@@ -78,7 +79,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | `scope` | which files a change may touch |
 | `suite` | what the change did to the test suite that passed on the base: `read_suite_changes()` reads the diff over the test files that existed there (deleted, renamed out of the runner's reach, tests removed, skips added), `count_tests()` reads the tally a runner prints, `compare_counts()` pairs the base's with the change's |
 | `context` | `ContextPack`: facts versus untrusted content, and the renderers of spec, profile, evidence, reviews |
-| `prompts` | system prompts and tasks for the four roles; the reviewer perspectives |
+| `prompts` | system prompts and tasks for the five roles; the reviewer perspectives |
 | `schemas` | hand-written JSON schemas for agent output, validated again by pydantic |
 | `git` | worktrees, exact versions, diffs, patches, the four integration shapes and their rollback |
 | `store` | one directory per run, atomic writes, append-only events, the claim of a run by the process advancing it; the project's `proposals.json`; a run's `retrospective.json` |
@@ -114,19 +115,25 @@ renders from the store and drives the engine through the same public methods as 
 A `Run` has an `Intent`, a `HarnessConfig`, a `ProjectProfile` (languages, tooling,
 `ProjectCommand`s, a `RoleCoverage` per technology and `CatalogueRole`, the `CatalogueGap`s
 against the catalogue, the `DeclinedRole`s read from the proposals, `ReadinessCheck`s), one
+`Clarification`, one
 `Spec`, a `Budget` and its `Consumption`, and grows lists of `Iteration`, `Intervention`, `Evidence`, `ReviewVerdict` and
-`Decision`, linked by identifiers. A `Spec` is `Requirement`s (each `behaviour` or
+`Decision`, linked by identifiers. A `Clarification` is the `ClarifyRound`s the phase walked —
+each one intervention, the `ClarifyQuestion`s it put to the requester with their
+`ClarifyOption`s, the `ClarifyAnswer`s taken and what the harness dropped — plus the questions
+left open when the round cap was reached. A `Spec` is `Requirement`s (each `behaviour` or
 `non_regression`) tied to `Verification`s (each with a `Sufficiency` the harness computes,
 when it measures a catalogue role, that `CatalogueRole`, and when it is a test, the
-`BehaviourScenario` it enacts: given, when and then steps). An
+`BehaviourScenario` it enacts: given, when and then steps), the `DecisionTaken`s it was
+written under, and the assumptions nobody was asked about. An
 `TestDesign` records the tests the test designer wrote for the specification: the commit
 that holds them, the protected files, the paths put back, and what the designer reported. An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
 `command_result`, `scope_check`, `suite_check`, `coverage_check`, `mutation_check`,
 `stability_check`, `review_verdict`, `instrument_check`, `baseline`, `integrity`. A
-`PendingDecision` is a question with `DecisionOption`s, each stating its consequence; a
-`Decision` records who answered and what. `RunResult` holds the delivered branch, patch, report
+`PendingDecision` is a question with `DecisionOption`s, each stating its consequence, and, for
+a clarification round, the `ClarifyQuestion`s it carries; a `Decision` records who answered and
+what, with one `ClarifyAnswer` per question when it carried several. `RunResult` holds the delivered branch, patch, report
 and the `IntegrationCheck`. Outside any run, a `Proposals` document holds one `Proposal` per
 gap against the catalogue, identified by technology and role: the gap as last stated, a
 `ProposalStatus` (`open`, `accepted` with the run it created, `declined` with the reason,

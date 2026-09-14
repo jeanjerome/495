@@ -205,6 +205,10 @@ class Scenario:
 
     def __init__(self) -> None:
         self.spec: dict[str, Any] = json.loads(json.dumps(SPEC_JSON))
+        self.clarify_rounds: list[dict[str, Any]] = [{"questions": []}]
+        """One entry per clarification round; the default is an intent with nothing left to
+        decide, so a scenario that says nothing about clarification pays one round and no stop."""
+        self.clarifier_fails = False
         self.designers: list[Callable[[Path], None]] = [design_tests]
         self.designer_not_done: list[str] = []
         self.producers: list[Callable[[Path], None]] = [good_producer]
@@ -232,6 +236,12 @@ class Scenario:
         n = sum(1 for t in self.calls if t.role is Role.test_designer) - 1
         return self.designers[min(n, len(self.designers) - 1)]
 
+    def next_clarify(self) -> dict[str, Any]:
+        n = sum(1 for t in self.calls if t.role is Role.clarifier) - 1
+        if n >= len(self.clarify_rounds):
+            return {"questions": []}
+        return self.clarify_rounds[n]
+
     def next_review(self, perspective: str) -> dict[str, Any]:
         n = sum(1 for t in self.calls if t.role is Role.reviewer and perspective in t.prompt) - 1
         queue = self.reviews.get(perspective)
@@ -256,7 +266,11 @@ class FakeAgent(Agent):
         structured: dict[str, Any] | None = None
         text = ""
         status = InterventionStatus.completed
-        if task.role is Role.specifier:
+        if task.role is Role.clarifier:
+            structured = sc.next_clarify()
+            if sc.clarifier_fails:
+                status = InterventionStatus.failed
+        elif task.role is Role.specifier:
             structured = sc.spec
         elif task.role is Role.test_designer:
             sc.next_designer()(task.cwd)

@@ -367,7 +367,10 @@ class ScriptedAgent(Agent):
         s = self.script
         structured: dict[str, Any] | None = None
         text = ""
-        if task.role is Role.specifier:
+        if task.role is Role.clarifier:
+            # An intent the script leaves nothing open in: one read-only round, no stop.
+            structured = {"questions": []}
+        elif task.role is Role.specifier:
             structured = s.spec
         elif task.role is Role.test_designer:
             structured = {"summary": "", "files_written": [], "tests": [], "not_done": []}

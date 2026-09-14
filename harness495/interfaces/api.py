@@ -32,6 +32,7 @@ from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
     AgentKind,
     AgentSpec,
+    ClarifyReply,
     DecisionMaker,
     Event,
     HarnessConfig,
@@ -235,6 +236,11 @@ class Handler(BaseHTTPRequestHandler):
                         str(body.get("choice", "")),
                         str(body.get("note", "")),
                         DecisionMaker.human,
+                        [
+                            ClarifyReply.model_validate(a)
+                            for a in (body.get("answers") or [])
+                            if isinstance(a, dict)
+                        ],
                     )
                     if not run.is_blocked():
                         self.state.start_background(run_id)

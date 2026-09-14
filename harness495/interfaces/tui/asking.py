@@ -49,6 +49,8 @@ class Step:
     question: str
     options: tuple[Choice, ...] = ()
     default: str = ""
+    """The answer taken when nothing is typed; on a picking step, the option the cursor opens
+    on, which is how a question states the answer it advises."""
     hint: str = ""
     required: bool = False
     """An empty line is refused rather than taken. A note that says nothing is not a record."""
@@ -152,7 +154,10 @@ class Ask:
             return
         self.editor = LineEditor(previous or "")
         keys = [o.key for o in step.options]
-        self.cursor = keys.index(previous) if previous in keys else 0
+        # The answer already given wins over the step's own default, which is where the cursor
+        # starts: a question that advises an answer opens on it rather than on the first row.
+        start = previous if previous in keys else step.default
+        self.cursor = keys.index(start) if start in keys else 0
 
     def key(self, key: str) -> None:
         """One keystroke. Everything that is not a move or a decision is text."""
@@ -252,10 +257,11 @@ def ask_in_prompt(console: Console, question: Question) -> Answers | None:
     while (step := question.next(answers)) is not None:
         if step.picking:
             console.print(choices(step.options, console.width))
+            keys = [o.key for o in step.options]
             value = Prompt.ask(
                 step.question,
-                choices=[o.key for o in step.options],
-                default=step.options[0].key,
+                choices=keys,
+                default=step.default if step.default in keys else keys[0],
                 console=console,
                 show_choices=False,
             )

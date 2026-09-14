@@ -65,7 +65,9 @@ class Attention:
 # quiet exactly when the run is between two agents, which reads as "stalled".
 HARNESS_WORK = {
     RunStatus.created: "reading the project: languages, tooling, verification commands",
-    RunStatus.profiled: "handing the intent to the specifier",
+    RunStatus.profiled: "asking what the intent leaves for you to decide",
+    RunStatus.clarifying: "working out what is left to decide from what you answered",
+    RunStatus.clarified: "handing the intent, and your decisions, to the specifier",
     RunStatus.specified: "waiting at the gate",
     RunStatus.ready: "opening the worktree for the producer",
     # The three phases an agent walks appear here too, because a run can be standing still in

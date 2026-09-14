@@ -11,6 +11,7 @@ import pytest
 from harness495.core import git
 from harness495.core.engine import EngineError
 from harness495.core.models import (
+    DecisionAnswer,
     DecisionKind,
     EvidenceKind,
     InterventionStatus,
@@ -44,10 +45,11 @@ def test_full_change_workflow_accepts(
     assert [r.status for r in run.spec.requirements] == [RequirementStatus.satisfied] * 2
     # Readiness ran the project's test command on the base version.
     assert run.profile is not None and run.profile.readiness[0].executable
-    # Roles were mobilised in order: specifier, the test designer (V1 is a test to create),
-    # producer, the 2 configured reviewers and the test_quality one that a test to create
-    # calls for.
+    # Roles were mobilised in order: clarifier, specifier, the test designer (V1 is a test to
+    # create), producer, the 2 configured reviewers and the test_quality one that a test to
+    # create calls for.
     assert [t.role for t in scenario.calls] == [
+        Role.clarifier,
         Role.specifier,
         Role.test_designer,
         Role.producer,
@@ -56,7 +58,7 @@ def test_full_change_workflow_accepts(
         Role.reviewer,
     ]
     # Reviewers received only the diff, spec, evidence: never the producer transcript.
-    reviewer_prompt = scenario.calls[3].prompt
+    reviewer_prompt = next(t.prompt for t in scenario.calls if t.role is Role.reviewer)
     assert "Untrusted content" in reviewer_prompt and "git diff base..head" in reviewer_prompt
     assert "fake transcript" not in reviewer_prompt and "Established facts" in reviewer_prompt
     # Exact version: a commit on the run branch, patch hash recorded, evidence bound to it.
@@ -82,8 +84,9 @@ def test_full_change_workflow_accepts(
         and "scope_check" in kinds
     )
     assert all(e.passed for e in run.evidence if e.kind.value == "command_result")
-    # Consumption and cost accounted.
-    assert run.consumption.interventions == 6 and run.consumption.cost_usd > 0
+    # Consumption and cost accounted: the clarifier, the specifier, the test designer, the
+    # producer and the three reviewers.
+    assert run.consumption.interventions == 7 and run.consumption.cost_usd > 0
     assert run.consumption.cost_basis.value == "reported"
     # Decisions: auto approval + acceptance.
     assert [d.kind for d in run.decisions] == [DecisionKind.approve_spec, DecisionKind.acceptance]
@@ -180,9 +183,9 @@ def test_decision_handler_answers_inline(
     config.auto_approve = False
     asked: list[str] = []
 
-    def handler(run: Run, pending: Any) -> tuple[str, str]:
+    def handler(run: Run, pending: Any) -> DecisionAnswer:
         asked.append(pending.kind.value)
-        return "approve", ""
+        return DecisionAnswer(choice="approve")
 
     engine = engine_factory(decision_handler=handler)
     run = _create(engine, sample_project, config)
@@ -290,8 +293,9 @@ def test_evaluate_mode_reviews_existing_commit(
     assert run.status is RunStatus.delivered and run.result.outcome is Verdict.accept
     assert Role.producer not in [t.role for t in scenario.calls]
     assert run.iterations[0].version.head_commit == head
-    # The specifier, the two configured reviewers, and test_quality for the test to create.
-    assert run.consumption.interventions == 4
+    # The clarifier, the specifier, the two configured reviewers, and test_quality for the
+    # test to create.
+    assert run.consumption.interventions == 5
 
 
 def test_evaluate_working_tree_and_patch(
@@ -597,7 +601,8 @@ def test_verification_blind_to_the_change_is_not_turned_into_a_correction(
     assert not it.correction_requests
 
     run = engine.decide(run.id, "respecify", "V1 never reaches the new code")
-    assert run.status is RunStatus.profiled and not run.spec.approved
+    # Back to the specifier, not to the clarification: the decisions taken hold.
+    assert run.status is RunStatus.clarified and not run.spec.approved
 
 
 def test_an_iteration_that_changes_nothing_stops_instead_of_being_reviewed_again(

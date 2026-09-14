@@ -57,6 +57,8 @@ def _agents_from(data: dict[str, Any]) -> dict[str, AgentSpec]:
 def _roles_from(data: dict[str, Any]) -> RolesConfig:
     roles = data.get("roles") or {}
     kwargs: dict[str, Any] = {}
+    if "clarifier" in roles:
+        kwargs["clarifier"] = roles["clarifier"]
     if "specifier" in roles:
         kwargs["specifier"] = roles["specifier"]
     if "producer" in roles:
@@ -128,6 +130,7 @@ api_key_env = "OPENAI_API_KEY"
 context_window = 32768
 
 [roles]
+clarifier = "default"       # asks you what the intent leaves open, before the specifier
 specifier = "default"
 test_designer = "default"   # writes the tests to create before the producer; false hands them to the producer
 producer = "default"
@@ -141,6 +144,7 @@ reviewers = [
 [budget]
 max_cost_usd = 10.0
 max_iterations = 3
+max_clarify_rounds = 2
 max_interventions = 40
 intervention_timeout_s = 1800
 command_timeout_s = 600

@@ -10,7 +10,7 @@ Feature: The tests to create are written by a test designer before the producer
     And V1 runs "tests/test_subtract.py"
     And the producer implements the behaviour and writes no test
     When a change run walks the workflow
-    Then the roles were called in the order "specifier, test_designer, producer, reviewer, reviewer, reviewer"
+    Then the roles were called in the order "clarifier, specifier, test_designer, producer, reviewer, reviewer, reviewer"
     And the test designer's prompt says "Write the test of every verification marked `to_create`"
     And the test designer's prompt says "subtract(5, 3) and subtract(3, 5) are called"
     And the test designer's prompt says "the behaviour the tests observe is not implemented here"
@@ -53,7 +53,7 @@ Feature: The tests to create are written by a test designer before the producer
     Given the sample project
     And no test designer is configured
     When a change run walks the workflow
-    Then the roles were called in the order "specifier, producer, reviewer, reviewer, reviewer"
+    Then the roles were called in the order "clarifier, specifier, producer, reviewer, reviewer, reviewer"
     And there is no test design
     And the producer's prompt does not say "## Tests written by the test designer"
     And the run ends delivered
@@ -62,7 +62,7 @@ Feature: The tests to create are written by a test designer before the producer
     Given the sample project
     And no verification is a test to create, R1 asking only that the suite go on passing
     When a change run walks the workflow
-    Then the roles were called in the order "specifier, producer, reviewer, reviewer"
+    Then the roles were called in the order "clarifier, specifier, producer, reviewer, reviewer"
     And there is no test design
 
   Scenario: The test designer writes nothing, and the producer is told nothing about designed tests

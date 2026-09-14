@@ -27,6 +27,7 @@ from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
     AgentKind,
     AgentSpec,
+    ClarifyReply,
     DecisionMaker,
     Event,
     GapKind,
@@ -164,8 +165,12 @@ def _finish(c: Ctx, run: Run) -> None:
         print_run_summary(run, c.store, with_requirements=not decision_shows_requirements(pending))
         if pending is not None:
             print_decision(pending, run)
+            per_question = (
+                " [--answer ID=OPTION per question]" if pending.questions else " [--note ...]"
+            )
             console.print(
-                f"Answer with: [bold]495 decide {run.id} <choice> [--note ...][/bold] then [bold]495 resume {run.id}[/bold]"
+                f"Answer with: [bold]495 decide {run.id} <choice>{per_question}[/bold] then "
+                f"[bold]495 resume {run.id}[/bold]"
             )
     if run.status.value == "awaiting_decision":
         raise typer.Exit(EXIT_AWAITING_DECISION)
@@ -195,6 +200,7 @@ def _apply_overrides(
     agent: str | None,
     producer: str | None,
     specifier: str | None,
+    clarifier: str | None,
     reviewers: list[str] | None,
     max_cost: float | None,
     max_iterations: int | None,
@@ -207,6 +213,7 @@ def _apply_overrides(
     if agent:
         spec = _agent_spec(config, agent)
         config.agents[spec.name] = spec
+        config.roles.clarifier = spec.name
         config.roles.specifier = spec.name
         config.roles.producer = spec.name
         if config.roles.test_designer is not None:
@@ -221,6 +228,10 @@ def _apply_overrides(
         spec = _agent_spec(config, specifier)
         config.agents[spec.name] = spec
         config.roles.specifier = spec.name
+    if clarifier:
+        spec = _agent_spec(config, clarifier)
+        config.agents[spec.name] = spec
+        config.roles.clarifier = spec.name
     if reviewers:
         new = []
         for item in reviewers:
@@ -632,6 +643,7 @@ def new(
     ),
     producer: str | None = typer.Option(None, help="Agent for the producer role."),
     specifier: str | None = typer.Option(None, help="Agent for the specifier role."),
+    clarifier: str | None = typer.Option(None, help="Agent for the clarifier role."),
     reviewer: list[str] | None = typer.Option(
         None, help="perspective[=agent], repeatable; replaces configured reviewers."
     ),
@@ -658,6 +670,7 @@ def new(
         agent,
         producer,
         specifier,
+        clarifier,
         reviewer,
         max_cost,
         max_iterations,
@@ -715,6 +728,7 @@ def eval_cmd(
     config = _apply_overrides(
         c.config(),
         agent,
+        None,
         None,
         None,
         reviewer,
@@ -791,12 +805,38 @@ def stop(
         console.print(f"stop requested for {run_id}; the run will pause after the current step")
 
 
+def _clarify_replies(answers: list[str], notes: list[str]) -> list[ClarifyReply]:
+    """``--answer ID=OPTION`` and ``--answer-note ID=TEXT`` as one reply per question."""
+    by_id: dict[str, ClarifyReply] = {}
+    for raw in answers:
+        qid, sep, option = raw.partition("=")
+        if not sep or not qid.strip() or not option.strip():
+            raise EngineError(f"--answer {raw!r} is not of the form ID=OPTION")
+        by_id[qid.strip()] = ClarifyReply(question_id=qid.strip(), option=option.strip())
+    for raw in notes:
+        qid, sep, text = raw.partition("=")
+        if not sep or qid.strip() not in by_id:
+            raise EngineError(f"--answer-note {raw!r} names no question given with --answer")
+        by_id[qid.strip()].note = text.strip()
+    return list(by_id.values())
+
+
 @app.command()
 def decide(
     ctx: typer.Context,
     run_id: str,
     choice: str = typer.Argument(..., help="One of the option keys shown in the pending decision."),
     note: str = typer.Option("", help="Free-text note; required by some options."),
+    answer: list[str] = typer.Option(
+        [],
+        "--answer",
+        help="ID=OPTION, once per question of a clarification round (495 status lists them).",
+    ),
+    answer_note: list[str] = typer.Option(
+        [],
+        "--answer-note",
+        help="ID=TEXT, the words an answer of 'other' stands on.",
+    ),
     resume_after: bool = typer.Option(
         True, "--resume/--no-resume", help="Continue the run right away."
     ),
@@ -805,7 +845,8 @@ def decide(
     c = _ctx(ctx)
     engine = c.engine(interactive=True)
     try:
-        run = engine.decide(run_id, choice, note, DecisionMaker.human)
+        replies = _clarify_replies(answer, answer_note)
+        run = engine.decide(run_id, choice, note, DecisionMaker.human, replies)
     except (EngineError, RunNotFound) as exc:
         _error(c, str(exc))
         return

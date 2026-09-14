@@ -398,7 +398,8 @@ phase that was interrupted.
 
 ```mermaid
 flowchart TD
-  profile --> specify --> gate
+  profile --> clarify --> specify --> gate
+  clarify -->|a round of questions| ask2([495 stops and asks you]) --> clarify
   gate -->|approved| design[design tests]
   gate -->|revise| specify
   design --> produce --> verify --> review --> decide
@@ -411,6 +412,7 @@ flowchart TD
 | phase | what happens | who |
 |---|---|---|
 | profile | detect languages, tooling, verification commands and conventions; run every command once on the base version to prove it is executable and record what it printed (**readiness**) | harness |
+| clarify | put to you the decisions the intent leaves open, before anything is specified. A round is one intervention returning the **frontier** — the decisions whose prerequisites are settled — each with at least two options, what each option does to the specification, a recommended answer, and what the clarifier read or ran to recommend it; `other` is always offered, and takes your words. One stop answers the whole round, the tree is worked out again from your answers, and a question you have answered is never asked twice. Your answers become established facts for the specifier, the test designer, the producer and every reviewer, and the specification keeps them next to the assumptions nobody was asked about. An intent that leaves nothing open costs one read-only intervention and no stop | clarifier agent (read-only) / you |
 | specify | turn the intent into requirements `R1..Rn`, each tied to verifications `V1..Vm`, each verification naming the catalogue role it measures when it is one (`property`, `mutation`, `coverage`...); flag missing or insufficient verifications, among them a verification of a role the project does not measure, and propose new tests to create. A requirement that states new behaviour and leans only on a command that already passed on the base version is a gap: that command reported success before the change and will report it again | specifier agent (read-only) |
 | gate | approve the specification (human, or `--auto-approve` when there is no gap). Every proposed command is run once on the base version first, and what it printed there is put with the question; nothing is concluded from it, since a command that measures the change is meant to fail on a tree without it | you |
 | design tests | write the tests the specification says to create, from their approved scenarios, on a tree where the behaviour does not exist; the harness keeps the test files, puts any other file back, and commits them. Once per approved specification | test designer agent (write) |
@@ -485,6 +487,13 @@ question. So does reaching `max_iterations`, or the budget.
 
 ### Decisions you may be asked to take
 
+- `clarify`: one round of the questions the intent leaves open: recommended (take every
+  recommended answer) / answer (one option per question, `other` taking your own words) / abort.
+  Each question shows what each answer does to the specification and what the clarifier checked
+  to recommend one. A round is answered whole: a question left out would become a silent
+  assumption, which is what the phase exists to remove. `--auto-approve` takes the
+  recommendations and records them as taken by the harness, not by you
+  (`docs/decisions/0025-the-decisions-are-taken-before-the-specification-in-rounds.md`).
 - `approve_spec`: approve / approve_with_gaps / revise (note) / abort. The specification is
   printed in full before the question, saved to `artifacts/spec.json` (the path is in the
   question), carried in the decision's `context.spec`, and readable at any time with `495 spec <id>`.
@@ -522,9 +531,11 @@ labelled as data that may contain misleading instructions. Reviewers never see t
 transcript; producers see correction requests derived from evidence, that evidence, and the
 reviewers' observations without their explanations. The test designer sees the specification
 and the tree without the behaviour, never the producer; the producer sees the designed tests
-as files it may not touch.
+as files it may not touch. The clarifier sees the intent, the profile and the answers already
+given, and its transcript reaches nobody: what travels on is the questions you answered and
+your answers.
 
-| agent | read-only roles | write roles (test designer, producer) | isolation |
+| agent | read-only roles (clarifier, specifier, reviewers) | write roles (test designer, producer) | isolation |
 |---|---|---|---|
 | Claude Code | `--tools Bash,Read`, Bash limited to read-only patterns, `--permission-mode dontAsk` | `--permission-mode acceptEdits`, tools Bash/Edit/Write/Read | Claude Code sandbox enabled with no allowed network domain, permission prompts disabled, session not persisted |
 | Codex | `--sandbox read-only` | `--sandbox workspace-write` | `network_access=false`, ephemeral session |
@@ -563,7 +574,7 @@ source of history.
         [--sandbox host|seatbelt|docker] [--allow-network] [--allowed-path GLOB]... [--no-start]
 495 eval "<intent>" [--ref <commit> | --ref <base>..<head> | --patch file.diff]
 495 run <id> | resume <id> | stop <id>
-495 decide <id> <choice> [--note "..."]
+495 decide <id> <choice> [--note "..."] [--answer Q1=utc --answer-note Q1="..."]
 495 spec <id>
 495 status <id> | list | events <id> [-f] | report <id> [--format md|json] [-o file]
 495 watch [<id>] [--stage checks] [--read-only] [--print] [--export view.svg]
@@ -602,7 +613,7 @@ engine.
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `--agent` | `.495/config.toml` | Agent for every role: a name from the configuration, or `kind[:model]` |
-| `--specifier`, `--producer` | `--agent` | Override one role |
+| `--clarifier`, `--specifier`, `--producer` | `--agent` | Override one role |
 | `--reviewer` | three perspectives | `perspective[=agent]`, repeatable; replaces the configured reviewers |
 | `--spec` | — | Use a JSON specification instead of calling the specifier |
 | `--auto-approve` | off | Approve the specification when it has no verification gap |
@@ -675,6 +686,7 @@ model = "qwen2.5-coder:7b"
 context_window = 32768
 
 [roles]
+clarifier = "default"      # asks you what the intent leaves open, before the specifier
 specifier = "default"
 test_designer = "default"  # writes the tests to create before the producer; false hands them to the producer
 producer = "default"
@@ -687,6 +699,7 @@ reviewers = [
 [budget]
 max_cost_usd = 10.0
 max_iterations = 3
+max_clarify_rounds = 2     # rounds of questions you are asked before the specification; 0 leaves the phase out
 intervention_timeout_s = 1800
 context_warn_ratio = 0.75
 max_mutants = 5           # wrong versions of the change measured per iteration; 0 leaves the check out

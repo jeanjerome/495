@@ -19,7 +19,7 @@ from rich.text import Text
 
 from harness495.core import git
 from harness495.core.engine import EngineError
-from harness495.core.models import Event, RunStatus
+from harness495.core.models import Event, PendingDecision, RunStatus
 from harness495.core.store import RunBusy, RunNotFound
 from harness495.interfaces.tui.asking import Answers, Ask, ask_in_prompt
 from harness495.interfaces.tui.keys import KeyReader
@@ -28,6 +28,7 @@ from harness495.interfaces.tui.stages import STAGE_BY_KEY, STAGES, stage_of
 from harness495.interfaces.tui.theme import EVENT_STYLE
 from harness495.interfaces.tui.views import (
     ask_decision,
+    clarify_replies,
     decision_question,
     integration_question,
     intent_question,
@@ -160,13 +161,18 @@ def open_decide(shell: Shell) -> None:
     run_id = run.id
     shell.asking = Ask(
         decision_question(run, pending),
-        commit=lambda answers: _decided(shell, run_id, answers),
+        commit=lambda answers: _decided(shell, run_id, pending, answers),
     )
 
 
-def _decided(shell: Shell, run_id: str, answers: Answers) -> None:
+def _decided(shell: Shell, run_id: str, pending: PendingDecision, answers: Answers) -> None:
     try:
-        shell.driver.decide(run_id, answers["choice"], answers.get("note", ""))
+        shell.driver.decide(
+            run_id,
+            answers["choice"],
+            answers.get("note", ""),
+            clarify_replies(pending, answers),
+        )
     except CONTROL_ERRORS as exc:
         shell.driver.notice = f"could not record it: {exc}"
         return
@@ -372,7 +378,7 @@ def run_prompted(shell: Shell) -> None:
                 shell.running = False
                 continue
             try:
-                shell.driver.decide(run.id, answer[0], answer[1])
+                shell.driver.decide(run.id, answer[0], answer[1], answer[2])
             except CONTROL_ERRORS as exc:
                 console.print(f"[attn.dead]could not record it:[/] {exc}")
                 shell.running = False

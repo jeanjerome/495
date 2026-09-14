@@ -114,6 +114,52 @@ def _scenario_sections(run: Run) -> list[str]:
     return lines
 
 
+def _clarification_section(run: Run) -> list[str]:
+    """The decisions the specification was written under, and who took each.
+
+    What the requester chose and what the harness took on their behalf are not the same record,
+    so the table says which; a question nobody was asked is listed apart, because an assumption
+    standing on it is not a decision.
+    """
+    clarification = run.clarification
+    if not clarification.rounds:
+        return []
+    lines = ["## Decisions taken before the specification", ""]
+    if clarification.answers:
+        lines += [
+            "| round | question | decided | by |",
+            "|---|---|---|---|",
+        ]
+        for round_ in clarification.rounds:
+            for answer in round_.answers:
+                chosen = answer.label or answer.option
+                if answer.note:
+                    chosen += f" — {answer.note}"
+                if answer.recommended:
+                    chosen += " (the clarifier's recommendation)"
+                lines.append(
+                    f"| {round_.n} | {_cell(answer.question)} | {_cell(chosen)} | "
+                    f"{answer.taken_by.value} |"
+                )
+        lines.append("")
+    else:
+        lines += ["The clarifier returned no question: nothing was left to decide.", ""]
+    if clarification.open_questions:
+        lines += [
+            "Left unanswered when the clarification reached its round cap; what the "
+            "specification does about them is an assumption, not a decision:",
+            "",
+        ]
+        lines += [f"- {_cell(q.title)}" for q in clarification.open_questions]
+        lines.append("")
+    dropped = [d for r in clarification.rounds for d in r.dropped]
+    if dropped:
+        lines += ["Questions the harness did not put to you:", ""]
+        lines += [f"- {_cell(d)}" for d in dropped]
+        lines.append("")
+    return lines
+
+
 def render_markdown(run: Run, store: RunStore | None = None) -> str:
     lines: list[str] = []
     outcome = run.result.outcome.value if run.result.outcome else run.status.value
@@ -137,6 +183,7 @@ def render_markdown(run: Run, store: RunStore | None = None) -> str:
     ]
     if run.result.summary:
         lines += ["## Summary", "", run.result.summary, ""]
+    lines += _clarification_section(run)
     it = run.current_iteration
     if it and it.version:
         v = it.version

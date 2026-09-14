@@ -333,5 +333,6 @@ def test_prompt_decision_answers_while_a_run_is_being_watched(
     run = Run(id="run-x", intent=Intent(text="t"), project_root=".")
     monitor = render.RunMonitor(console)
     with monitor:
-        assert render.prompt_decision(run, pending) == ("proceed", "")
+        answer = render.prompt_decision(run, pending)
+        assert answer is not None and (answer.choice, answer.note) == ("proceed", "")
     assert asked == [True]

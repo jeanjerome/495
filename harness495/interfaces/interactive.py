@@ -103,7 +103,9 @@ def _new(c: Ctx) -> None:
     )
     from harness495.interfaces.cli import _apply_overrides
 
-    config = _apply_overrides(config, agent, None, None, None, None, None, None, False, None, None)
+    config = _apply_overrides(
+        config, agent, None, None, None, None, None, None, None, False, None, None
+    )
     max_cost = Prompt.ask(
         "cost limit in USD", default=str(config.budget.max_cost_usd), console=console
     )
@@ -159,7 +161,7 @@ def _resume(c: Ctx) -> None:
         answer = prompt_decision(run, run.pending_decision)
         if answer is None:
             return
-        engine.decide(run_id, answer[0], answer[1])
+        engine.decide(run_id, answer.choice, answer.note, answers=answer.answers)
     elif run.status.value in ("paused", "failed"):
         engine.resume(run_id)
     _drive(c, engine, run_id, monitor)

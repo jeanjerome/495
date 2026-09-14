@@ -57,7 +57,14 @@ STAGES: tuple[Stage, ...] = (
         "spec",
         "spec",
         "what must hold after the change, and what checks it",
-        frozenset({RunStatus.profiled, RunStatus.specified}),
+        frozenset(
+            {
+                RunStatus.profiled,
+                RunStatus.clarifying,
+                RunStatus.clarified,
+                RunStatus.specified,
+            }
+        ),
     ),
     Stage(
         "3",
@@ -123,6 +130,7 @@ TERMINAL_STAGE = {
 # you" marker would always land on the last tab, and send the user to the wrong screen.
 DECISION_STAGE = {
     DecisionKind.readiness: "profile",
+    DecisionKind.clarify: "spec",
     DecisionKind.approve_spec: "spec",
     DecisionKind.scope: "change",
     DecisionKind.no_progress: "change",
@@ -170,7 +178,7 @@ def furthest_stage(run: Run) -> str:
         i.role in (Role.producer, Role.test_designer) for i in run.interventions
     ):
         return "change"
-    if run.spec.requirements:
+    if run.spec.requirements or run.clarification.rounds:
         return "spec"
     return "profile"
 

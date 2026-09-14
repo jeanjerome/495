@@ -276,8 +276,8 @@ des outils spec-driven : la vérification est *dans* la spécification, auditée
 
 ### 4.2 Écarts
 
-**E10 · Il n'existe aucune phase de clarification : le spécificateur ne peut pas poser de
-question.** Priorité haute · effort L.
+**E10 · Il n'existait aucune phase de clarification : le spécificateur ne pouvait pas poser de
+question** (clos le 2026-09-14). Priorité haute · effort L.
 `SPEC_SCHEMA` n'a pas de champ pour une question ouverte. Face à une ambiguïté, le spécificateur
 a une seule issue : trancher et consigner dans `assumptions`. L'humain découvre ces hypothèses en
 lisant `spec.json` au gate, dans une liste plate, sans savoir lesquelles sont des décisions qu'il
@@ -286,20 +286,31 @@ les faits se cherchent, les décisions se demandent. Le coût d'une hypothèse f
 possible : une spec approuvée sur une mauvaise lecture, un producteur qui la réalise fidèlement,
 des réviseurs qui confirment la conformité à la spec, et un `accept` sur la chose qu'on ne voulait
 pas. Le réviseur `spec_compliance` compare au spec, personne ne compare *spec ↔ intent*.
-Piste : une phase `clarify` entre `profile` et `specify`, en rounds :
-1. le spécificateur, en lecture seule, produit un **arbre de décision** : questions dont les
-   prérequis sont réglés (la frontière), chacune avec des options et une réponse recommandée, et
-   la liste des faits qu'il a *vérifiés lui-même* dans le dépôt ;
-2. le harnais lève une décision `clarify` portant tout le round ; l'humain répond option par
-   option (ou « recommandé pour tout ») ; `--auto-approve` prend les recommandations et les
-   consigne comme telles ;
-3. les réponses deviennent des **faits établis** dans le `ContextPack` du spécificateur, du
-   producteur et des réviseurs (section « Décisions du demandeur »), et sont persistées dans
-   `run.json` ;
-4. on itère tant que la frontière n'est pas vide, sous un plafond de rounds.
-Le schéma de spec gagne un champ `decisions_taken` (question, options, choix, qui) qui remplace
-la partie « décision » d'`assumptions` ; `assumptions` ne garde que les hypothèses de fait
-invérifiables. Le rapport les affiche.
+Depuis le 2026-09-14 (ADR 0025), une phase `clarify` tourne entre `profile` et `specify`,
+tenue par le rôle `clarifier` en lecture seule, en rounds. Un round est une intervention : le
+clarificateur reçoit en faits toutes les réponses déjà données et rend la **frontière**, les
+questions dont les prérequis sont réglés, chacune avec au moins deux options, la conséquence de
+chaque option *sur la spécification*, une réponse recommandée et `checked`, ce qu'il a lu ou
+exécuté lui-même pour la recommander. Le harnais complète les options par `other`, qui prend les
+mots du demandeur. L'arbre est recalculé à chaque round, jamais dépilé : une question déjà
+répondue est écartée du round — par son identifiant ou par ses mots — et l'écart est consigné ;
+une question à moins de deux options, dont une option n'énonce aucune conséquence, ou dont la
+recommandation ne désigne aucune de ses options, l'est aussi. Le harnais lève une décision
+`clarify` portant tout le round ; le demandeur répond question par question ou prend toutes les
+recommandations d'un geste, et un round à moitié répondu est refusé — la question laissée de
+côté redeviendrait l'hypothèse muette que la phase existe pour supprimer. `--auto-approve` prend
+les recommandations et les consigne comme prises par le harnais, pas par le demandeur. Les
+réponses sont persistées dans `run.json` et entrent en faits (« Requester's decisions ») chez le
+spécificateur, le test designer, le producteur et chaque réviseur ; `Spec.decisions_taken` garde
+question, options, choix et qui, `assumptions` ne garde que ce que personne n'a arbitré. La phase
+s'arrête quand un round ne rend plus de question ; `budget.max_clarify_rounds` plafonne les
+rounds soumis au demandeur, un round de plus tournant après le dernier répondu pour voir si la
+frontière est vide, ses questions étant alors consignées comme restées ouvertes. Un intent sans
+ambiguïté coûte une intervention en lecture seule et aucun arrêt ; `max_clarify_rounds = 0`
+supprime la phase. Le rapport affiche les décisions prises, qui les a prises, ce qui est resté
+ouvert et ce que le harnais n'a pas demandé (E47). Elles restent l'état d'un run : les reporter
+d'un run au suivant est le sujet d'E44. Reste ouvert : personne ne compare encore le diff à
+l'intention (E41), même si les décisions en texte lisible rendent cette perspective bon marché.
 
 **E11 · Aucune notion d'interface de test convenue (*seam*).** Priorité moyenne · effort M.
 La description d'une V `to_create` est du texte libre ; rien n'engage le producteur à observer le
@@ -794,8 +805,9 @@ d'office un réviseur sur l'autre famille de modèles. Peu coûteux, gain d'ind�
 `spec_compliance` compare le diff au spec. Si le spécificateur a mal lu l'intention, tout le
 pipeline confirme la mauvaise lecture (problème de l'oracle déplacé d'un cran). Piste : une
 perspective `intent_fidelity` optionnelle recevant intent + spec + diff et posant une seule
-question : le changement fait-il ce que le demandeur a écrit ? Se combine avec la clarification
-(E10) qui traite le problème à la source.
+question : le changement fait-il ce que le demandeur a écrit ? La clarification (E10) traite le
+problème à la source et rend cette perspective bon marché : les décisions du demandeur sont
+désormais un texte qu'un tiers peut lire, à côté de l'intention.
 
 ### 7.2 Isolation et exécution (A10)
 
@@ -883,7 +895,8 @@ comme mesure de la force de la suite. Ce serait aussi le premier terrain d'essai
 Priorité basse · effort S. `render_markdown` liste exigences, vérifications, gaps, itérations,
 interventions, décisions, intégration, avertissements ; `assumptions` et `out_of_scope` n'y
 figurent pas alors qu'ils conditionnent la lecture du verdict. Les décisions de clarification
-(E10) devront y figurer aussi.
+(E10) y figurent depuis le 2026-09-14, avec qui a pris chacune, ce qui est resté sans réponse et
+ce que le harnais n'a pas demandé ; `assumptions` et `out_of_scope` restent à ajouter.
 
 **E48 · La table de prix ne connaît pas les modèles courants.** Priorité basse · effort S.
 `pricing.json` s'arrête à `claude-opus-4-1`, `claude-sonnet-4-5`, `gpt-5` ; tout modèle plus
@@ -913,7 +926,7 @@ semaine ou plus).
 | E30 | force de la suite non mesurée, un seul mutant (l'absence du changement) ; depuis le 2026-09-14 quelques lignes du diff sont altérées une à une, les V de comportement réexécutées sur chaque version fausse, et un mutant qu'aucune commande ne rapporte laisse l'exigence `undetermined` (fait) | tests hôtes | M à L | sort du « satisfied = passe et ne passait pas » |
 | E31 | la couverture du diff n'était pas mesurée ; depuis le 2026-09-14 les V de test sont rejouées sous l'outil de couverture du projet et une ligne ajoutée qu'aucune n'exécute laisse l'exigence `undetermined` (fait) | tests hôtes | M | dit *où* la spécification ne regarde pas |
 | E02 | rien ne mesurait la stabilité d'une commande ; depuis le 2026-09-14 chaque commande qu'une exigence porte est rejouée une seconde fois sur la version évaluée, et une évidence `stability_check` qui dit qu'elle a rapporté deux choses différentes ne crédite ni ne charge l'exigence (fait) | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
-| E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
+| E10 | pas de phase de clarification, hypothèses silencieuses ; depuis le 2026-09-14 une phase `clarify` met la frontière des décisions au demandeur, round par round, l'arbre étant recalculé à chaque fois et une question réglée jamais reposée, et ses réponses entrent en faits chez le spécificateur, le test designer, le producteur et chaque réviseur (fait, ADR 0025) | spécification | L | traite le problème de l'oracle à la source |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |
 | E44 · E22 | rien ne remonte d'un run vers `project.toml`, aucune mémoire inter-run | boucle longue | L | `495 retro`, `lessons.md`, `495 stats` |
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |

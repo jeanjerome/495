@@ -212,7 +212,8 @@ def a_change_run_walks_the_workflow(world: World) -> None:
 
 @then(parsers.parse('the specifier\'s prompt says "{text}"'))
 def the_specifiers_prompt_says(scenario: Scenario, text: str) -> None:
-    assert text in scenario.calls[0].prompt, scenario.calls[0].prompt
+    prompt = next(t.prompt for t in scenario.calls if t.role is Role.specifier)
+    assert text in prompt, prompt
 
 
 @then(parsers.parse('the specification records "{vid}" with the steps "{steps}"'))

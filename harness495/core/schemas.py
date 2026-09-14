@@ -85,6 +85,37 @@ SPEC_SCHEMA: dict[str, Any] = _obj(
     }
 )
 
+CLARIFY_SCHEMA: dict[str, Any] = _obj(
+    {
+        "questions": {
+            "type": "array",
+            "items": _obj(
+                {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "body": {"type": "string"},
+                    "options": {
+                        "type": "array",
+                        "items": _obj(
+                            {
+                                "key": {"type": "string"},
+                                "label": {"type": "string"},
+                                "consequence": {"type": "string"},
+                            }
+                        ),
+                    },
+                    "recommended": {"type": "string"},
+                    "checked": {"type": "array", "items": {"type": "string"}},
+                }
+            ),
+        }
+    }
+)
+"""One round of the clarification: the frontier, and nothing else. An empty ``questions`` says
+the frontier is empty, which is how the phase ends; there is no field for an answer, because
+the clarifier does not take the decisions it states."""
+
+
 REVIEW_SCHEMA: dict[str, Any] = _obj(
     {
         "verdict": {"type": "string", "enum": ["accept", "reject", "undetermined"]},

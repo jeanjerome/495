@@ -10,6 +10,8 @@ from harness495.core.catalogue import ROLE_CONTRACTS, applicable
 from harness495.core.models import (
     NON_DISCRIMINATING,
     CatalogueRole,
+    Clarification,
+    ClarifyQuestion,
     Evidence,
     ProjectProfile,
     RequirementKind,
@@ -140,6 +142,59 @@ def render_catalogue(profile: ProjectProfile) -> str:
     return "\n".join(lines)
 
 
+def render_decisions_taken(clarification: Clarification) -> str:
+    """The requester's decisions, as every role after the clarification reads them.
+
+    A fact, not untrusted content: the words are the clarifier's, but a human was asked and
+    answered them, which puts the pair in the same trust class as an approved specification.
+    Each line carries the consequence the option stated, because that is what the decision
+    binds — the answer alone says which reading was chosen, not what it does to the work. A
+    question the phase left unanswered is stated as unanswered rather than left out.
+    """
+    lines: list[str] = []
+    for answer in clarification.answers:
+        taken = "you" if answer.taken_by.value == "human" else "the harness, on your behalf"
+        lines.append(f"- {answer.question}")
+        lines.append(f"  decided: {answer.label or answer.option} (by {taken})")
+        if answer.note:
+            lines.append(f"  in your words: {answer.note}")
+        consequence = _consequence_of(clarification, answer.question_id, answer.option)
+        if consequence:
+            lines.append(f"  consequence stated when it was taken: {consequence}")
+    if clarification.open_questions:
+        lines.append("")
+        lines.append(
+            "Left unanswered: the clarification stopped at its round cap with these still open. "
+            "Nobody ruled on them, so whatever you do about them is an assumption, and it says so."
+        )
+        lines.extend(f"- {q.title}" for q in clarification.open_questions)
+    return "\n".join(lines) or "(none)"
+
+
+def _consequence_of(clarification: Clarification, question_id: str, option: str) -> str:
+    for round_ in clarification.rounds:
+        question = round_.question(question_id)
+        chosen = question.option(option) if question is not None else None
+        if chosen is not None:
+            return chosen.consequence
+    return ""
+
+
+def render_clarify_question(question: ClarifyQuestion) -> str:
+    """One question of a round, with what taking each option does and what was checked."""
+    lines = [question.title]
+    if question.body:
+        lines.append(question.body)
+    for option in question.options:
+        mark = " (recommended)" if option.key == question.recommended else ""
+        lines.append(f"  [{option.key}] {option.label}{mark}")
+        if option.consequence:
+            lines.append(f"      {option.consequence}")
+    if question.checked:
+        lines.append("  checked by the clarifier: " + "; ".join(question.checked))
+    return "\n".join(lines)
+
+
 def render_behaviour_test_form(profile: ProjectProfile) -> str:
     """The form a test to create takes when it carries a scenario, from the profile's coverage.
 
@@ -197,6 +252,11 @@ def render_spec(spec: Spec, include_status: bool = False) -> str:
         lines.append("")
         lines.append("Out of scope:")
         lines.extend(f"- {o}" for o in spec.out_of_scope)
+    if spec.decisions_taken:
+        lines.append("")
+        lines.append("Decisions taken by the requester before this was written:")
+        for d in spec.decisions_taken:
+            lines.append(f"- {d.question} — {d.choice}" + (f": {d.note}" if d.note else ""))
     if spec.assumptions:
         lines.append("")
         lines.append("Assumptions:")

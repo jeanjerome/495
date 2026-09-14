@@ -2,8 +2,9 @@
 
 Phases::
 
-    created ─► profiled ─► specified ─► ready ─► producing ─► produced ─► verifying ─►
-    verified ─► reviewing ─► reviewed ─► (accepted ─► delivered | rejected ─► ready | undetermined)
+    created ─► profiled ─► clarifying ─► clarified ─► specified ─► ready ─► producing ─►
+    produced ─► verifying ─► verified ─► reviewing ─► reviewed ─►
+    (accepted ─► delivered | rejected ─► ready | undetermined)
 
 Every phase persists the run before and after its work. Human decisions suspend the run in
 ``awaiting_decision``; an interruption suspends it in ``paused``. ``resume`` re-enters the
@@ -31,6 +32,7 @@ from harness495.core.context import (
     ContextPack,
     render_behaviour_test_form,
     render_catalogue,
+    render_decisions_taken,
     render_evidence,
     render_mutation_reading,
     render_profile,
@@ -53,12 +55,20 @@ from harness495.core.models import (
     BehaviourScenario,
     Capability,
     CatalogueRole,
+    Clarification,
+    ClarifyAnswer,
+    ClarifyOption,
+    ClarifyQuestion,
+    ClarifyReply,
+    ClarifyRound,
     Cost,
     CostBasis,
     Decision,
+    DecisionAnswer,
     DecisionKind,
     DecisionMaker,
     DecisionOption,
+    DecisionTaken,
     DesignedTest,
     Event,
     Evidence,
@@ -90,6 +100,7 @@ from harness495.core.models import (
     VerificationKind,
     Version,
     new_id,
+    normalise_question,
     utcnow,
 )
 from harness495.core.mutation import Mutant, mutated_source, plan_mutants
@@ -105,6 +116,7 @@ from harness495.core.reach import (
 )
 from harness495.core.report import render_markdown
 from harness495.core.schemas import (
+    CLARIFY_SCHEMA,
     PRODUCER_SUMMARY_SCHEMA,
     REVIEW_SCHEMA,
     SPEC_SCHEMA,
@@ -132,10 +144,15 @@ from harness495.core.verification import (
 from harness495.sandbox import Sandbox, select_sandbox
 from harness495.sandbox.base import ExecRequest
 
-DecisionHandler = Callable[[Run, PendingDecision], tuple[str, str] | None]
+DecisionHandler = Callable[[Run, PendingDecision], DecisionAnswer | None]
 EventHandler = Callable[[Event], None]
 
+OTHER_OPTION = "other"
+"""The answer the harness adds to every clarification question: a tree may not force a false
+choice, so every question can be answered in the requester's own words instead."""
+
 PHASE_ENTRY: dict[RunStatus, RunStatus] = {
+    RunStatus.clarifying: RunStatus.profiled,
     RunStatus.producing: RunStatus.ready,
     RunStatus.verifying: RunStatus.produced,
     RunStatus.reviewing: RunStatus.verified,
@@ -244,17 +261,29 @@ class Engine:
         self._stop.set()
 
     def decide(
-        self, run_id: str, choice: str, note: str = "", made_by: DecisionMaker = DecisionMaker.human
+        self,
+        run_id: str,
+        choice: str,
+        note: str = "",
+        made_by: DecisionMaker = DecisionMaker.human,
+        answers: list[ClarifyReply] | None = None,
     ) -> Run:
+        """Record an answer on the decision the run is stopped at.
+
+        ``answers`` carries one reply per question of a ``clarify`` round; every other decision
+        is one question and answers it with ``choice`` alone.
+        """
         run = self.store.load(run_id)
         if run.pending_decision is None:
             raise EngineError("no pending decision")
-        return self._apply_decision(run, choice, note, made_by)
+        return self._apply_decision(run, choice, note, made_by, answers)
 
     def step(self, run: Run) -> Run:
         handler = {
             RunStatus.created: self._profile,
-            RunStatus.profiled: self._specify,
+            RunStatus.profiled: self._clarify,
+            RunStatus.clarifying: self._clarify,
+            RunStatus.clarified: self._specify,
             RunStatus.specified: self._gate,
             RunStatus.ready: self._produce,
             RunStatus.produced: self._verify,
@@ -368,8 +397,9 @@ class Engine:
         if self.decision_handler is not None:
             answer = self.decision_handler(run, pending)
             if answer is not None:
-                choice, note = answer
-                run = self._apply_decision(run, choice, note, DecisionMaker.human)
+                run = self._apply_decision(
+                    run, answer.choice, answer.note, DecisionMaker.human, answer.answers
+                )
         return run
 
     def _record_decision(
@@ -381,6 +411,7 @@ class Engine:
         rationale: str = "",
         evidence_ids: list[str] | None = None,
         question: str | None = None,
+        answers: list[ClarifyAnswer] | None = None,
     ) -> Decision:
         d = Decision(
             id=new_id("dec"),
@@ -391,6 +422,7 @@ class Engine:
             evidence_ids=evidence_ids or [],
             iteration=run.iteration_number,
             question=question,
+            answers=answers or [],
         )
         run.decisions.append(d)
         self.emit(
@@ -401,7 +433,14 @@ class Engine:
         )
         return d
 
-    def _apply_decision(self, run: Run, choice: str, note: str, made_by: DecisionMaker) -> Run:
+    def _apply_decision(
+        self,
+        run: Run,
+        choice: str,
+        note: str,
+        made_by: DecisionMaker,
+        replies: list[ClarifyReply] | None = None,
+    ) -> Run:
         pending = run.pending_decision
         if pending is None:
             raise EngineError("no pending decision")
@@ -411,14 +450,26 @@ class Engine:
         option = next(o for o in pending.options if o.key == choice)
         if option.needs_note and not note.strip():
             raise EngineError(f"choice {choice!r} requires a note")
-        self._record_decision(run, pending.kind, made_by, choice, note, question=pending.question)
+        # Built before anything is recorded: an answer the round refuses leaves the run where it
+        # was, still asking, rather than half-decided with the question already gone.
+        answers = (
+            self._clarify_answers(pending, choice, replies or [], made_by)
+            if pending.kind is DecisionKind.clarify and choice != "abort"
+            else []
+        )
+        self._record_decision(
+            run, pending.kind, made_by, choice, note, question=pending.question, answers=answers
+        )
         run.pending_decision = None
         kind = pending.kind
         if choice == "abort":
             return self._abort(
                 run, f"aborted by {made_by.value} at {kind.value}: {note}".rstrip(": ")
             )
-        if kind is DecisionKind.approve_spec:
+        if kind is DecisionKind.clarify:
+            self._record_clarify_answers(run, answers)
+            self._set_status(run, RunStatus.clarifying)
+        elif kind is DecisionKind.approve_spec:
             if choice in ("approve", "approve_with_gaps"):
                 run.spec.approved = True
                 run.spec.approved_by = made_by
@@ -427,7 +478,7 @@ class Engine:
                 run.spec.approved = False
                 run.spec.assumptions.append(f"revision requested: {note}")
                 run.intent.text = run.intent.text  # unchanged; the note travels with the spec
-                self._set_status(run, RunStatus.profiled)
+                self._set_status(run, RunStatus.clarified)
         elif kind is DecisionKind.readiness:
             if choice == "proceed":
                 self._set_status(run, RunStatus.profiled)
@@ -450,7 +501,7 @@ class Engine:
             if choice == "respecify":
                 run.spec.approved = False
                 run.spec.assumptions.append(f"revision requested: {note}")
-                self._set_status(run, RunStatus.profiled)
+                self._set_status(run, RunStatus.clarified)
             elif choice == "review_anyway":
                 self._set_status(run, RunStatus.produced)
             elif choice == "stop":
@@ -464,7 +515,7 @@ class Engine:
             elif choice == "respecify":
                 run.spec.approved = False
                 run.spec.assumptions.append(f"revision requested: {note}")
-                self._set_status(run, RunStatus.profiled)
+                self._set_status(run, RunStatus.clarified)
             elif choice == "ignore":
                 # The verification keeps running and keeps being recorded, but goes on counting
                 # as proof of nothing, so the requirements it carries stay undetermined rather
@@ -874,6 +925,197 @@ class Engine:
         self._set_status(run, RunStatus.profiled)
         return run
 
+    def _clarify(self, run: Run) -> Run:
+        """Put the decisions the intent leaves open to the requester, one round at a time.
+
+        The clarifier reads the repository and returns the frontier: the decisions whose
+        prerequisites are settled, each with its options, what each option does to the
+        specification, a recommendation and what was checked to reach it. The harness never
+        keeps a queue of them — every round is a new intervention over all the answers so far,
+        because a question's options depend on answers not yet given, and a question already
+        answered is dropped from the round rather than asked twice (0025).
+
+        The phase ends when a round comes back with no question. One round runs after the last
+        one the requester answered, to see whether the frontier is empty; when it is not, its
+        questions are recorded unanswered and the specifier is told, so that an assumption
+        taken in their place says what it stands on.
+        """
+        clar = run.clarification
+        if clar.complete:
+            self._set_status(run, RunStatus.clarified)
+            return run
+        if run.budget.max_clarify_rounds <= 0:
+            clar.complete = True
+            self._set_status(run, RunStatus.clarified)
+            return run
+        self._ensure_sandbox(run)
+        assert run.profile is not None
+        wt = self._worktree(run)
+        self._set_status(run, RunStatus.clarifying)
+        n = len(clar.rounds) + 1
+        pack = ContextPack(role="clarifier")
+        pack.add_fact("Intent (as given by the requester)", run.intent.text)
+        pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
+        pack.add_fact(
+            "Test-library catalogue and the project's role coverage",
+            render_catalogue(run.profile),
+        )
+        pack.add_fact("Tracked files (first 200)", "\n".join(git.top_level_listing(wt)) or "(none)")
+        pack.add_fact(
+            "Round",
+            f"round {n}; the requester answers at most {run.budget.max_clarify_rounds} of them, "
+            f"{clar.rounds_answered} answered so far",
+        )
+        pack.add_fact("Requester's decisions", render_decisions_taken(clar))
+        if run.mode is RunMode.evaluate:
+            pack.add_fact("Change under evaluation", render_version(self._evaluation_version(run)))
+        for name, text in read_doc_excerpts(wt, run.profile.doc_files).items():
+            pack.add_untrusted(f"repository file {name}", text)
+        pack.instructions = P.CLARIFIER_TASK
+        try:
+            intervention, result = self._intervene(
+                run,
+                Role.clarifier,
+                run.config.roles.clarifier,
+                Capability.read,
+                P.CLARIFIER_SYSTEM,
+                pack,
+                CLARIFY_SCHEMA,
+            )
+        except budget_mod.BudgetExceeded as exc:
+            return self._budget_decision(run, str(exc), RunStatus.profiled)
+        if result is None or result.status is not InterventionStatus.completed:
+            # Nothing the clarifier produces is needed to specify: what it buys is that the
+            # decisions were put to the requester, and one that never ran put none. The run
+            # goes on with that said, rather than failing over a phase that asks questions.
+            self._warn(
+                run,
+                "the clarifier did not complete "
+                f"({(result.error or result.status.value) if result else 'no result'}); "
+                "no decision was put to you, and the specifier decides what the intent leaves open",
+            )
+            clar.complete = True
+            self._set_status(run, RunStatus.clarified)
+            return run
+        data = result.structured or _parse_json_text(result.text) or {}
+        questions, dropped = _clarify_frontier(data, clar)
+        round_ = ClarifyRound(n=n, intervention_id=intervention.id, dropped=dropped)
+        clar.rounds.append(round_)
+        for reason in dropped:
+            self._warn(run, f"clarification round {n}: {reason}")
+        if not questions:
+            clar.complete = True
+            self.emit(
+                run,
+                "clarify.settled",
+                f"round {n} returned no question: nothing is left to decide before the "
+                f"specification; {len(clar.answers)} decision(s) taken",
+            )
+            self._set_status(run, RunStatus.clarified)
+            return run
+        if clar.rounds_answered >= run.budget.max_clarify_rounds:
+            clar.open_questions = questions
+            clar.stopped_at_cap = True
+            clar.complete = True
+            round_.dropped.append(
+                f"{len(questions)} question(s) recorded as unanswered: the cap of "
+                f"{run.budget.max_clarify_rounds} answered round(s) was reached"
+            )
+            self._warn(
+                run,
+                f"the clarification stopped at {run.budget.max_clarify_rounds} answered round(s) "
+                f"with {len(questions)} question(s) still open: "
+                + "; ".join(q.title for q in questions)
+                + "; the specifier decides them and records each as an assumption",
+            )
+            self._set_status(run, RunStatus.clarified)
+            return run
+        round_.questions = questions
+        if run.config.auto_approve:
+            answers = [_recommended_answer(q, DecisionMaker.harness) for q in questions]
+            self._record_decision(
+                run,
+                DecisionKind.clarify,
+                DecisionMaker.harness,
+                "recommended",
+                "auto-approve enabled: the recommended answer was taken for each question",
+                question=_clarify_question_text(questions),
+                answers=answers,
+            )
+            self._record_clarify_answers(run, answers)
+            self._set_status(run, RunStatus.clarifying)
+            return run
+        return self._raise_decision(
+            run,
+            _clarify_decision(questions, n, run.budget.max_clarify_rounds),
+            RunStatus.clarifying,
+        )
+
+    def _clarify_answers(
+        self,
+        pending: PendingDecision,
+        choice: str,
+        replies: list[ClarifyReply],
+        made_by: DecisionMaker,
+    ) -> list[ClarifyAnswer]:
+        """The round's answers, one per question, or nothing and an error saying what is missing.
+
+        A round is one reading and one gesture, so it is answered whole: a question left out
+        would become a silent assumption, which is the thing the phase exists to remove.
+        """
+        if choice == "recommended":
+            return [_recommended_answer(q, made_by) for q in pending.questions]
+        given = {r.question_id: r for r in replies}
+        answers: list[ClarifyAnswer] = []
+        missing: list[str] = []
+        for question in pending.questions:
+            reply = given.get(question.id)
+            if reply is None:
+                missing.append(question.id)
+                continue
+            option = question.option(reply.option)
+            if option is None:
+                raise EngineError(
+                    f"{question.id}: {reply.option!r} is not one of its options "
+                    f"({', '.join(o.key for o in question.options)})"
+                )
+            if option.key == OTHER_OPTION and not reply.note.strip():
+                raise EngineError(f"{question.id}: answering {OTHER_OPTION!r} requires a note")
+            answers.append(
+                ClarifyAnswer(
+                    question_id=question.id,
+                    question=question.title,
+                    option=option.key,
+                    label=option.label,
+                    note=reply.note.strip()[:2000],
+                    recommended=option.key == question.recommended,
+                    taken_by=made_by,
+                )
+            )
+        unknown = sorted(set(given) - {q.id for q in pending.questions})
+        if unknown:
+            raise EngineError(f"the round has no question {', '.join(unknown)}")
+        if missing:
+            raise EngineError(f"unanswered question(s): {', '.join(missing)}")
+        return answers
+
+    def _record_clarify_answers(self, run: Run, answers: list[ClarifyAnswer]) -> None:
+        """Keep the answers on the round that asked them, and say what was decided."""
+        if not answers or not run.clarification.rounds:
+            return
+        run.clarification.rounds[-1].answers = answers
+        for answer in answers:
+            self.emit(
+                run,
+                "clarify.answered",
+                answer.statement,
+                {
+                    "question": answer.question_id,
+                    "option": answer.option,
+                    "by": answer.taken_by.value,
+                },
+            )
+
     def _prepare_evaluation_worktree(
         self, run: Run, root: Path, wt: Path, base: str
     ) -> tuple[str, str]:
@@ -922,7 +1164,9 @@ class Engine:
             r.command for r in run.profile.readiness if r.executable and r.exit_code == 0
         }
         run.test_design = None  # the tests written for a previous specification do not carry over
+        decisions = _decisions_taken(run.clarification)
         if run.spec.source == "user" and run.spec.requirements:
+            run.spec.decisions_taken = decisions
             _normalise_spec(run.spec)
             assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
             self.emit(
@@ -935,6 +1179,8 @@ class Engine:
         pack = ContextPack(role="specifier")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
         wt = self._worktree(run)
+        if run.clarification.says_anything:
+            pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
         pack.add_fact(
             "Test-library catalogue and the project's role coverage",
@@ -964,23 +1210,23 @@ class Engine:
                 SPEC_SCHEMA,
             )
         except budget_mod.BudgetExceeded as exc:
-            return self._budget_decision(run, str(exc), RunStatus.profiled)
+            return self._budget_decision(run, str(exc), RunStatus.clarified)
         if result is None or result.status is not InterventionStatus.completed:
             return self._fail(
                 run,
                 f"specifier failed: {result.error if result else 'no result'}",
-                RunStatus.profiled,
+                RunStatus.clarified,
             )
         data = result.structured or _parse_json_text(result.text)
         if not data:
             return self._fail(
-                run, "specifier returned no parsable specification", RunStatus.profiled
+                run, "specifier returned no parsable specification", RunStatus.clarified
             )
         try:
             spec = _spec_from_agent(data)
         except (ValueError, KeyError, TypeError) as exc:
             return self._fail(
-                run, f"specification rejected by schema validation: {exc}", RunStatus.profiled
+                run, f"specification rejected by schema validation: {exc}", RunStatus.clarified
             )
         if run.spec.assumptions:
             spec.assumptions.extend(
@@ -988,6 +1234,7 @@ class Engine:
             )
         if not spec.allowed_paths and run.config.project.scope.allowed_paths:
             spec.allowed_paths = list(run.config.project.scope.allowed_paths)
+        spec.decisions_taken = decisions
         run.spec = spec
         assess_sufficiency(run.spec, executable, passing_on_base, run.profile)
         # Written before the gate, not after it: the specification is what the requester is
@@ -1230,6 +1477,8 @@ class Engine:
         base_for_diff = run.profile.base_commit
         pack = ContextPack(role="producer")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
+        if run.clarification.says_anything:
+            pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Approved specification", render_spec(run.spec))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
         pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
@@ -1432,6 +1681,8 @@ class Engine:
         before = git.head_commit(wt)
         pack = ContextPack(role="test_designer")
         pack.add_fact("Intent (as given by the requester)", run.intent.text)
+        if run.clarification.says_anything:
+            pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
         pack.add_fact("Approved specification", render_spec(run.spec))
         pack.add_fact("Project profile", render_profile(run.profile, str(wt)))
         pack.add_fact("Behaviour scenarios", render_behaviour_test_form(run.profile))
@@ -2590,6 +2841,8 @@ class Engine:
                 continue  # already done (resume)
             pack = ContextPack(role=f"reviewer:{reviewer.perspective}")
             pack.add_fact("Intent (as given by the requester)", run.intent.text)
+            if run.clarification.says_anything:
+                pack.add_fact("Requester's decisions", render_decisions_taken(run.clarification))
             pack.add_fact("Approved specification", render_spec(run.spec))
             pack.add_fact("Version under review", render_version(it.version))
             pack.add_fact(
@@ -3180,6 +3433,172 @@ def _parse_json_text(text: str) -> dict[str, Any] | None:
         if isinstance(obj, dict):
             return obj
     return None
+
+
+def _clarify_frontier(
+    data: dict[str, Any], clarification: Clarification
+) -> tuple[list[ClarifyQuestion], list[str]]:
+    """The questions of one round that are worth putting to the requester, and the drops.
+
+    Three things are taken out, each for the same reason — a question that cannot change what
+    gets specified is a stop that buys nothing: one already answered, one offering fewer than
+    two options, and one whose option says nothing about its consequence on the specification.
+    Every drop is stated, so a round that asked nothing can be told from one whose questions
+    were all refused.
+    """
+    kept: list[ClarifyQuestion] = []
+    dropped: list[str] = []
+    seen_ids: set[str] = set()
+    seen_titles: set[str] = set()
+    for i, item in enumerate(data.get("questions") or []):
+        if not isinstance(item, dict):
+            continue
+        qid = str(item.get("id") or f"Q{i + 1}").strip()[:50] or f"Q{i + 1}"
+        title = str(item.get("title") or "").strip()[:500]
+        if not title:
+            dropped.append(f"{qid} was dropped: it states no question")
+            continue
+        label = f"{qid} '{title}'"
+        options: list[ClarifyOption] = []
+        for raw in item.get("options") or []:
+            if not isinstance(raw, dict):
+                continue
+            key = str(raw.get("key") or "").strip().lower()[:30]
+            text = str(raw.get("label") or "").strip()[:300]
+            if not key or not text or key == OTHER_OPTION or key in {o.key for o in options}:
+                continue
+            options.append(
+                ClarifyOption(
+                    key=key,
+                    label=text,
+                    consequence=str(raw.get("consequence") or "").strip()[:500],
+                )
+            )
+        question = ClarifyQuestion(
+            id=qid,
+            title=title,
+            body=str(item.get("body") or "").strip()[:4000],
+            options=options[:8],
+            recommended=str(item.get("recommended") or "").strip().lower()[:30],
+            checked=[str(c).strip()[:300] for c in (item.get("checked") or []) if str(c).strip()][
+                :20
+            ],
+        )
+        settled = clarification.answered(question)
+        if settled is not None:
+            dropped.append(
+                f"{label} was not asked again: it is already answered — "
+                f"{settled.label or settled.option}"
+            )
+            continue
+        if qid in seen_ids or normalise_question(title) in seen_titles:
+            dropped.append(f"{label} was dropped: the round asks it twice")
+            continue
+        if len(question.options) < 2:
+            dropped.append(f"{label} was dropped: it offers fewer than two options")
+            continue
+        silent = [o.key for o in question.options if not o.consequence]
+        if silent:
+            dropped.append(
+                f"{label} was dropped: option(s) {', '.join(silent)} state no consequence on "
+                "the specification"
+            )
+            continue
+        if question.recommended not in {o.key for o in question.options}:
+            dropped.append(f"{label} was dropped: its recommended answer names no option it offers")
+            continue
+        question.options.append(
+            ClarifyOption(
+                key=OTHER_OPTION,
+                label="Something else — say what",
+                consequence="Your words go to the specifier in place of the options above.",
+            )
+        )
+        kept.append(question)
+        seen_ids.add(qid)
+        seen_titles.add(normalise_question(title))
+    return kept, dropped
+
+
+def _recommended_answer(question: ClarifyQuestion, made_by: DecisionMaker) -> ClarifyAnswer:
+    option = question.option(question.recommended)
+    assert option is not None  # a question whose recommendation names no option was dropped
+    return ClarifyAnswer(
+        question_id=question.id,
+        question=question.title,
+        option=option.key,
+        label=option.label,
+        recommended=True,
+        taken_by=made_by,
+    )
+
+
+def _clarify_question_text(questions: list[ClarifyQuestion]) -> str:
+    n = len(questions)
+    return (
+        f"{n} decision{'s' if n > 1 else ''} to take before the specification is written: "
+        + "; ".join(q.title for q in questions)
+    )
+
+
+def _clarify_decision(
+    questions: list[ClarifyQuestion], round_n: int, max_rounds: int
+) -> PendingDecision:
+    """One stop for the whole round: the frontier is one reading, so it is one question."""
+    left = max_rounds - round_n
+    more = (
+        f" Answering may open further decisions; at most {left} more round(s) will be put to you."
+        if left > 0
+        else " This is the last round you will be asked; anything it opens is recorded unanswered."
+    )
+    return PendingDecision(
+        kind=DecisionKind.clarify,
+        question=_clarify_question_text(questions) + "." + more,
+        options=[
+            DecisionOption(
+                key="recommended",
+                label="Take the recommended answer for every question",
+                consequence="Each recommendation is recorded as yours. The clarification goes "
+                "on to the next round; nothing is specified or implemented yet.",
+            ),
+            DecisionOption(
+                key="answer",
+                label="Answer them one by one",
+                consequence="You choose an option per question, or say something else in your "
+                "own words. Every question of the round has to be answered.",
+            ),
+            DecisionOption(
+                key="abort",
+                label="Abort the run",
+                consequence="The run stops for good. Nothing was specified or produced, so "
+                "there is nothing to keep.",
+            ),
+        ],
+        questions=questions,
+        context={
+            "round": round_n,
+            "max_rounds": max_rounds,
+            "questions": [q.model_dump(mode="json") for q in questions],
+        },
+    )
+
+
+def _decisions_taken(clarification: Clarification) -> list[DecisionTaken]:
+    """The clarification as the specification carries it: what was asked, chosen and by whom."""
+    taken: list[DecisionTaken] = []
+    for round_ in clarification.rounds:
+        for answer in round_.answers:
+            question = round_.question(answer.question_id)
+            taken.append(
+                DecisionTaken(
+                    question=answer.question,
+                    options=[o.label for o in question.options] if question else [],
+                    choice=answer.label or answer.option,
+                    note=answer.note,
+                    taken_by=answer.taken_by,
+                )
+            )
+    return taken
 
 
 def _spec_from_agent(data: dict[str, Any]) -> Spec:
