@@ -224,6 +224,41 @@ Priorité basse · effort S. Si l'intent contient une consigne que la spécifica
 (`out_of_scope`) ou reformulée, rien ne dit laquelle prime. Une phrase dans `PRODUCER_TASK`
 suffit : la spécification approuvée est la cible, l'intent n'est fourni que pour le contexte.
 
+**E52 · Le contrôle de stabilité dépense son plafond sur les commandes les plus rapides.**
+Priorité haute · effort S. `engine.py::_repeat_watchers` trie les candidates par
+`(v.id not in flipped, durations[v.id])` et `_repeat` tronque à `budget.max_repeated_commands`,
+4 par défaut : les créneaux vont aux commandes les moins coûteuses. Observé sur
+`cibles/python-demo` (run `run-1c263900b5`) : les quatre créneaux sont allés à ruff (0,016 s) et à
+trois commandes `python -c` (0,029 à 0,041 s), tandis que la suite pytest — que dix des quatorze
+exigences portent — et mypy sont restées `stable=None`, donc jamais rejouées. Le tri achète le
+plus grand nombre de contrôles, pas la plus grande part d'évidence ; l'invariant 0024 est pourtant
+énoncé sans réserve. Un avertissement existe pour les commandes écartées par
+`repeat_command_max_s`, aucun pour celles écartées par le compte. Remède : trier d'abord par le
+nombre d'exigences que la commande porte, puis par la durée, et nommer dans le run les commandes
+que le plafond a laissées de côté.
+
+**E53 · Une commande portée par plusieurs vérifications est exécutée une fois par vérification.**
+Priorité moyenne · effort M. Rien ne déduplique par commande : `_verify` exécute une fois par
+`Verification`, et les contre-mesures sur la base, la passe de couverture et les mutants repartent
+de la même liste. Observé sur `cibles/python-demo` : `V1` à `V11` déclarent la même invocation
+pytest, qui a tourné onze fois sur le changement puis dix fois sur la base, pour seize évidences
+`command_result` couvrant cinq commandes distinctes. À 0,13 s le coût ne se voit pas ; sur une
+suite de quatre minutes portée par dix exigences de comportement, c'est plus d'une heure pour un
+seul instrument, et le plafond de E52 s'y ferait dévorer par onze entrées identiques. Remède :
+exécuter une fois par commande distincte et rattacher le résultat à toutes les vérifications qui
+la nomment ; les plafonds de stabilité et de mutation se comptent alors en commandes.
+
+**E54 · Un mutant est porté au crédit du premier instrument qui le rapporte.**
+Priorité basse · effort S. `engine.py::_run_mutant` s'arrête à la première commande dont le code
+de sortie diffère de l'attendu et n'enregistre que celle-là (`verification_id=killer`). Observé
+sur `cibles/python-demo` : le mutant `return share if ... else min(share, self.maximum)` →
+`return None` a été attribué à `V14`, la commande ruff, qui le voit par `F841` — `share` devient
+une variable inutilisée — alors que l'assertion de `tests/test_discounts.py` l'observe aussi ; le
+réviseur `correctness` l'a relevé de lui-même. Le verdict ne change pas, mais la trace donne de la
+suite une image pessimiste : un mutant tué par un linter se lit comme un mutant que les tests
+n'ont pas vu. Remède : parcourir toutes les commandes qui regardent la ligne mutée et enregistrer
+chacune de celles qui la rapportent, l'ordre restant celui du coût croissant.
+
 ### 3.3 Table déterministe / jugement
 
 | Contrôle | Nature | Où |
@@ -342,6 +377,18 @@ automatique ciblée sur les gaps (une intervention du spécificateur avec les ga
 **E15 · Une révision ne peut porter que sur toute la spécification.** Priorité basse · effort M.
 `revise` relance l'agent ; `--spec` remplace tout. Éditer une R ou une V isolée au gate (TUI ou
 `495 spec <id> --edit`) est de l'ergonomie, mais elle réduit le nombre d'interventions payantes.
+
+**E55 · Le plafond de clarification coupe une frontière encore active.**
+Priorité moyenne · effort S. `engine.py::_clarify` compte les rondes *répondues*
+(`budget.max_clarify_rounds`, 2 par défaut) et lance une ronde de confirmation après la dernière :
+si celle-ci rend encore des questions, elles vont en `clarification.open_questions` avec
+`stopped_at_cap`, un avertissement les nomme, et le spécificateur les tranche en `assumptions`.
+Observé sur `cibles/python-demo` : la ronde 3 a rendu deux questions — la vérification du plafond
+au niveau du panier, et l'acceptation du second argument par position ou par nom — qui n'ont
+jamais été posées ; la spécification les a décidées toutes deux, en le disant. La trace est
+honnête, mais le panneau de décision n'offre aucune option « une ronde de plus » au moment où le
+demandeur pourrait la prendre, et ne dit pas combien de rondes restent. Remède : ajouter cette
+option aux choix de `clarify` et exposer le compte des rondes dans le panneau.
 
 ---
 
@@ -821,6 +868,21 @@ une vérification `broken`/`vacuous`), et le scénario en bloc Gherkin ; une exi
 scénario garde sa ligne de tableau et n'a pas de section (`tests/features/report.feature`).
 Prérequis pour (b) à (e) : E50 (a) à (c).
 
+**E56 · Un décompte de tests illisible rend `suite_check` aveugle sans le dire.**
+Priorité haute · effort S. `suite.py::count_tests` reconnaît le décompte de dix runners ;
+`compare_counts` rend `None` dès qu'une des deux versions n'en imprime pas, et le contrôle
+mentionne alors « no test tally read on both versions » à l'intérieur de son propre résumé. Il
+passe, l'exigence de non-régression est créditée sur la seule moitié « diff des fichiers de
+test », et aucun avertissement ne remonte. Observé sur `cibles/python-demo` : `pyproject.toml`
+pose `addopts = "-q"` et la commande déclarée ajoute `-q`, donc pytest tourne en `-qq` et supprime
+la ligne `N passed in Xs` ; `R11` a été satisfaite sans qu'aucun décompte n'ait été lu sur aucune
+des deux versions. Un `--tb=no`, un reporter tiers ou un runner hors des dix formats reconnus
+produisent le même silence. La boucle longue ne le rattrape pas : `lessons.py::_notes` ne tire de
+leçon d'un instrument que par `ToolVerdict.faulty`, et pytest a ici le verdict `proven` — il a
+bien discriminé dix fois. Remède : lever un avertissement de run quand le décompte manque des deux
+côtés, l'afficher à côté du contrôle, et en faire une leçon, puisque la cause est une propriété
+durable de la commande déclarée.
+
 **E37 · Aucune politique de sécurité déterministe.** Priorité moyenne · effort S. Même sans outil
 détecté, le harnais peut vérifier sur le diff : secrets par motifs (clés, jetons), nouvelles
 dépendances dans les manifestes (à signaler, pas à interdire), fichiers exécutables ajoutés,
@@ -871,6 +933,15 @@ envelopper aussi `claude`/`codex` dans un profil Seatbelt qui autorise le résea
 Connu et listé dans « Planned » du README. À conserver visible dans les travaux de résorption ;
 les deux tests live existants (`test_live.py`) ne couvrent qu'un run accepté et une évaluation.
 
+**E57 · Les réviseurs sont appelés en série.**
+Priorité basse · effort M. `engine.py::_review` boucle sur `roles.reviewers_for(spec)` et attend
+chaque intervention avant de lancer la suivante, alors que chaque réviseur est en lecture seule,
+ne voit ni les autres ni le transcript du producteur, et lit le même commit figé. Observé sur
+`cibles/python-demo` : quatre perspectives à 129, 95, 124 et 121 secondes, soit huit des
+vingt-sept minutes du run. Remède : les lancer ensemble, le budget étant vérifié avant la salve ;
+l'ordre d'écriture dans `run.reviews` doit rester celui de la configuration, pour que `assess`
+reste une fonction pure de ses entrées.
+
 ### 7.3 La boucle longue : chaque erreur renforce le système (A11)
 
 **E44 · Rien ne remontait d'un run vers le dispositif.** Priorité haute · effort L.
@@ -917,6 +988,21 @@ comptés une fois par run. Rien n'est persisté et rien n'en décide.
 
 Reste ouvert : une convention violée ne devient toujours pas un *lint* — l'outil entre par une
 proposition de conformité (E14/E50), jamais par la leçon.
+
+**E58 · Une leçon `note` redit une décision au lieu d'énoncer la règle qu'on en tire.**
+Priorité moyenne · effort S. `lessons.py::_notes` fabrique une leçon par réponse de clarification
+prise par un humain, dont l'énoncé est « the requester decided: <question> — <réponse> ». Observé
+sur `cibles/python-demo` : les quatre décisions du run sont devenues quatre notes, acceptées
+telles quelles, et le profil du run suivant les remettra au spécificateur (`_profile` charge
+`load_lessons().in_force`, `_specify` passe tout ce qui n'est pas `false_positive`). Ce sont des
+faits historiques sur un changement déjà livré, pas des critères du projet : « le demandeur a
+décidé que `PercentageOff` gagne un maximum optionnel » ne dit pas la règle qu'on en tire — ce
+projet étend la classe existante plutôt que d'ajouter une sœur, il refuse le négatif et accepte le
+zéro comme la remise voisine. Au dixième run, le spécificateur reçoit quarante lignes de décisions
+dont certaines portent sur du code réécrit depuis. `495 lessons accept --as` permet de réécrire
+l'énoncé, mais rien dans la proposition n'invite à généraliser. Remède : proposer la note sous
+forme de règle — le clarificateur connaît les options et leurs conséquences, il peut énoncer ce
+que le choix dit du projet — et dater la leçon de la version sur laquelle elle a été observée.
 
 ### 7.4 Le dépôt de 495 comme base de connaissance (A8)
 
@@ -977,6 +1063,54 @@ briques existent (`--json`, codes de sortie 0/1/3/4, `495 decide`, `serve`) ; un
 pipeline et un test qui enchaîne `new --json` → code 3 → `decide --json` → code 0 fixeraient le
 contrat que l'article appelle « parité de vérification avec le travail humain ».
 
+### 7.6 Ce que le demandeur lit du run
+
+La surface, le rapport et les commits que le harnais écrit sont tout ce qu'un demandeur lit d'un
+run qu'il n'a pas regardé se dérouler. E47 (hypothèses et hors périmètre absents du rapport)
+relève du même sujet.
+
+**E59 · La surface rend comme un échec l'évidence dont l'échec est la preuve.**
+Priorité moyenne · effort S. `views/checks.py::check_detail` déroule toutes les évidences d'une
+vérification avec le même traitement : une marque tirée de `e.passed` (`✓` vrai, `✕` faux, `◐`
+non mesuré), le résumé, puis le journal brut. Or pour la moitié des espèces, un échec dans le
+journal est le résultat attendu, et rien ne le dit. Quatre lectures fausses observées sur
+`cibles/python-demo` :
+
+- `instrument_check` sur `V1` : la contre-mesure sur la base affiche une page de
+  `FAILED tests/test_discounts.py::...` sous une marque neutre, alors que c'est exactement ce qui
+  prouve que les tests voient le changement ;
+- `baseline` sur `V12` et `V13` : « never run before: exit 1 on the base version », suivi de
+  l'erreur de la commande — la discrimination, présentée comme une panne ;
+- `mutation_check` sur `V14` : l'état de la vérification est vert et le journal porte
+  `F841 Local variable 'share' is assigned to but never used` puis `Found 1 error.` ;
+- `mutation_check` sur `V15` : de même avec `error: Unsupported operand types for > ("int" and
+  "None")` et `Found 1 error in 1 file (checked 7 source files)`.
+
+Remède : donner à chaque espèce d'évidence une glose d'une ligne dans le vocabulaire du harnais
+(« ce que la commande rapporte sans le changement », « la version fausse que cette commande a
+rapportée »), et tirer la marque de ce que l'espèce attend plutôt que du code de sortie — une
+contre-mesure qui échoue et un mutant rapporté sont deux réussites du dispositif.
+
+**E60 · Le journal complet n'est offert qu'à l'étape checks.**
+Priorité basse · effort S. `loops.py::_page_log` lit `run.spec.verifications` au curseur, et la
+barre de touches n'offre `enter` que lorsque la vue est `checks` ; aucune autre étape n'a de
+pager, et aucun panneau de détail ne défile. Observé sur `cibles/python-demo` : à l'étape review,
+le détail d'une perspective — résumé, lecture exigence par exigence, puis titre, détail, fichier
+et observation de chaque finding — est construit en un seul `Group` par
+`views/review.py::_review_detail`, et tout ce qui dépasse la hauteur du terminal est inatteignable.
+Remède : généraliser `enter` au détail de la ligne sous le curseur quelle que soit l'étape, en
+paginant le texte que le panneau aurait rendu.
+
+**E61 · Les sujets de commit écrits par le harnais sont tronqués en plein mot.**
+Priorité basse · effort S. `_commit_tests` et le commit d'itération construisent leur sujet par
+`f"495 tests: {run.intent.text[:60]}"` et `f"495 iteration {n}: {run.intent.text[:60]}"` : la
+coupe ignore les frontières de mot, rien ne signale qu'il y a troncature, et le corps est vide.
+Observé sur `cibles/python-demo` : `495 tests: A percentage discount can be given a ceiling: it
+takes its s`. En `fast-forward` et en `rebase`, `495 merge` porte ces commits tels quels dans
+l'historique du projet hôte ; seul `squash` écrit son propre message. Remède : couper sur une
+frontière de mot avec une marque de troncature, et mettre l'intention entière, l'identifiant du
+run et le commit de base dans le corps.
+
 ---
 
 ## 8. Synthèse priorisée des écarts
@@ -1001,6 +1135,9 @@ semaine ou plus).
 | E50 | catalogue de bibliothèques de test par technologie et rôle (créé, Python rempli), couverture de rôles, écarts au catalogue et propositions de mise en conformité à `init`/`profile` (faits), catalogue et couverture donnés au spécificateur avec le rôle porté par chaque V (fait), rétrospective `495 retro` donnant au catalogue la ligne de chaque outil éprouvé ou fautif (fait), études des six technologies (faites) | tests hôtes | L | le projet hôte mesure chaque contrat avec l'outil éprouvé, ou l'écart lui est proposé |
 | E51 | tests de comportement en scénarios Gherkin (décidé, première application faite ; le spécificateur énonce chaque test en scénario que le demandeur approuve, ADR 0016 ; la forme du test suit l'outil `bdd` du profil et `test_quality` compare exigence, scénario et test, ADR 0017 ; le rapport montre sous chaque exigence le scénario qui la vérifie et ce qu'il a rapporté, ADR 0018), migration de la suite de 495 au fil des modifications (reste) | tests hôtes | M puis L | le demandeur lit le test comme il lit l'exigence ; le rôle `bdd` proposé au projet hôte qui ne l'a pas |
 
+| E52 | le plafond du contrôle de stabilité va aux commandes les plus rapides ; la suite pytest, que dix des quatorze exigences portent, n'est jamais rejouée | déterminisme | S | l'invariant 0024 porte sur les commandes qui portent l'évidence, pas sur les moins chères |
+| E56 | un runner qui n'imprime pas de décompte lisible rend `suite_check` aveugle sans avertissement, et la non-régression est créditée sur le seul diff des fichiers de test | tests hôtes | S | la moitié muette de l'instrument devient visible, et devient une leçon |
+
 ### Priorité moyenne
 
 | Id | Écart | Axe | Effort |
@@ -1020,6 +1157,11 @@ semaine ou plus).
 | E46 | pas de test d'architecture (fait), de propriété ni de mutation sur 495 | qualité interne | S à M |
 | E05 | prompts non versionnés dans l'identité de l'intervention ; `effort` non exposé | déterminisme | S |
 
+| E53 | une commande portée par plusieurs V est exécutée une fois par V, sur le changement comme sur la base | déterminisme | M |
+| E55 | le plafond de clarification coupe une frontière encore active sans offrir une ronde de plus | spécification | S |
+| E58 | une leçon `note` redit la décision au lieu d'énoncer la règle, et s'accumule chez le spécificateur | boucle longue | S |
+| E59 | la surface rend comme un échec la contre-mesure sur la base, la baseline et le mutant rapporté | surface | S |
+
 ### Priorité basse
 
 | Id | Écart | Effort |
@@ -1034,6 +1176,11 @@ semaine ou plus).
 | E47 | hypothèses et hors périmètre absents du rapport | S |
 | E48 | table de prix obsolète (connu) | S |
 | E49 | mode CI non documenté ni testé | S |
+
+| E54 | un mutant est attribué au premier instrument qui le rapporte | S |
+| E57 | les réviseurs, lecteurs et indépendants, sont appelés en série | M |
+| E60 | le journal complet n'est offert qu'à l'étape checks ; aucun panneau ne défile | S |
+| E61 | les sujets de commit du harnais sont tronqués en plein mot, corps vide | S |
 
 ### Ce qu'il ne faut pas casser
 
