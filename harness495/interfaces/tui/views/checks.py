@@ -11,6 +11,7 @@ from harness495.core.models import Run, Verification
 from harness495.interfaces.tui.icons import ICON
 from harness495.interfaces.tui.logs import Logs
 from harness495.interfaces.tui.reading import (
+    coverage_checks,
     evidence_for,
     instrument_faults,
     latest_results,
@@ -105,6 +106,22 @@ def build_checks(ctx: ViewContext) -> StageContent:
                 Text(
                     suite[-1].summary,
                     style="req.satisfied" if suite[-1].passed else "req.undetermined",
+                ),
+            )
+        )
+    reach = coverage_checks(run)
+    if reach:
+        last = reach[-1]
+        notes.append(
+            (
+                "coverage check",
+                Text(
+                    last.summary,
+                    style="req.satisfied"
+                    if last.passed
+                    else "req.undetermined"
+                    if last.passed is False
+                    else "req.pending",
                 ),
             )
         )

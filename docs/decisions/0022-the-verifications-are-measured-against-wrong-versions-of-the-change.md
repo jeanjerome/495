@@ -26,16 +26,17 @@ After the control runs and before the reviewers, `Engine._mutate` measures the v
 against wrong versions of the change itself, and records one `mutation_check` evidence per
 version.
 
-`core/mutation.py` is pure and does the reading. `added_lines(diff)` reads the lines the
-change adds with the number they have in the version under review, counting hunk lines so
-that a line of content is never read as a header. `plan_mutants(diff, limit, commands)` keeps
+`core/mutation.py` is pure and writes the mutants; `core/diff.py` reads the lines they are
+written on, and the coverage check of 0023 reads them the same way. `added_lines(diff)` reads
+the lines the change adds with the number they have in the version under review, counting hunk
+lines so that a line of content is never read as a header. `code_lines(diff, commands)` keeps
 the lines that are in a source file of a technology the catalogue covers, that are not
 comments, and that are not the instrument — a file `looks_like_a_test` recognises, or one a
-`test` verification's command names by path or by file name (`names_the_file`), which is how
-a project whose tests are a script the commands run (`./scripts/check.sh repeat`) is read;
-a linter's or a build's command is not read this way, since it names the source a mutant is
-written on. It offers
-each remaining line to seven textual operators: a comparison inverted (`<` for `<=`, `==` for `!=`), an
+`test` verification's command names whole (`names_the_file`), which is how a project whose
+tests are a script the commands run (`./scripts/check.sh repeat`) is read, and which leaves
+`calc.py` a source file when the command runs `tests/test_calc.py`; a linter's or a build's
+command is not read this way, since it names the source a mutant is written on.
+`plan_mutants(diff, limit, commands)` offers each remaining line to seven textual operators: a comparison inverted (`<` for `<=`, `==` for `!=`), an
 `and` turned into an `or`, an operand sign flipped (`+` for `-`, `*` for `/`), a boolean
 literal flipped, a numeric constant moved by one, a statement whose whole effect is one call
 dropped, a `return` short-circuited to the language's neutral value. The cap is spread over
@@ -103,8 +104,9 @@ quote the assertion that should have caught it.
 
 ## Where in the code
 
-- `harness495/core/mutation.py`: `AddedLine`, `added_lines`, `candidates`, `names_the_file`,
-  `Mutant`, `plan_mutants`, `mutated_source`, the operator tables.
+- `harness495/core/mutation.py`: `candidates`, `Mutant`, `plan_mutants`, `mutated_source`, the
+  operator tables; the reading of the diff they work from is `core/diff.py` (`AddedLine`,
+  `added_lines`, `names_the_file`, `code_lines`), shared with the coverage check (0023).
 - `harness495/core/models.py`: `EvidenceKind.mutation_check`, `Budget.max_mutants`,
   `Budget.mutant_command_max_s`.
 - `harness495/core/engine.py`: `_mutation_watchers`, `_mutate`, `_run_mutant`, the call in

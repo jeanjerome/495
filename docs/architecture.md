@@ -24,7 +24,7 @@ created ─► profiled ─► specified ─► ready ─► producing ─► pr
 | gate | requester (or `--auto-approve` when there is no gap) | approval of the specification; every proposed command has been run once on the base version first |
 | design tests | test designer agent, write | once per approved specification with a test to create: the tests, written from their scenarios' steps as a feature file where the project measures `bdd` and in the project's runner otherwise, on a tree where the behaviour does not exist; the harness keeps the test files, puts every other file back, commits them (`Run.test_design`) and protects them from the change |
 | produce | producer agent, write | the change, in the run's worktree, with the designed tests as read-only files (without a designer the producer writes the tests to create itself); the harness commits the work so the evaluated version is one commit |
-| verify | harness | scope check (allowed paths, and no designed test modified), then every verification on that commit, then the suite check (the diff over the test files that existed on the base, and the runners' tallies on both versions: a test deleted, removed or skipped, or a smaller tally, fails it); each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited; last the mutation check, a few wrong versions of the change (one line of the diff altered each) every command that passed is run against until one reports it, a version none of them reports leaving the behaviour requirements resting on those commands undetermined |
+| verify | harness | scope check (allowed paths, and no designed test modified), then every verification on that commit, then the suite check (the diff over the test files that existed on the base, and the runners' tallies on both versions: a test deleted, removed or skipped, or a smaller tally, fails it); each one a behaviour requirement leans on is run again on the base version carrying the change's test files, and one that reports the same both times leaves the evidence; one that fails there by an execution error rather than an assertion is `unconfirmed`, still credited; then the coverage check, the test commands run once more under the project's own coverage tool and their report crossed with the lines the change adds, a line no command executed leaving the behaviour requirements resting on them undetermined; last the mutation check, a few wrong versions of the change (one line of the diff altered each) every command that passed is run against until one reports it, a version none of them reports leaving the behaviour requirements resting on those commands undetermined |
 | review | reviewer agents, read-only, one per perspective | structured verdicts with findings that cite an observation; `test_quality`, called whenever a test is to be created, holds each scenario against its requirement and its test and reads an unconfirmed test's assertions; a reviewer that alters the tree is discarded |
 | decide | harness | each requirement `satisfied`, `violated` or `undetermined`; violations become correction requests and a new iteration; `undetermined` stops and asks |
 | deliver | harness | patch, branch `495/<run-id>`, Markdown report; nothing merged |
@@ -53,8 +53,8 @@ Dependencies point downwards only (`docs/decisions/0011-package-boundaries.md`):
 - `interfaces` may import anything. Nothing outside `interfaces` imports it.
 - Inside `core`, only `engine` imports `agents`, and only `engine` and `verification` import
   `sandbox`. The rest of `core` (`models`, `decide`, `scope`, `context`, `prompts`, `schemas`,
-  `profile`, `catalogue`, `coverage`, `proposals`, `retro`, `suite`, `mutation`, `git`, `store`,
-  `report`, `config`, `pricing`, `budget`) depends on `core` alone.
+  `profile`, `catalogue`, `coverage`, `proposals`, `retro`, `suite`, `diff`, `mutation`,
+  `reach`, `git`, `store`, `report`, `config`, `pricing`, `budget`) depends on `core` alone.
 - `agents` imports `core.models`, `core.pricing` and `sandbox`; never `core.engine`, `core.store`
   or `core.decide`.
 - `sandbox` imports `core.models` and nothing else of 495.
@@ -123,8 +123,8 @@ when it measures a catalogue role, that `CatalogueRole`, and when it is a test, 
 that holds them, the protected files, the paths put back, and what the designer reported. An
 `Iteration` freezes one `Version` (base commit, head commit, patch hash, files changed) and
 collects the evidence and reviews measured on it. `Evidence` is what the harness observed:
-`command_result`, `scope_check`, `suite_check`, `mutation_check`, `review_verdict`,
-`instrument_check`, `baseline`, `integrity`. A
+`command_result`, `scope_check`, `suite_check`, `coverage_check`, `mutation_check`,
+`review_verdict`, `instrument_check`, `baseline`, `integrity`. A
 `PendingDecision` is a question with `DecisionOption`s, each stating its consequence; a
 `Decision` records who answered and what. `RunResult` holds the delivered branch, patch, report
 and the `IntegrationCheck`. Outside any run, a `Proposals` document holds one `Proposal` per

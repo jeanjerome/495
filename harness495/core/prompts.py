@@ -281,7 +281,11 @@ PERSPECTIVES: dict[str, str] = {
         'When the facts list mutants under "Wrong versions of the change", each one no command '
         "reported is a line whose alteration nothing observed: say whether that alteration "
         "changes the behaviour the requirement states, and if it does, the requirement is "
-        "`undetermined` and the missing check is a finding on the verification."
+        "`undetermined` and the missing check is a finding on the verification. "
+        'When the facts list lines under "Lines of the change no verification executed", '
+        "read each one against the requirement it serves: a line that carries behaviour a "
+        "requirement states and that no test runs leaves that requirement `undetermined`, "
+        "and the finding names the verification and the case that would have reached it."
     ),
     "security": (
         "Look for security weaknesses introduced or left by the change: injection, unsafe "
@@ -318,7 +322,12 @@ PERSPECTIVES: dict[str, str] = {
         "change with one line altered each: a mutant no command reported is a line the tests "
         "let through, and the finding names the verification and quotes the assertion that "
         "should have caught it, unless the alteration leaves the behaviour the requirement "
-        "states unchanged, which you say in your summary."
+        "states unchanged, which you say in your summary. "
+        'When the facts list lines under "Lines of the change no verification executed", '
+        "the harness has measured which lines of the change the tests run: a line none of "
+        "them reached is a case no test states, and the finding names the verification and "
+        "the input that would reach that line, unless no requirement asks for what the line "
+        "does, which you say in your summary."
     ),
     "standards": (
         "Check conformance with the project's documented conventions and tooling (listed in the "

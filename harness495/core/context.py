@@ -244,6 +244,32 @@ def render_suite_reading(reading: SuiteReading) -> str:
     return "\n".join(lines)
 
 
+def render_reach_reading(evidence: list[Evidence]) -> str:
+    """Which lines of the change the verifications executed, as the reviewers read it.
+
+    Measured by the harness, by running the project's test commands again under its own
+    coverage tool and crossing the report with the diff. A line nothing executed is a place
+    the tests do not go; whether that matters is read from the requirement, which is what the
+    reviewer is asked.
+    """
+    lines = [
+        "The harness ran the test commands again under the project's coverage tool and crossed "
+        "what it reported with the lines the change adds. A line named below was executed by no "
+        "verification: either it carries behaviour a requirement states, and the missing check "
+        "is a finding on the verification that should have executed it, or it carries something "
+        "no requirement asked for, which is a line of your summary. A line the tool instruments "
+        "no statement on is not named, and neither is a file it did not instrument, beyond the "
+        "note that it did not.",
+        "\n".join(
+            f"- [{'executed' if e.passed else 'not executed' if e.passed is False else 'not measured'}]"
+            f" {e.summary}"
+            for e in evidence
+        )
+        or "(none)",
+    ]
+    return "\n".join(lines)
+
+
 def render_mutation_reading(evidence: list[Evidence]) -> str:
     """What the verifications reported on wrong versions of the change, as the reviewers read it.
 

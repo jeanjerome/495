@@ -289,6 +289,9 @@ class Budget(StrictModel):
     mutant_command_max_s: int = 60
     """A verification that took longer than this on the change is not run against a mutant: the
     mutation check is bounded by what it costs, and a slow command spends the whole budget."""
+    max_coverage_commands: int = 2
+    """Test commands run again under the project's coverage tool per iteration, to see which
+    lines of the change they execute; 0 leaves the coverage check out."""
 
 
 class SandboxConfig(StrictModel):
@@ -810,6 +813,9 @@ class EvidenceKind(StrEnum):
     mutation_check = "mutation_check"
     """Whether the verifications that observe the change also constrain it: one mutant, a line
     the change added altered in one stated way, and what the commands reported on it."""
+    coverage_check = "coverage_check"
+    """Which lines the change adds the verifications execute: the test commands run again under
+    the project's coverage tool, and their report crossed with the diff."""
 
 
 class Evidence(StrictModel):

@@ -411,14 +411,18 @@ résorption est la plus grande.
 - **Mutation ciblée** : quelques lignes du diff sont altérées une à une et les V de comportement
   sont réexécutées sur chaque version fausse ; une évidence `mutation_check` par mutant dit si
   une commande l'a rapporté (depuis le 2026-09-14, E30).
+- **Couverture du diff** : les V de test sont rejouées sous l'outil de couverture du projet et
+  leur rapport est croisé avec les lignes que le changement ajoute ; une ligne que le rapport
+  tient sans aucun passage est une ligne qu'aucune commande n'exécute (depuis le 2026-09-14,
+  E31).
 - **Périmètre** : les fichiers du changement sont confrontés aux `allowed_paths` et
   `forbidden_paths`.
 
 Autrement dit, 495 sait dire si une commande du projet **observe** le changement (au sens : son
 résultat dépend de la présence du changement), ce que l'article ne demande même pas explicitement
-et que peu d'outils font ; et il sait dire, pour une poignée de lignes et d'altérations
-textuelles, si elle **le contraint**. Ce qu'il ne sait toujours pas dire, c'est quelles lignes du
-changement aucune V n'exécute (E31).
+et que peu d'outils font ; il sait dire, pour une poignée de lignes et d'altérations
+textuelles, si elle **le contraint** ; et il sait dire quelles lignes du changement elle
+**n'exécute jamais**, du rapport de l'outil que le projet a déjà adopté.
 
 ### 6.2 Lecture par le tableau des contrats
 
@@ -429,7 +433,7 @@ changement aucune V n'exécute (E31).
 | **API** | échanges autorisés | schémas, OpenAPI, types | `typecheck` détecté (mypy, pyright, tsc) ; pas de validation de schéma ni de diff d'API | partiel |
 | **Architecture** | dépendances et frontières | tests d'architecture | rien : `allowed_paths` est un périmètre de fichiers, pas une règle de dépendance ; import-linter, dependency-cruiser, ArchUnit, `deptry` ne sont pas détectés | absent |
 | **Qualité** | complexité, duplication, conventions | analyse statique | `lint` détecté (ruff, flake8, clippy, go vet, eslint via script) ; conventions en texte libre pour les agents ; pas de complexité (radon, gocyclo), pas de duplication (jscpd), pas de mode « nouveau code seulement » | partiel |
-| **Tests** | capacité de détection des tests | mutation testing | mutation ciblée sur le diff à chaque itération : quelques mutants textuels, une évidence `mutation_check` par mutant, un mutant non rapporté laisse l'exigence `undetermined` (E30) ; l'outil du catalogue (mutmut, Stryker, cargo-mutants, gremlins, pitest) est détecté au profil et proposé s'il manque (E50) ; pas de couverture du diff (E31) | partiel |
+| **Tests** | capacité de détection des tests | mutation testing | mutation ciblée sur le diff à chaque itération : quelques mutants textuels, une évidence `mutation_check` par mutant, un mutant non rapporté laisse l'exigence `undetermined` (E30) ; l'outil du catalogue (mutmut, Stryker, cargo-mutants, gremlins, pitest) est détecté au profil et proposé s'il manque (E50) ; couverture du diff mesurée avec l'outil du projet, une ligne ajoutée qu'aucune V n'exécute laisse l'exigence `undetermined` (E31) | fait |
 | **Sécurité** | comportements et dépendances interdits | SAST, politiques | réviseur LLM `security` par défaut ; bandit, semgrep, gitleaks, `pip-audit`, `npm audit`, `cargo audit` non détectés ; aucune politique déterministe (secrets dans le diff, nouvelles dépendances) | jugement là où un outil existe : contraire à A5 |
 | **Performance** | latence, mémoire, débit | benchmarks | rien | absent, acceptable au stade actuel |
 | **Exploitation** | comportement en production | métriques, logs, traces, SLO | hors périmètre (495 est local, avant fusion) | hors périmètre |
@@ -483,7 +487,7 @@ déclenchent que sur un opérateur entouré d'espaces, ignorent la grammaire du 
 mutant qui ne compile pas est rapporté par toutes les commandes donc lu comme tué — le coût est
 l'exécution perdue, pas la conclusion. L'outil du catalogue reste la voie du projet hôte, par
 `CatalogueRole.mutation` et une proposition (ADR 0022, `tests/features/mutation.feature`).
-E30 est clos ; E31 reste ouvert.
+E30 est clos.
 
 **E31 · La couverture du diff n'est pas mesurée.** Priorité haute · effort M.
 Plus simple que la mutation et complémentaire : instrumenter l'exécution des V (coverage.py,
@@ -492,6 +496,35 @@ exécutée par aucune V discriminante est une évidence `coverage_check` qui met
 portées en `undetermined` : le harnais dit *où* la spécification ne regarde pas. Les outils
 existent pour tous les langages détectés ; la détection de profil peut proposer la commande
 instrumentée comme variante de la commande de test.
+Fait le 2026-09-14 : `core/diff.py` porte la lecture que la mutation et la couverture partagent
+— les lignes ajoutées, leur numéro dans la version évaluée, et celles qui portent du code d'une
+technologie du catalogue plutôt qu'un commentaire, une ligne vide ou l'instrument ; le nom d'un
+fichier y est reconnu entier, donc une commande qui lance `tests/test_calc.py` ne nomme plus
+`calc.py`. `core/reach.py::instrument` réécrit la commande de test du projet en une commande qui
+écrit un rapport par ligne, à partir de l'outil que le profil a reconnu pour le rôle `coverage`
+de la technologie : coverage.py devant le runner puis `coverage json`, les options lcov de
+vitest et de jest ajoutées, `-coverprofile` et `-coverpkg=./...` ajoutés à `go test`,
+`cargo llvm-cov --lcov` à la place de `cargo test`, le goal de rapport de jacoco ou de kover
+ajouté au build, `--kcov` ajouté à shellspec sous une limite de descripteurs abaissée ; elle
+ajoute des options ou remplace le jeton du runner, jamais ne restructure la commande, et rend
+None quand le projet ne mesure le rôle avec aucun outil qu'elle sait conduire. `READERS` relit
+le rapport dans les quatre formes que ces outils écrivent (lcov, le JSON de coverage.py, un
+profil de couverture Go, le XML Cobertura et JaCoCo) et `cross` le croise avec les lignes du
+diff. `Engine._reach` exécute au plus `budget.max_coverage_commands` commandes instrumentées
+par itération (2 par défaut, 0 laisse le contrôle de côté), la moins chère d'abord, dans le
+worktree du commit évalué, puis restaure l'arbre ; une commande dont le rapport ne vient pas est
+un avertissement et aucune évidence. Une ligne que le rapport tient sans passage est mise à la
+charge de chaque exigence de comportement qui repose sur les commandes mesurées ; une ligne que
+le rapport ne tient pas, et un fichier qu'il n'instrumente pas, ne sont à la charge de rien —
+les moteurs listent les lignes qu'ils instrumentent, et lire une absence comme un défaut
+accuserait le lecteur de ce que l'outil ne prétend pas. `decide.assess` la lit comme un mutant
+survivant (0022) : l'exigence passe en `undetermined` avec les lignes en motif et figure dans
+`uncredited`, jamais en `violated` — une garde que la convention du projet demande, une branche
+qu'aucune exigence n'énonce, un chemin d'erreur laissé hors spécification ne sont pas exécutés
+pour des raisons qui ne sont pas des défauts ; `correctness` et `test_quality` reçoivent le fait
+« Lines of the change no verification executed » et la question. L'outil reste celui du projet :
+un projet hôte qui ne mesure pas le rôle n'est pas instrumenté, et l'écart passe par une proposition
+(ADR 0023, `tests/features/reach.feature`). E31 est clos.
 
 **E32 · Le différentiel ne distingue pas un échec par assertion d'un échec par erreur.**
 Priorité haute · effort S. Développé en E03 : lire la signature de panne sur la base et
@@ -863,7 +896,7 @@ semaine ou plus).
 | E03 · E32 | le producteur écrivait ses tests ; un échec sur base par erreur d'import valait discrimination sans que rien ne le dise. Depuis le 2026-09-14 : la V est `unconfirmed`, lue par `test_quality`, appelé dès qu'une V est à créer ; les tests à créer sont écrits par le rôle `test_designer` avant le producteur, qui ne peut plus les modifier (faits) | déterminisme, tests hôtes | S puis L | `test_quality` par défaut, lecture de la nature de l'échec, rôle test designer |
 | E33 | la suite existante pouvait être affaiblie (suppression, skip) sans détection ; depuis le 2026-09-14 le diff sur les tests existants et le décompte du runner sur les deux versions donnent une évidence `suite_check`, une suite affaiblie laisse la non-régression `undetermined` jusqu'à l'arbitrage du demandeur, et les réviseurs reçoivent la liste des tests existants touchés (fait) | tests hôtes | M | comptage des tests base/changement, lecture du diff des tests existants, liste aux réviseurs |
 | E30 | force de la suite non mesurée, un seul mutant (l'absence du changement) ; depuis le 2026-09-14 quelques lignes du diff sont altérées une à une, les V de comportement réexécutées sur chaque version fausse, et un mutant qu'aucune commande ne rapporte laisse l'exigence `undetermined` (fait) | tests hôtes | M à L | sort du « satisfied = passe et ne passait pas » |
-| E31 | la couverture du diff n'est pas mesurée | tests hôtes | M | dit *où* la spécification ne regarde pas |
+| E31 | la couverture du diff n'était pas mesurée ; depuis le 2026-09-14 les V de test sont rejouées sous l'outil de couverture du projet et une ligne ajoutée qu'aucune n'exécute laisse l'exigence `undetermined` (fait) | tests hôtes | M | dit *où* la spécification ne regarde pas |
 | E02 | pas de détection de tests instables | déterminisme | M | évite les itérations et les verdicts renversés par le hasard |
 | E10 | pas de phase de clarification, hypothèses silencieuses | spécification | L | traite le problème de l'oracle à la source ; arbre de décision façon `grilling` |
 | E20 | `CLAUDE.md` du projet hôte lu nativement comme instruction et injecté comme non fiable | contexte | S | un seul statut de confiance par source ; test de non-régression |

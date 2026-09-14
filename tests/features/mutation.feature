@@ -39,6 +39,12 @@ Feature: The verifications are measured against wrong versions of the change
     When the harness plans the mutants
     Then no mutant is planned
 
+  Scenario: A source file whose name a test file's name holds is not the instrument
+    Given the project runs its tests with "pytest tests/test_calc.py"
+    And a diff of "calc.py" that adds the line "retries = 3"
+    When the harness plans the mutants
+    Then a constant mutant writes "retries = 4"
+
   Scenario: A file no test command names is the source the mutants are written on
     Given the project runs its tests with "./scripts/check.sh repeat"
     And a diff of "scripts/greeter.sh" that adds the line "repeat=1"

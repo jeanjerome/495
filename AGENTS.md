@@ -52,6 +52,11 @@ Keep these true in every change; each has a test or a record that names it.
   line of the diff altered in a stated way each; a wrong version none of them reports leaves the
   behaviour requirements resting on those commands `undetermined`, never `violated`, and never
   becomes a correction request (`0022`).
+- The test commands are run once more under the project's own coverage tool and the report is
+  crossed with the lines the change adds (`core/diff.py`, `core/reach.py`): a line the report
+  holds with no hit leaves the behaviour requirements resting on those commands `undetermined`,
+  and a line the report does not hold, or a file it does not instrument, is charged to nothing
+  (`0023`).
 - A correction request carries the requirement, the claim and the observation. Reviewer
   explanations and remedies stay out of the producer's context; the producer's transcript stays
   out of every reviewer's context (`0004`, `0005`).

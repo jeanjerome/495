@@ -108,6 +108,17 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
             for rid in e.requirement_ids:
                 let_through.setdefault(rid, []).append(e.summary)
 
+    # The same commands have also been run under the project's coverage tool, and the lines the
+    # change adds crossed with what it reported. A line no command executed is a line the
+    # evidence has nothing to say about: whatever those commands report, they report it without
+    # ever running that line. As above, it is not a defect — the line may carry behaviour no
+    # requirement states — so the requirement waits for the requester rather than the producer.
+    unexecuted: dict[str, list[str]] = {}
+    for e in evidence:
+        if e.kind is EvidenceKind.coverage_check and e.passed is False:
+            for rid in e.requirement_ids:
+                unexecuted.setdefault(rid, []).append(e.summary)
+
     for r in spec.requirements:
         failed: list[str] = []
         passed: list[str] = []
@@ -250,6 +261,20 @@ def assess(spec: Spec, evidence: list[Evidence], reviews: list[ReviewVerdict]) -
                 ]
             )
             uncredited.append(f"{r.id}: no command told the change from a wrong version of it")
+            undetermined.append(f"{r.id}: {reasons[r.id]}")
+        elif r.id in unexecuted:
+            statuses[r.id] = RequirementStatus.undetermined
+            observed = "; ".join(dict.fromkeys(unexecuted[r.id]))
+            reasons[r.id] = "; ".join(
+                [
+                    "verifications passed: "
+                    + ", ".join(passed)
+                    + ", and did not run every line the change adds: "
+                    + observed,
+                    *_set_aside_for(r.id, set_aside),
+                ]
+            )
+            uncredited.append(f"{r.id}: no verification executed every line the change adds")
             undetermined.append(f"{r.id}: {reasons[r.id]}")
         elif (
             review_undetermined

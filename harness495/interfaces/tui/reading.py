@@ -123,3 +123,10 @@ def mutation_checks(run: Run) -> list[Evidence]:
     it = run.current_iteration
     ids = set(it.evidence_ids if it else [])
     return [e for e in run.evidence if e.kind is EvidenceKind.mutation_check and e.id in ids]
+
+
+def coverage_checks(run: Run) -> list[Evidence]:
+    """What the verifications executed of the change, on the current iteration."""
+    it = run.current_iteration
+    ids = set(it.evidence_ids if it else [])
+    return [e for e in run.evidence if e.kind is EvidenceKind.coverage_check and e.id in ids]
