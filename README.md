@@ -52,10 +52,13 @@ software change is cleared to merge.
 - [x] **Spec-driven development**: from a prose intent to requirements `R1..Rn`, each tied to the verifications `V1..Vm` that decide it
 - [x] **Produced in isolation**: every run works in a git worktree of its own, on branch `495/<run-id>`, created outside the project; your working tree is never touched
 - [x] **Verified by your project's own commands**: detected or declared, and proven executable on the base version before anything is produced
+- [x] **Tests written before the change**: the tests the specification calls for are written by a test designer in an intervention of its own, on a tree where the behaviour does not exist, and the producer may not touch them
 - [x] **Independent review**: one read-only agent per perspective, structured verdicts, no access to the producer's transcript
 - [x] **Decided on evidence**: each requirement becomes `satisfied`, `violated` or `undetermined`; evidence that cannot conclude stops the run and asks you
 - [x] **Feedback that names the gap, not the fix**: a correction request states which requirement is not demonstrated and what was observed
 - [x] **Every check measured before it counts**: each one runs twice, on the change and on the base version carrying the change's own test files; one that reports the same thing both times proves nothing — whether it failed both times or passed both times — and is taken out of the evidence instead of becoming work
+- [x] **The suite that passed stays passing**: the tests the base version passed are measured on the change; a test deleted, removed or skipped, or a smaller tally, is a failed check, and a passing command on such a suite credits nothing
+- [x] **Measured against a catalogue of test libraries**: which tool the project measures each test role with, per technology; every gap is a proposal you answer once, and a retrospective states what the run showed about each tool that measured one
 - [x] **A rich terminal UI**: eight stops in the order the engine walks them — where the run is, what each stage produced, and the controls that act on it
 - [x] **Merge on request only**, in four shapes, followed by the integration check that inspects it
 - [x] **Scoped permissions**: read-only roles and one write role, each under the isolation its client offers, with what was actually applied recorded per intervention
@@ -198,20 +201,23 @@ Commands are detected from `pyproject.toml`, `package.json`, `Makefile`, `Cargo.
 `go.mod` and the like. Declaring one in `project.toml` under the same name overrides the
 detected command; any other name adds one. `495 profile` re-runs the detection alone.
 
-The second table is the **role coverage**: for each role of the test-library catalogue
-(`docs/test-libraries.md`: runner, bdd, property, fuzzing, mutation, coverage, architecture,
-static, types, security, contract, performance, doubles), the tool the project measures it
-with, and what that tool was recognised from: a dependency in `pyproject.toml` or a
-`requirements*.txt`, a configuration section or file, an import in a test file, a CI step. A
-role nothing measures is listed as such. The rows exist for the technologies whose tools the
-profile has markers for, Python and shell today; a technology without markers gets no rows
-rather than rows that would read as findings about the project. The agents see the same list
-in their context; the specifier also sees, per role, what a test of it must show and what the
-catalogue recommends where nothing measures it, and names on each verification the role it
-measures. A verification of a role the project does not measure is reported as insufficient,
-with the recommendation: the tool comes in through a proposal you answer, not through the
-change. A proposal you declined is read when a run is profiled, shown to the specifier with
-your reason so that it does not call for the role, and the gate does not ask it again.
+The second table is the **role coverage**: for each role the test-library catalogue
+(`docs/test-libraries.md`) has a table for in that technology — runner, bdd, property, fuzzing,
+mutation, coverage, architecture, static, types, security, contract, performance, doubles — the
+tool the project measures it with, and what that tool was recognised from: a dependency in the
+technology's manifest (`pyproject.toml` or a `requirements*.txt`, `package.json`, `Cargo.toml`,
+`go.mod`, a Maven or Gradle manifest, a `Gemfile`), a configuration section or file, an import
+in a test file, a CI step. A role nothing measures is listed as such. The rows exist for the
+technologies whose tools the profile has markers for — Python, shell, JavaScript / TypeScript,
+Rust, Go, Java / Kotlin — each admitted by the study that filled its section of the catalogue;
+a technology without markers gets no rows rather than rows that would read as findings about
+the project. The agents see the same list in their context; the specifier also sees, per role,
+what a test of it must show and what the catalogue recommends where nothing measures it, and
+names on each verification the role it measures. A verification of a role the project does not
+measure is reported as insufficient, with the recommendation: the tool comes in through a
+proposal you answer, not through the change. A proposal you declined is read when a run is
+profiled, shown to the specifier with your reason so that it does not call for the role, and
+the gate does not ask it again.
 
 The third table is the **gaps against the catalogue**: for each role the catalogue has an
 entry for, whether the project measures it with the recommended tool. A gap is a role nothing
@@ -440,7 +446,9 @@ A requirement is never decided by the agent that implemented it.
 A requirement is `satisfied` only when every verification attached to it ran on the evaluated
 commit and passed, and no reviewer reports a violation with evidence. A failed verification or
 an evidenced violation makes it `violated`. Anything else is `undetermined`, and an
-undetermined requirement blocks acceptance: the run stops and asks rather than concluding.
+undetermined requirement blocks acceptance: the run stops and asks rather than concluding. A
+reviewer that assesses a requirement as violated without a finding citing an observation has
+stated a claim and not evidence: that assessment is read as `undetermined`.
 
 What a passing command is allowed to credit depends on what the requirement claims. A
 requirement of kind `behaviour` says the change makes something true, and a command that
