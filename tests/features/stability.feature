@@ -148,3 +148,36 @@ Feature: A verification is run twice on the same version, and one that changes i
     Then nothing was run a second time
     And the requirement R1 is satisfied
     And the run ends delivered
+
+  # ------------------------------------------------------------------ the check on its own
+
+  Scenario: A command no requirement leans on is not run a second time
+    Given a version under review
+    And a command V1 that passed in 1s, which no requirement leans on
+    When the stability check measures the version
+    Then no command was run a second time
+    And the stability check left no evidence
+
+  Scenario: A verification the harness runs no command for has no pair to read
+    Given a version under review
+    And a manual verification V1, which the requirement R1 leans on
+    When the stability check measures the version
+    Then no command was run a second time
+    And the stability check left no evidence
+
+  Scenario: The command that changed its mind since the previous iteration is repeated first
+    Given a version under review at the second iteration
+    And a command V1 that passed in 5s, which the requirement R1 leans on
+    And a command V2 that passed in 1s, which the requirement R1 leans on
+    And V1 reported failure on the previous iteration
+    And only one command may be run a second time
+    When the stability check measures the version
+    Then V1 is the only command that was run a second time
+
+  Scenario: A second run the requester stopped is no reading of anything
+    Given a version under review
+    And a command V1 that passed in 1s, which the requirement R1 leans on
+    And the requester asked the run to stop
+    When the stability check measures the version
+    Then the run stops rather than reading the pair
+    And V1 is left with no stability reading

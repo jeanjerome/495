@@ -900,6 +900,19 @@ Tests use the libraries listed in `docs/test-libraries.md` for their role, and a
 behaviour is a Gherkin scenario under `tests/features/` bound to steps with pytest-bdd
 (`docs/decisions/0013-tests-are-behaviour-scenarios-in-gherkin.md`).
 
+A region of the engine is also reached on its own, without a run: the last section of
+`tests/features/{stability,suite,reach,mutation}.feature` calls `harness495/core/engine/checks/`
+through a `RunServices` over a recording store and a sandbox answering from a script
+(`Region`, `RecordingServices` and `Reply` in `tests/conftest.py`). Its coverage is read apart
+from the rest:
+
+```bash
+.venv/bin/python -m coverage run --source=harness495/core/engine/checks -m pytest \
+    tests/test_stability_scenarios.py tests/test_suite_scenarios.py \
+    tests/test_reach_scenarios.py tests/test_mutation_scenarios.py
+.venv/bin/python -m coverage report -m
+```
+
 The images and the recording above are rebuilt from a store the engine walked, with the agent
 roles answering from a script so that neither costs a call:
 

@@ -202,3 +202,33 @@ Feature: The existing test suite is measured on the change
     And the "spec_compliance" reviewer's prompt says "tests/test_calc.py: modified (1 hunk(s))"
     And the "test_quality" reviewer's prompt says "tests/test_calc.py: modified (1 hunk(s))"
     And the run ends delivered
+
+  # ------------------------------------------------------------------ the check on its own
+
+  Scenario: A command with no reading on the base is left out of the comparison
+    Given a version under review
+    And a non-regression requirement R2 resting on the test command V2
+    And V2 printed "3 passed in 0.2s" on the version under review and was never run on the base
+    When the suite check measures the version
+    Then the suite check says "no test tally read on both versions"
+    And the suite check passed
+
+  Scenario: A tally that shrank is read back from what the two runs printed
+    Given a version under review
+    And a non-regression requirement R2 resting on the test command V2
+    And V2 printed "4 passed in 0.3s" on the base and "3 passed in 0.2s" on the version under review
+    When the suite check measures the version
+    Then the suite check failed
+    And the suite check says "V2 (pytest): 4 ran and 0 skipped on the base, 3 ran and 0 skipped on the change"
+    And the suite check names R2
+
+  Scenario: A weakened suite charges no requirement resting on a command that runs no test
+    Given a version under review
+    And a non-regression requirement R2 resting on the linter V2
+    And V2 printed "no issues found" on the base and "no issues found" on the version under review
+    And a non-regression requirement R3 resting on the test command V3
+    And V3 printed "4 passed in 0.3s" on the base and "3 passed in 0.2s" on the version under review
+    When the suite check measures the version
+    Then the suite check failed
+    And the suite check names R3
+    And the suite check does not name R2

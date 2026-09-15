@@ -175,3 +175,47 @@ Feature: The verifications are measured against wrong versions of the change
     Then no wrong version of the change was measured
     And the requirement R1 is satisfied
     And the run ends delivered
+
+  # ------------------------------------------------------------------ the check on its own
+
+  Scenario: A command slower than a mutant run is worth is left out, and said to be
+    Given a version under review whose change adds a line of source
+    And a test command V1 that passed in 300s, which the requirement R1 leans on
+    When the mutation check measures the version
+    Then no wrong version of the change was written
+    And the run warns "what it lets through is not measured"
+
+  Scenario: A repository no throwaway worktree can be added to leaves the check unmade
+    Given a version under review whose change adds a line of source
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And the project the run works on is no git repository
+    When the mutation check measures the version
+    Then no wrong version of the change was written
+    And the run warns "cannot measure the verifications against wrong versions"
+
+  Scenario: A mutant whose line is no longer where the diff put it is not applied
+    Given a version under review whose change adds a line of source
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And a mutant naming a line the file does not carry
+    When the harness runs that wrong version
+    Then no command was run against it
+    And the mutant reading says "the line is not where the diff put it; not applied"
+    And the mutant charges no requirement
+
+  Scenario: A command the wrong version timed out under is counted as having reported it
+    Given a version under review whose change adds a line of source
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And a mutant of the line the change adds
+    And V1 times out on the wrong version
+    When the harness runs that wrong version
+    Then the mutant reading says "V1 reported it (timed out)"
+    And the mutant charges no requirement
+
+  Scenario: A mutant run the requester stopped puts the file back as the change wrote it
+    Given a version under review whose change adds a line of source
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And a mutant of the line the change adds
+    And the requester asked the run to stop
+    When the harness runs that wrong version
+    Then the run stops rather than reading the wrong version
+    And the file the mutant altered is as the change wrote it

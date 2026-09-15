@@ -4,11 +4,17 @@ what the verifications execute, and a line none of them ran credits no requireme
 The report and crossing scenarios call the pure readers of ``core.reach``; the decision
 scenarios call ``core.decide.assess`` once; the run scenarios walk a change run with the
 scripted agents of ``conftest``, with coverage.py making the measure for real, and read the
-run, the prompts and the report back. Nothing is asserted outside a ``Then``.
+run, the prompts and the report back. The last section reaches ``core.engine.checks.coverage``
+on its own, through a ``RunServices`` whose sandbox writes the report the tool would have
+written, so that a change with no line to cross, a tool that wrote nothing and a run the
+requester stopped are measured without a run reaching ``produced``. Nothing is asserted
+outside a ``Then``.
 """
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,15 +24,20 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.decide import Assessment, assess
 from harness495.core.diff import code_lines
+from harness495.core.engine.checks.coverage import reach
+from harness495.core.git import diff as repo_diff
 from harness495.core.models import (
+    CatalogueRole,
     DecisionKind,
     Evidence,
     EvidenceKind,
+    ProjectProfile,
     Requirement,
     RequirementKind,
     RequirementStatus,
     ReviewVerdict,
     Role,
+    RoleCoverage,
     RunMode,
     RunStatus,
     Spec,
@@ -34,9 +45,26 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
-from harness495.core.reach import READERS, Hits, Instrumented, Reading, cross, instrument
+from harness495.core.reach import (
+    READERS,
+    REPORT_DIR,
+    Hits,
+    Instrumented,
+    Reading,
+    cross,
+    instrument,
+)
 from harness495.core.report import render_markdown
-from tests.conftest import SAMPLE_MODULE, SAMPLE_TEST, Scenario, git
+from tests.conftest import (
+    SAMPLE_MODULE,
+    SAMPLE_TEST,
+    Measured,
+    Region,
+    Reply,
+    Scenario,
+    git,
+    measure,
+)
 
 scenarios("features/reach.feature")
 
@@ -430,3 +458,126 @@ def the_report_says(world: World, text: str) -> None:
 @then(parsers.parse('the run says "{text}"'))
 def the_run_says(world: World, text: str) -> None:
     assert any(text in w for w in world.run.warnings), world.run.warnings
+
+
+# --------------------------------------------------------------------- the check on its own
+
+SUBTRACT = SAMPLE_MODULE + "\n\ndef subtract(a: int, b: int) -> int:\n    return a - b\n"
+ANOTHER_TEST = "def test_nothing():\n    assert True\n"
+
+
+@given("a version under review whose change adds a test file only", target_fixture="region")
+def a_version_adding_a_test_file(produced_version: Callable[..., Region]) -> Region:
+    return produced_version({"tests/test_extra.py": ANOTHER_TEST})
+
+
+@given("a version under review whose change adds a line of source", target_fixture="region")
+def a_version_adding_source(produced_version: Callable[..., Region]) -> Region:
+    return produced_version({"calc.py": SUBTRACT})
+
+
+@given(parsers.parse("the project measures its {technology} coverage with {tool}"))
+def the_project_measures_its_coverage(region: Region, technology: str, tool: str) -> None:
+    region.run.profile = ProjectProfile(
+        root=str(region.root),
+        role_coverage=[
+            RoleCoverage(technology=technology, role=CatalogueRole.coverage, tools=[tool])
+        ],
+    )
+
+
+@given(
+    parsers.parse(
+        "a test command {vid} that passed in {seconds:d}s, which the requirement {rid} leans on"
+    )
+)
+def a_test_command_a_requirement_leans_on(region: Region, vid: str, seconds: int, rid: str) -> None:
+    region.verification(vid, requirement=rid)
+    region.ran_command(vid, seconds=float(seconds), output="4 passed in 0.3s")
+
+
+@given("the instrumented run exits 1 and writes no report")
+def the_instrumented_run_writes_no_report(region: Region) -> None:
+    region.answers(Reply(exit_code=1, output="the tool could not start"))
+
+
+@given("the instrumented run writes a report holding no hit for the change")
+def the_instrumented_run_writes_a_report_with_no_hit(region: Region) -> None:
+    files: dict[str, dict[str, list[int]]] = {}
+    for added in code_lines(repo_diff(region.root, region.base, region.head)):
+        rows = files.setdefault(added.file, {"executed_lines": [], "missing_lines": []})
+        rows["missing_lines"].append(added.line)
+    region.answers(
+        Reply(
+            output="4 passed in 0.3s",
+            writes={f"{REPORT_DIR}/coverage.json": json.dumps({"files": files})},
+        )
+    )
+
+
+@given("the requester asked the run to stop")
+def the_requester_asked_the_run_to_stop(region: Region) -> None:
+    region.services.stop_requested = True
+
+
+@when("the coverage check measures the version", target_fixture="measured")
+def the_coverage_check_measures_the_version(region: Region) -> Measured:
+    return measure(
+        lambda: reach(region.services, region.run, region.iteration, list(region.run.evidence))
+    )
+
+
+def _check(measured: Measured) -> Evidence:
+    assert len(measured.evidence) == 1, [e.summary for e in measured.evidence]
+    return measured.evidence[0]
+
+
+@then("no command was run under the coverage tool")
+def no_command_was_run_under_the_tool(region: Region) -> None:
+    assert region.services.fake_sandbox.commands == [], region.services.fake_sandbox.commands
+
+
+@then("the coverage check left no evidence")
+def the_coverage_check_left_no_evidence(measured: Measured) -> None:
+    assert measured.evidence == [], [e.summary for e in measured.evidence]
+
+
+@then(parsers.parse('the run warns "{text}"'))
+def the_run_warns(region: Region, text: str) -> None:
+    assert any(text in w for w in region.services.warnings), region.services.warnings
+
+
+@then("the coverage check measured nothing")
+def the_coverage_check_measured_nothing(measured: Measured) -> None:
+    assert _check(measured).passed is None, _check(measured).summary
+
+
+@then("the coverage check charges no requirement")
+def the_coverage_check_charges_no_requirement(measured: Measured) -> None:
+    assert _check(measured).requirement_ids == [], _check(measured).requirement_ids
+
+
+@then("the coverage check failed")
+def the_coverage_check_failed(measured: Measured) -> None:
+    assert _check(measured).passed is False, _check(measured).summary
+
+
+@then(parsers.parse("the coverage check names {rid}"))
+def the_coverage_check_names(measured: Measured, rid: str) -> None:
+    assert rid in _check(measured).requirement_ids, _check(measured).requirement_ids
+
+
+@then("what the instrumented run printed is kept under the run")
+def the_output_is_kept(region: Region, measured: Measured) -> None:
+    ref = _check(measured).output_ref
+    assert ref is not None and region.services.store.written.get(ref) == "4 passed in 0.3s"
+
+
+@then("the run stops rather than crossing anything")
+def the_run_stops_rather_than_crossing(measured: Measured) -> None:
+    assert measured.interrupted, "the check crossed the change with an interrupted run"
+
+
+@then("nothing of the measure is left in the worktree")
+def nothing_of_the_measure_is_left(region: Region) -> None:
+    assert not (region.root / REPORT_DIR).exists()

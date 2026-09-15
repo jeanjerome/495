@@ -94,8 +94,10 @@ Keep these true in every change; each has a test or a record that names it.
   the reviewer of that perspective and to no other. The proposition put to the requester is the
   refutation, so that accepting any lesson means the same thing (`0028`).
 - Cost is `reported`, `estimated` or `unknown` (`0008`).
-- Tests use `Scenario` and `FakeAgent` from `tests/conftest.py`. Mark a test that reaches a
-  real agent CLI or the network `live`.
+- Tests use `Scenario` and `FakeAgent` from `tests/conftest.py`; a region of the engine is
+  reached on its own through the `RunServices` that `produced_version` builds there, over a
+  recording store and a sandbox answering from a script, rather than by driving a run to
+  `produced`. Mark a test that reaches a real agent CLI or the network `live`.
 
 ## Recording a decision
 

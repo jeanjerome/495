@@ -3,13 +3,17 @@ wrong versions of the change, and one they report success on credits no requirem
 
 The mutant scenarios call the pure readers of ``core.mutation``; the decision scenarios call
 ``core.decide.assess`` once; the run scenarios walk a change run with the scripted agents of
-``conftest`` and read the run, the prompts and the report back. Nothing is asserted outside a
-``Then``.
+``conftest`` and read the run, the prompts and the report back. The last section reaches
+``core.engine.checks.mutation`` on its own, through a ``RunServices`` over a real repository
+and a scripted sandbox, so that a command too slow to run against a mutant, a throwaway
+worktree that cannot be created, a mutant whose line has moved and a run the requester stopped
+are measured without a run reaching ``produced``. Nothing is asserted outside a ``Then``.
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +22,9 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.decide import Assessment, assess
+from harness495.core.engine.checks import Reading
+from harness495.core.engine.checks.mutation import mutate, run_mutant
+from harness495.core.git import diff as repo_diff
 from harness495.core.models import (
     DecisionKind,
     Evidence,
@@ -39,9 +46,13 @@ from harness495.core.report import render_markdown
 from tests.conftest import (
     SAMPLE_MODULE,
     SAMPLE_TEST,
+    Measured,
+    Region,
+    Reply,
     Scenario,
     bad_producer,
     good_producer,
+    measure,
 )
 
 scenarios("features/mutation.feature")
@@ -429,3 +440,122 @@ def the_reviewers_prompt_says(world: World, perspective: str, text: str) -> None
 @then(parsers.parse('the report says "{text}"'))
 def the_report_says(world: World, text: str) -> None:
     assert text in render_markdown(world.run, world.engine.store)
+
+
+# --------------------------------------------------------------------- the check on its own
+
+SUBTRACT = SAMPLE_MODULE + "\n\ndef subtract(a: int, b: int) -> int:\n    return a - b\n"
+
+
+@given("a version under review whose change adds a line of source", target_fixture="region")
+def a_version_adding_source(produced_version: Callable[..., Region]) -> Region:
+    return produced_version({"calc.py": SUBTRACT})
+
+
+@given(
+    parsers.parse(
+        "a test command {vid} that passed in {seconds:d}s, which the requirement {rid} leans on"
+    )
+)
+def a_test_command_a_requirement_leans_on(region: Region, vid: str, seconds: int, rid: str) -> None:
+    region.verification(vid, requirement=rid)
+    region.ran_command(vid, seconds=float(seconds), output="4 passed in 0.3s")
+
+
+@given("the project the run works on is no git repository")
+def the_project_is_no_repository(region: Region, tmp_path: Path) -> None:
+    elsewhere = tmp_path / "not-a-repository"
+    elsewhere.mkdir()
+    region.run.project_root = str(elsewhere)
+
+
+@given("a mutant of the line the change adds", target_fixture="mutant")
+def a_mutant_of_the_line_the_change_adds(region: Region) -> Mutant:
+    planned = plan_mutants(repo_diff(region.root, region.base, region.head), 1)
+    assert planned, "the change adds no line a mutation operator reads"
+    return planned[0]
+
+
+@given("a mutant naming a line the file does not carry", target_fixture="mutant")
+def a_mutant_naming_a_line_the_file_does_not_carry(region: Region) -> Mutant:
+    return Mutant(
+        id="m1",
+        file="calc.py",
+        line=2,
+        operator="arithmetic",
+        original="    return a - b",
+        mutated="    return a + b",
+    )
+
+
+@given(parsers.parse("{vid} times out on the wrong version"))
+def a_command_that_times_out(region: Region, vid: str) -> None:
+    region.answers(Reply(timed_out=True, output="killed after 120s"))
+
+
+@given("the requester asked the run to stop")
+def the_requester_asked_the_run_to_stop(region: Region) -> None:
+    region.services.stop_requested = True
+
+
+@when("the mutation check measures the version", target_fixture="measured")
+def the_mutation_check_measures_the_version(region: Region) -> Measured:
+    return measure(
+        lambda: mutate(region.services, region.run, region.iteration, list(region.run.evidence))
+    )
+
+
+@when("the harness runs that wrong version", target_fixture="measured")
+def the_harness_runs_that_wrong_version(region: Region, mutant: Mutant) -> Measured:
+    return measure(
+        lambda: Reading(
+            [
+                run_mutant(
+                    region.services,
+                    region.run,
+                    region.iteration,
+                    mutant,
+                    region.run.spec.verifications,
+                    [r.id for r in region.run.spec.requirements],
+                    region.root,
+                )
+            ]
+        )
+    )
+
+
+@then("no wrong version of the change was written")
+def no_wrong_version_was_written(region: Region, measured: Measured) -> None:
+    assert measured.evidence == [], [e.summary for e in measured.evidence]
+    assert region.services.fake_sandbox.commands == [], region.services.fake_sandbox.commands
+
+
+@then(parsers.parse('the run warns "{text}"'))
+def the_run_warns(region: Region, text: str) -> None:
+    assert any(text in w for w in region.services.warnings), region.services.warnings
+
+
+@then("no command was run against it")
+def no_command_was_run_against_it(region: Region) -> None:
+    assert region.services.fake_sandbox.commands == [], region.services.fake_sandbox.commands
+
+
+@then(parsers.parse('the mutant reading says "{text}"'))
+def the_mutant_reading_says(measured: Measured, text: str) -> None:
+    assert len(measured.evidence) == 1, [e.summary for e in measured.evidence]
+    assert text in measured.evidence[0].summary, measured.evidence[0].summary
+
+
+@then("the mutant charges no requirement")
+def the_mutant_charges_no_requirement(measured: Measured) -> None:
+    assert measured.evidence[0].requirement_ids == [], measured.evidence[0].requirement_ids
+
+
+@then("the run stops rather than reading the wrong version")
+def the_run_stops_rather_than_reading(measured: Measured) -> None:
+    assert measured.interrupted, "the check read the interrupted run as a mutant nobody reported"
+
+
+@then("the file the mutant altered is as the change wrote it")
+def the_file_is_as_the_change_wrote_it(region: Region, mutant: Mutant) -> None:
+    assert (region.root / mutant.file).read_text(encoding="utf-8") == SUBTRACT

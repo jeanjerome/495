@@ -4,13 +4,17 @@ version, and one that does not report the same thing twice decides nothing.
 The pair scenarios call ``core.verification.reports_the_same_twice``; the decision scenarios
 call ``core.decide.assess`` once; the run scenarios walk a change run with the scripted agents
 of ``conftest``, giving the specification a check whose outcome alternates from one run to the
-next, and read the run, the prompts and the report back. Nothing is asserted outside a
-``Then``.
+next, and read the run, the prompts and the report back. The last section reaches
+``core.engine.checks.stability`` on its own, through a ``RunServices`` over a recording store
+and a scripted sandbox, so that what the check does with a command the requirements do not
+lean on, or with a run the requester stopped, is measured without a run reaching ``produced``.
+Nothing is asserted outside a ``Then``.
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -19,11 +23,13 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.decide import Assessment, assess
+from harness495.core.engine.checks.stability import repeat
 from harness495.core.models import (
     DecisionKind,
     Evidence,
     EvidenceKind,
     Finding,
+    Iteration,
     Requirement,
     RequirementKind,
     RequirementStatus,
@@ -40,7 +46,7 @@ from harness495.core.models import (
 from harness495.core.report import render_markdown
 from harness495.core.verification import reports_the_same_twice
 from harness495.sandbox.base import CommandResult
-from tests.conftest import Scenario
+from tests.conftest import Measured, Region, Scenario, measure
 
 scenarios("features/stability.feature")
 
@@ -415,3 +421,95 @@ def the_reviewers_prompt_says(world: World, perspective: str, text: str) -> None
 @then(parsers.parse('the report says "{text}"'))
 def the_report_says(world: World, text: str) -> None:
     assert text in render_markdown(world.run, world.engine.store)
+
+
+# --------------------------------------------------------------------- the check on its own
+
+
+@given("a version under review", target_fixture="region")
+def a_version_under_review(produced_version: Callable[..., Region]) -> Region:
+    return produced_version()
+
+
+@given("a version under review at the second iteration", target_fixture="region")
+def a_version_under_review_at_the_second_iteration(
+    produced_version: Callable[..., Region],
+) -> Region:
+    region = produced_version()
+    region.run.iterations.append(Iteration(n=2, version=region.iteration.version))
+    return region
+
+
+@given(parsers.parse("a command {vid} that passed in {seconds:d}s, which no requirement leans on"))
+def a_command_no_requirement_leans_on(region: Region, vid: str, seconds: int) -> None:
+    region.verification(vid)
+    region.ran_command(vid, seconds=float(seconds), output="4 passed")
+
+
+@given(
+    parsers.parse(
+        "a command {vid} that passed in {seconds:d}s, which the requirement {rid} leans on"
+    )
+)
+def a_command_a_requirement_leans_on(region: Region, vid: str, seconds: int, rid: str) -> None:
+    region.verification(vid, requirement=rid)
+    region.ran_command(vid, seconds=float(seconds), output="4 passed")
+
+
+@given(parsers.parse("a manual verification {vid}, which the requirement {rid} leans on"))
+def a_manual_verification(region: Region, vid: str, rid: str) -> None:
+    region.verification(vid, command=None, kind=VerificationKind.manual, requirement=rid)
+
+
+@given(parsers.parse("{vid} reported failure on the previous iteration"))
+def a_command_that_failed_on_the_previous_iteration(region: Region, vid: str) -> None:
+    region.ran_command(vid, passed=False, output="1 failed", iteration=1)
+
+
+@given(parsers.parse("only one command may be run a second time"))
+def only_one_command_may_be_repeated(region: Region) -> None:
+    region.run.budget.max_repeated_commands = 1
+
+
+@given("the requester asked the run to stop")
+def the_requester_asked_the_run_to_stop(region: Region) -> None:
+    region.services.stop_requested = True
+
+
+@when("the stability check measures the version", target_fixture="measured")
+def the_stability_check_measures_the_version(region: Region) -> Measured:
+    return measure(
+        lambda: repeat(
+            region.services,
+            region.run,
+            region.iteration,
+            [e for e in region.run.evidence if e.iteration == region.iteration.n],
+        )
+    )
+
+
+@then("no command was run a second time")
+def no_command_was_run_a_second_time(region: Region) -> None:
+    assert region.services.fake_sandbox.commands == [], region.services.fake_sandbox.commands
+
+
+@then("the stability check left no evidence")
+def the_stability_check_left_no_evidence(measured: Measured) -> None:
+    assert measured.evidence == [], [e.summary for e in measured.evidence]
+
+
+@then(parsers.parse("{vid} is the only command that was run a second time"))
+def one_command_was_run_a_second_time(region: Region, measured: Measured, vid: str) -> None:
+    assert [e.verification_id for e in measured.evidence] == [vid], [
+        e.summary for e in measured.evidence
+    ]
+
+
+@then("the run stops rather than reading the pair")
+def the_run_stops_rather_than_reading_the_pair(measured: Measured) -> None:
+    assert measured.interrupted, "the check read the interrupted run as a second reading"
+
+
+@then(parsers.parse("{vid} is left with no stability reading"))
+def a_verification_is_left_with_no_reading(region: Region, vid: str) -> None:
+    assert region.run.spec.verification(vid).stable is None

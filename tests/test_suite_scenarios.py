@@ -3,13 +3,17 @@ change, and a passing command on a weaker suite credits no non-regression requir
 
 The diff and tally scenarios call the pure readers of ``core.suite``; the decision scenarios
 call ``core.decide.assess`` once; the run scenarios walk a change run with the scripted agents
-of ``conftest`` and read the run, the prompts and the report back. Nothing is asserted
+of ``conftest`` and read the run, the prompts and the report back. The last section reaches
+``core.engine.checks.suite`` on its own, through a ``RunServices`` over a recording store that
+holds what each version printed, so that which commands the check compares and which
+requirements it names are measured without a run reaching ``produced``. Nothing is asserted
 outside a ``Then``.
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +22,7 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from harness495.core.decide import Assessment, assess
+from harness495.core.engine.checks.suite import check_suite
 from harness495.core.models import (
     DecisionKind,
     Evidence,
@@ -46,7 +51,7 @@ from harness495.core.suite import (
     count_tests,
     read_suite_changes,
 )
-from tests.conftest import SAMPLE_MODULE, SAMPLE_TEST, Scenario
+from tests.conftest import SAMPLE_MODULE, SAMPLE_TEST, Measured, Region, Scenario, measure
 
 scenarios("features/suite.feature")
 
@@ -471,3 +476,89 @@ def the_reviewers_prompt_says(world: World, perspective: str, text: str) -> None
 @then(parsers.parse('the report says "{text}"'))
 def the_report_says(world: World, text: str) -> None:
     assert text in render_markdown(world.run, world.engine.store)
+
+
+# --------------------------------------------------------------------- the check on its own
+
+
+@given("a version under review", target_fixture="region")
+def a_version_under_review(produced_version: Callable[..., Region]) -> Region:
+    return produced_version()
+
+
+@given(parsers.parse("a non-regression requirement {rid} resting on the test command {vid}"))
+def a_non_regression_requirement_on_a_test(region: Region, rid: str, vid: str) -> None:
+    region.verification(
+        vid,
+        command=f"run {vid}",
+        kind=VerificationKind.test,
+        requirement=rid,
+        requirement_kind=RequirementKind.non_regression,
+    )
+
+
+@given(parsers.parse("a non-regression requirement {rid} resting on the linter {vid}"))
+def a_non_regression_requirement_on_a_linter(region: Region, rid: str, vid: str) -> None:
+    region.verification(
+        vid,
+        command=f"run {vid}",
+        kind=VerificationKind.lint,
+        requirement=rid,
+        requirement_kind=RequirementKind.non_regression,
+    )
+
+
+@given(
+    parsers.parse(
+        '{vid} printed "{change}" on the version under review and was never run on the base'
+    )
+)
+def a_command_with_no_baseline(region: Region, vid: str, change: str) -> None:
+    region.ran_command(vid, output=change)
+
+
+@given(
+    parsers.parse('{vid} printed "{base}" on the base and "{change}" on the version under review')
+)
+def a_command_run_on_both_versions(region: Region, vid: str, base: str, change: str) -> None:
+    region.baseline(f"run {vid}", base)
+    region.ran_command(vid, output=change)
+
+
+@when("the suite check measures the version", target_fixture="measured")
+def the_suite_check_measures_the_version(region: Region) -> Measured:
+    return measure(
+        lambda: check_suite(
+            region.services, region.run, region.iteration, list(region.run.evidence)
+        )
+    )
+
+
+def _suite_check(measured: Measured) -> Evidence:
+    assert len(measured.evidence) == 1, [e.summary for e in measured.evidence]
+    return measured.evidence[0]
+
+
+@then(parsers.parse('the suite check says "{text}"'))
+def the_suite_check_says(measured: Measured, text: str) -> None:
+    assert text in _suite_check(measured).summary, _suite_check(measured).summary
+
+
+@then("the suite check passed")
+def the_measured_suite_check_passed(measured: Measured) -> None:
+    assert _suite_check(measured).passed is True, _suite_check(measured).summary
+
+
+@then("the suite check failed")
+def the_measured_suite_check_failed(measured: Measured) -> None:
+    assert _suite_check(measured).passed is False, _suite_check(measured).summary
+
+
+@then(parsers.parse("the suite check names {rid}"))
+def the_suite_check_names(measured: Measured, rid: str) -> None:
+    assert rid in _suite_check(measured).requirement_ids, _suite_check(measured).requirement_ids
+
+
+@then(parsers.parse("the suite check does not name {rid}"))
+def the_suite_check_does_not_name(measured: Measured, rid: str) -> None:
+    assert rid not in _suite_check(measured).requirement_ids, _suite_check(measured).requirement_ids

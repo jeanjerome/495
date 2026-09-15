@@ -178,3 +178,42 @@ Feature: The lines the change adds are crossed with what the verifications execu
     Then no coverage was measured
     And the requirement R1 is satisfied
     And the run ends delivered
+
+  # ------------------------------------------------------------------ the check on its own
+
+  Scenario: A change that adds no line a coverage engine counts is not measured at all
+    Given a version under review whose change adds a test file only
+    And the project measures its python coverage with coverage.py
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    When the coverage check measures the version
+    Then no command was run under the coverage tool
+    And the coverage check left no evidence
+
+  Scenario: A command that wrote no report is said not to have been measured
+    Given a version under review whose change adds a line of source
+    And the project measures its python coverage with coverage.py
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And the instrumented run exits 1 and writes no report
+    When the coverage check measures the version
+    Then the run warns "wrote no coverage report"
+    And the coverage check measured nothing
+    And the coverage check charges no requirement
+
+  Scenario: A line the report holds with no hit charges the requirements resting on what was measured
+    Given a version under review whose change adds a line of source
+    And the project measures its python coverage with coverage.py
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And the instrumented run writes a report holding no hit for the change
+    When the coverage check measures the version
+    Then the coverage check failed
+    And the coverage check names R1
+    And what the instrumented run printed is kept under the run
+
+  Scenario: A coverage run the requester stopped leaves the version as the reviewers read it
+    Given a version under review whose change adds a line of source
+    And the project measures its python coverage with coverage.py
+    And a test command V1 that passed in 1s, which the requirement R1 leans on
+    And the requester asked the run to stop
+    When the coverage check measures the version
+    Then the run stops rather than crossing anything
+    And nothing of the measure is left in the worktree
