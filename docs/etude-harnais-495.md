@@ -78,8 +78,8 @@ Reporté sur les quatre fonctions du harnais selon l'article :
 |---|---|---|
 | **Comprendre** (contexte, mémoire) | `ContextPack` à deux zones (faits établis / contenu non fiable), contexte par rôle, profil du projet, extraits de documentation tronqués, mesure d'utilisation de la fenêtre. Aucune mémoire inter-run. | `core/context.py`, `core/profile.py`, `core/budget.py` |
 | **Agir** (outils, sandbox, plan) | Trois adaptateurs (Claude Code, Codex, OpenAI-compatible), capacités read/write par rôle, worktree dédié hors projet, Seatbelt / Docker / hôte, budgets appliqués avant chaque intervention. Pas de planification autre que la spec. | `agents/*`, `sandbox/*`, `core/git.py` |
-| **Contrôler** (vérification, feedback) | Commandes du projet exécutées par le harnais sur le commit exact, readiness et baseline, preflight, contrôle d'instrument différentiel, scope, intégrité (fingerprint), revues indépendantes structurées, décision pure sur l'évidence, requêtes de correction sans remède. | `core/verification.py`, `core/decide.py`, `core/engine.py` |
-| **Boucler** (système de contrôle) | Itérations de correction bornées, questions à l'humain quand l'évidence ne conclut pas, détection d'itération sans progrès, merge sur demande et vérification de ce qui a été fusionné. Rien ne remonte du run vers la configuration du projet ou vers les runs suivants. | `core/engine.py` |
+| **Contrôler** (vérification, feedback) | Commandes du projet exécutées par le harnais sur le commit exact, readiness et baseline, preflight, contrôle d'instrument différentiel, scope, intégrité (fingerprint), revues indépendantes structurées, décision pure sur l'évidence, requêtes de correction sans remède. | `core/engine/running.py`, `core/reading/verification.py`, `core/reading/decide.py`, `core/engine/engine.py` |
+| **Boucler** (système de contrôle) | Itérations de correction bornées, questions à l'humain quand l'évidence ne conclut pas, détection d'itération sans progrès, merge sur demande et vérification de ce qui a été fusionné. Rien ne remonte du run vers la configuration du projet ou vers les runs suivants. | `core/engine/engine.py` |
 
 Le positionnement est clair et cohérent avec A4, A5, A9, A12 : 495 est d'abord un **contrôleur**
 qui refuse de conclure sans évidence. Ses angles morts sont symétriques : la **cible** (A7) est
@@ -94,7 +94,7 @@ le projet possède déjà, et la **boucle longue** (A11) n'existe pas.
 
 Le cœur décisionnel de 495 est déterministe, et c'est son principal mérite au regard de A5.
 
-- **La décision est une fonction pure.** `assess(spec, evidence, reviews)` dans `core/decide.py`
+- **La décision est une fonction pure.** `assess(spec, evidence, reviews)` dans `core/reading/decide.py`
   ne consulte aucun agent : une exigence est `satisfied` seulement si toutes ses vérifications ont
   tourné sur le commit évalué et passé, et si aucun réviseur ne rapporte une violation étayée ;
   `violated` sur une commande échouée ou une violation étayée ; `undetermined` sinon, et
@@ -571,7 +571,7 @@ gate `undetermined` sait déjà présenter. Plafonner le nombre de mutants et la
 tourner que les V rapides ; laisser la place à un outil détecté (`mutmut`, `stryker`) via un
 `VerificationKind.mutation` déclaré par le projet, exécuté après acceptation plutôt qu'à chaque
 itération.
-Fait le 2026-09-14 : `core/mutation.py` planifie, sur les lignes que le diff ajoute hors
+Fait le 2026-09-14 : `core/reading/mutation.py` planifie, sur les lignes que le diff ajoute hors
 commentaires, dans un langage du catalogue et hors instrument — un fichier que la convention de
 nommage reconnaît comme test, ou qu'une commande d'une V `test` nomme, ce qui couvre le projet
 dont les tests sont un script (`./scripts/check.sh repeat`) ; la commande d'un linter ou d'un
@@ -610,11 +610,11 @@ exécutée par aucune V discriminante est une évidence `coverage_check` qui met
 portées en `undetermined` : le harnais dit *où* la spécification ne regarde pas. Les outils
 existent pour tous les langages détectés ; la détection de profil peut proposer la commande
 instrumentée comme variante de la commande de test.
-Fait le 2026-09-14 : `core/diff.py` porte la lecture que la mutation et la couverture partagent
+Fait le 2026-09-14 : `core/reading/diff.py` porte la lecture que la mutation et la couverture partagent
 — les lignes ajoutées, leur numéro dans la version évaluée, et celles qui portent du code d'une
 technologie du catalogue plutôt qu'un commentaire, une ligne vide ou l'instrument ; le nom d'un
 fichier y est reconnu entier, donc une commande qui lance `tests/test_calc.py` ne nomme plus
-`calc.py`. `core/reach.py::instrument` réécrit la commande de test du projet en une commande qui
+`calc.py`. `core/reading/reach.py::instrument` réécrit la commande de test du projet en une commande qui
 écrit un rapport par ligne, à partir de l'outil que le profil a reconnu pour le rôle `coverage`
 de la technologie : coverage.py devant le runner puis `coverage json`, les options lcov de
 vitest et de jest ajoutées, `-coverprofile` et `-coverpkg=./...` ajoutés à `go test`,
@@ -670,7 +670,7 @@ nombre baisse ou si des `skip` apparaissent dans les fichiers de test modifiés 
 fichiers de test **existants** comme protégés : toute modification autre qu'un ajout de fonction
 de test devient un finding déterministe à confirmer par le réviseur `spec_compliance` ; (c) au
 minimum, injecter dans le contexte du réviseur la liste des tests existants modifiés ou supprimés.
-Fait le 2026-09-14 : `core/suite.py` lit le diff du changement sur les fichiers de test qui
+Fait le 2026-09-14 : `core/reading/suite.py` lit le diff du changement sur les fichiers de test qui
 existaient sur la base (fichier supprimé, renommé hors de la convention du runner, fonction de
 test retirée, marqueur `skip`/`only`/`ignore`/`Disabled` ajouté, pour Python, Node, Go, Rust,
 JVM, shell, Gherkin) et le décompte imprimé par le runner sur la base (évidence `baseline` de
@@ -736,7 +736,7 @@ pas de lignes (la couverture énonce un fait sur le projet, jamais une lacune du
 lignes sont affichées par `495 profile`, la vue profil du TUI et le contexte des agents
 (`tests/features/profile.feature`, `tests/test_catalogue.py`) ;
 (b) **fait** : `495 init` et `495 profile` comparent cette couverture au catalogue et énoncent
-les écarts (`core/catalogue.py::compare`, `CatalogueGap` persisté dans le profil, table CLI,
+les écarts (`core/reading/catalogue.py::compare`, `CatalogueGap` persisté dans le profil, table CLI,
 `catalogue_gaps` en JSON, vue profil du TUI ; `tests/features/catalogue.feature`) : rôle non
 mesuré, mesuré avec un autre outil que celui recommandé, ou mesuré avec une partie seulement
 de l'entrée recommandée (coverage.py sans diff-cover). Seuls les rôles dont la mesure peut
@@ -778,7 +778,7 @@ répondre (`tests/features/specifier.feature`, scénarios « The specifier is to
 `tests/features/catalogue.feature`) ;
 (e) **fait** (`docs/decisions/0015-a-retrospective-states-what-each-tool-showed.md`) : les
 rétrospectives alimentent le catalogue. `495 retro <id>` lit dans le seul document du run ce
-que chaque outil mesurant un rôle a montré (`core/retro.py::retrospect`, `Retrospective`
+que chaque outil mesurant un rôle a montré (`core/reading/retro.py::retrospect`, `Retrospective`
 persistée en `runs/<id>/retrospective.json`, schéma `495 schema retrospective`) : chaque
 passage d'une V portant un rôle est apparié à son contrôle sur la version de base (même V,
 itération et commande), ou lu contre le passage de base avant tout changement ; il vaut
@@ -956,7 +956,7 @@ une boucle courte parfaite et une boucle longue absente.
 
 (a) et (b) sont une seule pièce. `495 retro <id>`, qui lisait déjà ce que le run a montré des
 outils du projet pour le catalogue (E50 (e), ADR 0015), lit désormais ce qu'il a montré du
-*projet* et en énonce des **leçons** contre les critères tels qu'ils sont. `core/lessons.py::learn`
+*projet* et en énonce des **leçons** contre les critères tels qu'ils sont. `core/reading/lessons.py::learn`
 est une fonction pure du document de run, des critères et de la rétrospective quand elle est
 écrite ; quatre genres : `command` (une V dont le demandeur a remplacé la commande, que les
 critères ne déclarent pas — donc une commande que le harnais a déjà mesurée sur les deux
@@ -979,7 +979,7 @@ au spécificateur en fait (« What earlier runs showed about this project »). R
 énonce les lignes, à coller ou non, et `.495/lessons.md`, écrit à côté du document à chaque
 changement, garde lisible ce qui est en vigueur.
 
-(c) `495 stats` lit les runs du store en série (`core/stats.py::summarise`, pure) : issues et
+(c) `495 stats` lit les runs du store en série (`core/reading/stats.py::summarise`, pure) : issues et
 statuts, itérations par run produit, coût par exigence arbitrée, commandes que le harnais a
 notées incapables de distinguer le changement de son absence ou que le demandeur a remplacées,
 kinds de V les plus souvent non discriminants ou jugés insuffisants, et par perspective ce
@@ -1204,15 +1204,16 @@ l'article demande, et qu'il faut préserver dans chaque travail :
 
 | Mécanisme | Emplacement |
 |---|---|
-| Phases et transitions | `core/engine.py` : `Engine.step`, `_profile`, `_specify`, `_preflight`, `_gate`, `_produce`, `_verify`, `_calibrate`, `_measure_proposal`, `_review`, `_decide`, `_ask_undetermined`, `_deliver` |
-| Décisions humaines et leurs conséquences | `core/engine.py` : `_raise_decision`, `_apply_decision`, `_instrument_decision`, `_budget_decision` ; `models.DecisionKind`, `DecisionOption.consequence` |
-| Décision d'acceptation | `core/decide.py` : `assess` |
-| Sufficiency, différentiel, signature de panne | `core/verification.py` : `assess_sufficiency`, `run_verification`, `run_control`, `measures_the_change`, `classify_instrument`, `failure_signature`, `looks_like_a_test` |
+| Phases et transitions | `core/engine/engine.py` : `Engine.step`, `_profile`, `_specify`, `_preflight`, `_gate`, `_produce`, `_verify`, `_review`, `_decide`, `_ask_undetermined`, `_deliver` |
+| Mesures d'une version produite | `core/engine/checks/sequence.py` : `verify`, `SEQUENCE` ; `core/engine/checks/` : `stability`, `suite`, `coverage`, `mutation`, `calibration` |
+| Décisions humaines et leurs conséquences | `core/engine/engine.py` : `_raise_decision`, `_apply_decision`, `_budget_decision` ; `core/engine/checks/calibration.py` : `instrument_decision`, `measure_proposal`, `recalibrate` ; `models.DecisionKind`, `DecisionOption.consequence` |
+| Décision d'acceptation | `core/reading/decide.py` : `assess` |
+| Sufficiency, différentiel, signature de panne | `core/reading/verification.py` : `assess_sufficiency`, `measures_the_change`, `classify_instrument`, `reports_the_same_twice`, `failure_signature`, `looks_like_a_test` ; `core/engine/running.py` : `run_verification`, `run_control` |
 | Détection du profil, readiness | `core/profile.py` ; readiness dans `Engine._profile` |
 | Contexte et confiance | `core/context.py` : `ContextPack`, `render_*`, `truncate_diff`, `trim_output` |
 | Prompts et perspectives | `core/prompts.py` |
 | Schémas de sortie | `core/schemas.py` |
-| Scope | `core/scope.py` |
+| Scope | `core/reading/scope.py` |
 | Git, worktrees, intégration | `core/git.py` : `add_worktree`, `commit_all`, `integrate_branch`, `checkout_paths`, `blob_hash` |
 | Adaptateurs et isolation native | `agents/claude_code.py` (`tools_for`, `sandbox_settings`, `build_argv`), `agents/codex.py`, `agents/openai_compat.py` |
 | Sandbox du harnais | `sandbox/base.py`, `sandbox/seatbelt.py` (`build_profile`), `sandbox/docker.py` |
@@ -1220,4 +1221,4 @@ l'article demande, et qu'il faut préserver dans chaque travail :
 | Persistance, claim, événements | `core/store.py` |
 | Rapport | `core/report.py` |
 | Tests du moteur avec agents factices | `tests/conftest.py` (`Scenario`, `FakeAgent`), `tests/test_engine.py` |
-| Tests de la décision et du différentiel | `tests/test_scope_decide.py`, `tests/test_profile_verification.py` |
+| Tests de la décision et du différentiel | `tests/test_decide_scenarios.py`, `tests/test_scope_scenarios.py`, `tests/test_verification_scenarios.py`, `tests/test_profile_scenarios.py` |

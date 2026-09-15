@@ -9,11 +9,10 @@ A citation is read the way a reader reads it — as the tail of a path. ``core/r
 ``reading/decide.py`` and ``checks/sequence.py`` each name one file of the tree, and each fails
 here the moment that file moves under another directory.
 
-The documents read are those that state the tree as it stands. A dated one states what was
-measured on its date — ``docs/studies/`` measures libraries, ``docs/architecture-review/``
-measured the tree before it was rearranged — and ``docs/etude-harnais-495.md`` is the requester's
-index of gaps, whose entries are the requester's to close. A path they name belongs to that
-measurement, not to the tree.
+The documents read are those that state the tree as it stands, the index of gaps among them. A
+dated one is left out: it states what was measured on its date — ``docs/studies/`` measures
+libraries, ``docs/architecture-review/`` measured the tree before it was rearranged — and a path
+it names belongs to that measurement rather than to the tree.
 
 A contract between the documents and the tree, not a behaviour: no scenario, but the
 Given/When/Then shape (``docs/decisions/0013``). Hand-written: the catalogue
@@ -35,7 +34,6 @@ SOURCE_TREES = ("harness495", "tests")
 DATED_DOCUMENTS = (
     ROOT / "docs" / "architecture-review",
     ROOT / "docs" / "studies",
-    ROOT / "docs" / "etude-harnais-495.md",
 )
 """Documents that record a measurement taken on a date, rather than the tree as it stands."""
 
@@ -53,7 +51,7 @@ CITATION = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*\.py")
 
 CITATIONS_AT_LEAST = 100
 """A floor, not a tally: a pattern that stopped matching would otherwise leave the run green
-with nothing checked. The documents named 126 distinct paths when this was written."""
+with nothing checked. The documents named 157 distinct paths when this was written."""
 
 
 def documents() -> list[Path]:
