@@ -16,6 +16,9 @@ CLI `495`, launcher `./run.sh`.
   `docs/etude-harnais-495.md` (ids `E01`..`E49`, each with location, priority, effort, remedy).
 - Before writing or changing a test, in 495 or for a host project: read `docs/test-libraries.md`
   (the library to use per technology and role; how an entry gets in).
+- For what a word means here — instrument against tool, baseline against control run, check
+  against verification: `docs/glossary.md`. Renaming a term changes the code, the records and
+  its entry together.
 - For commands, options, exit codes, configuration keys, agent isolation tables: `README.md`.
 - For the exact shape of a persisted document: `495 schema run|event|spec|config`.
 - Dev commands (tests, lint, typecheck, live tests): `README.md`, section Development.
