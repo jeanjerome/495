@@ -47,7 +47,8 @@ yet" from "something else landed".
 - `rebase` and `squash` leave the verified commit absent from the branch; `files_identical` is
   what says the right content landed. Both booleans are read for that reason.
 - Adding a fifth shape means adding it to `git.INTEGRATIONS`, `integrate_branch`, `_undo`, the
-  CLI choices and `test_each_way_of_integrating_leaves_the_history_it_promises`.
+  CLI choices and the examples of the scenario outline "Integrating by <how> leaves the history
+  it promises" in `tests/features/integration.feature`.
 - The HTTP API exposes `check-integration` and not `merge`.
 
 ## Where in the code
@@ -58,12 +59,9 @@ yet" from "something else landed".
   `check_integration`, `_check_integration`.
 - `harness495/core/models/run.py`: `RunResult.integrated_as`, `IntegrationCheck`,
   `Run.integration_state`.
-- `tests/test_engine.py`: `test_fast_forward_adds_nothing_at_all`,
-  `test_fast_forward_is_refused_once_your_branch_has_gone_somewhere`,
-  `test_each_way_of_integrating_leaves_the_history_it_promises`,
-  `test_the_check_records_the_name_the_ref_has_rather_than_where_you_stood`,
-  `test_a_squash_says_where_the_evidence_for_it_is`,
-  `test_a_merge_that_conflicts_leaves_the_repository_where_it_was`,
-  `test_a_dirty_tree_is_refused_rather_than_stashed`, `test_check_integration`.
+- `tests/features/integration.feature` with `tests/test_integration_scenarios.py`: the four
+  shapes and the history each leaves, the name the check records against the place it was run
+  from, the ref nobody merged into, the branch merged by hand and measured again, and the three
+  refusals — a branch already carrying the change, a conflict, an unclean tree.
 - `tests/test_tui_pilot.py`: `test_a_ref_nobody_merged_into_is_not_a_failed_integration`,
   `test_the_two_last_stops_say_the_same_thing_about_a_copied_change`.
