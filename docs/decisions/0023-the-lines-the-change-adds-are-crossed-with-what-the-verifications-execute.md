@@ -23,8 +23,8 @@ project's, the report is a file, and crossing it with the diff is reading.
 
 ## Decision
 
-After the control runs and before the mutation check, `Engine._reach` runs the project's own
-test commands once more under its own coverage tool and records one `coverage_check` evidence
+After the control runs and before the mutation check, `checks.coverage.reach` runs the project's
+own test commands once more under its own coverage tool and records one `coverage_check` evidence
 per iteration, naming the lines of the change no command executed.
 
 `core/diff.py` holds the reading both checks share: `added_lines(diff)` for the number a line
@@ -109,8 +109,11 @@ executed"; `correctness` is asked whether the line carries behaviour a requireme
   `READERS` and the four report readers, `same_file`, `Unreached`, `Reading`, `cross`,
   `REPORT_DIR`.
 - `harness495/core/models.py`: `EvidenceKind.coverage_check`, `Budget.max_coverage_commands`.
-- `harness495/core/engine/engine.py`: `_coverage_watchers`, `_instrument`, `_reach`, the call in
-  `_verify`, the fact in `_review`.
+- `harness495/core/engine/checks/coverage.py`: `coverage_watchers`, `instrumented_command`,
+  `reach`.
+- `harness495/core/engine/checks/sequence.py`: the `coverage` stage of `SEQUENCE` and the gate
+  `instrument_is_readable` it waits on.
+- `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
 - `harness495/core/decide.py::assess` (`unexecuted`).
 - `harness495/core/context.py::render_reach_reading`.
 - `harness495/core/prompts.py`: the sentences of `PERSPECTIVES["correctness"]` and

@@ -28,8 +28,8 @@ whether two runs failed for the same reason.
 ## Decision
 
 After the verifications have run on the evaluated commit and before anything is concluded from
-them, `Engine._repeat` runs the commands the requirements lean on a second time, and records
-one `stability_check` evidence per command.
+them, `checks.stability.repeat` runs the commands the requirements lean on a second time, and
+records one `stability_check` evidence per command.
 
 `verification.reports_the_same_twice` reads the pair. Two runs that both report the exit code
 the verification expects are one reading, whatever they printed: the outcome of a verification
@@ -100,9 +100,11 @@ something other than the change, and `correctness` not to read either run as a d
   `failure_signature` the control run of 0002 already uses.
 - `harness495/core/models.py`: `EvidenceKind.stability_check`, `Verification.stable`,
   `Budget.max_repeated_commands`, `Budget.repeat_command_max_s`.
-- `harness495/core/engine/engine.py`: `_flipped_since`, `_repeat_watchers`, `_repeat`, the call in
-  `_verify`, the `stable` guard in `_calibrate`, `_coverage_watchers` and `_mutation_watchers`,
-  the fact in `_review`.
+- `harness495/core/engine/checks/stability.py`: `flipped_since`, `repeat_watchers`, `repeat`;
+  the `stability` stage of `checks/sequence.py::SEQUENCE`.
+- The `stable` guard in `checks/calibration.py::calibrate`,
+  `checks/coverage.py::coverage_watchers` and `checks/mutation.py::mutation_watchers`.
+- `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
 - `harness495/core/decide.py::assess` (`unstable`, `unreadable`, `unsteady`).
 - `harness495/core/context.py::render_stability_reading`.
 - `harness495/core/prompts.py`: the sentences of `PERSPECTIVES["correctness"]` and

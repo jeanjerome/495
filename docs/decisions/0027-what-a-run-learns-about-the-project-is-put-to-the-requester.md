@@ -5,9 +5,9 @@
 
 ## Context
 
-A run settles things that outlive the change it was opened for. The requester replaces a
-command that reports the same thing with and without the change (`_recalibrate`), writes a
-correction by hand on a decision the evidence left undetermined, takes the decisions the intent
+A run settles things that outlive the change it was opened for. The requester replaces a command
+that reports the same thing with and without the change (`checks.calibration.recalibrate`), writes
+a correction by hand on a decision the evidence left undetermined, takes the decisions the intent
 left open before the specification is written (0025), and lets a change be produced inside a
 scope the specifier proposed for that run alone. Reviewers block changes for the same rule run
 after run. All of it is written in `run.json`, and none of it reached the next run: the

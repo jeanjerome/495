@@ -41,8 +41,9 @@ The specifier prompt states the rule and asks for the kind on each requirement.
 
 - `harness495/core/models.py`: `RequirementKind`, `Requirement.kind`.
 - `harness495/core/verification.py`: `assess_sufficiency` (`passing_on_base`).
-- `harness495/core/engine/engine.py`: `_specify` (computes `passing_on_base`), `_calibrate`
-  (`leaned_on`), `spec_from_agent` (unrecognised kind reads as `behaviour`).
+- `harness495/core/engine/engine.py`: `_specify` (computes `passing_on_base`),
+  `spec_from_agent` (unrecognised kind reads as `behaviour`).
+- `harness495/core/engine/checks/calibration.py::calibrate` (`leaned_on`).
 - `harness495/core/decide.py`: `settled_either_way`, `uncredited`.
 - `harness495/core/prompts.py`: `SPECIFIER_TASK`.
 - `tests/test_profile_verification.py`: `test_a_command_that_already_passes_cannot_carry_new_behaviour`,
@@ -50,4 +51,4 @@ The specifier prompt states the rule and asks for the kind on each requirement.
 - `tests/test_scope_decide.py`: `test_success_a_command_reports_either_way_is_not_success_the_change_earned`,
   `test_the_same_command_still_shows_that_what_worked_goes_on_working`,
   `test_a_command_that_never_passes_shows_nothing_at_all_not_even_non_regression`.
-- `tests/test_engine.py`: `test_a_command_that_would_pass_anyway_is_not_proof_that_the_change_works`.
+- `tests/features/calibration.feature` with `tests/test_calibration_scenarios.py`.

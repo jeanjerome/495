@@ -22,9 +22,9 @@ mutation campaign on every iteration is not something a run can afford.
 
 ## Decision
 
-After the control runs and before the reviewers, `Engine._mutate` measures the verifications
-against wrong versions of the change itself, and records one `mutation_check` evidence per
-version.
+After the control runs and before the reviewers, `checks.mutation.mutate` measures the
+verifications against wrong versions of the change itself, and records one `mutation_check`
+evidence per version.
 
 `core/mutation.py` is pure and writes the mutants; `core/diff.py` reads the lines they are
 written on, and the coverage check of 0023 reads them the same way. `added_lines(diff)` reads
@@ -109,8 +109,10 @@ quote the assertion that should have caught it.
   `added_lines`, `names_the_file`, `code_lines`), shared with the coverage check (0023).
 - `harness495/core/models.py`: `EvidenceKind.mutation_check`, `Budget.max_mutants`,
   `Budget.mutant_command_max_s`.
-- `harness495/core/engine/engine.py`: `_mutation_watchers`, `_mutate`, `_run_mutant`, the call in
-  `_verify`, the fact in `_review`.
+- `harness495/core/engine/checks/mutation.py`: `mutation_watchers`, `mutate`, `run_mutant`.
+- `harness495/core/engine/checks/sequence.py`: the `mutation` stage of `SEQUENCE` and the gate
+  `instrument_is_readable` it waits on.
+- `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
 - `harness495/core/decide.py::assess` (`let_through`).
 - `harness495/core/context.py::render_mutation_reading`.
 - `harness495/core/prompts.py`: the sentences of `PERSPECTIVES["correctness"]` and

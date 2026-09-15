@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from harness495.core.engine.engine import (
     Engine,
-    EngineError,
     _clarify_frontier,
     _parse_json_text,
     spec_from_agent,
     worktrees_root,
 )
+from harness495.core.engine.errors import EngineError
 
 __all__ = [
     "Engine",

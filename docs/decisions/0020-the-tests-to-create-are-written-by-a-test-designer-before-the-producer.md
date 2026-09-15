@@ -48,8 +48,9 @@ the same fact; `test_quality` is told those are the tests to compare, and that a
 diff adds elsewhere for one of those verifications is the producer's own, a finding on the
 verification.
 
-`Engine._verify` adds a second `scope_check` evidence when a design exists: the files of the
-design that `git diff --name-only design.commit..head` lists are the ones the change moved;
+`checks.sequence.protected_tests` adds a second `scope_check` evidence when a design exists: the
+files of the design that `git diff --name-only design.commit..head` lists are the ones the change
+moved;
 the evidence fails and names them, and `assess` turns a failed scope check into a `[scope]`
 correction that rejects the iteration, as for any path outside the scope. The control run of
 0002 carries the designed files to the base version like any test file of the change.
@@ -98,8 +99,9 @@ tree as any file the previous iteration left. The command line's `--agent` and t
   "Tests written by the test designer" paragraphs of `PRODUCER_TASK` and of
   `PERSPECTIVES["test_quality"]`.
 - `harness495/core/engine/engine.py`: `_design_tests`, the call at the head of `_produce` and the
-  facts it adds there and in `_review`, the protected-files `scope_check` in `_verify`, the
-  reset in `_specify`.
+  facts it adds there and in `_review`, the reset in `_specify`.
+- `harness495/core/engine/checks/sequence.py::protected_tests`, the `protected_tests` stage of
+  `SEQUENCE`.
 - `harness495/core/git.py`: `dirty_paths`, `discard_paths`.
 - `harness495/core/context.py::render_test_design`; `harness495/core/report.py` (the
   version section); `harness495/interfaces/cli.py::_apply_overrides`,

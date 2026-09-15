@@ -14,8 +14,8 @@ written) reads as proof and credits a change that was never observed.
 
 ## Decision
 
-After the verifications have run on the evaluated commit, `Engine._calibrate` runs each one that
-a `behaviour` requirement leans on (or that is `to_create`) a second time, in a detached
+After the verifications have run on the evaluated commit, `checks.calibration.calibrate` runs each
+one that a `behaviour` requirement leans on (or that is `to_create`) a second time, in a detached
 worktree of the base commit onto which the change's test files have been checked out
 (`instrument_files`, recognised by naming convention). The pair is read by
 `classify_instrument`:
@@ -66,8 +66,12 @@ as `baseline` evidence and shown with the question, never concluded from.
 
 - `harness495/core/verification.py`: `run_control`, `measures_the_change`,
   `classify_instrument`, `failure_signature`, `instrument_files`, `looks_like_a_test`.
-- `harness495/core/engine/engine.py`: `_calibrate`, `_measure_proposal`, `_instrument_decision`,
-  `_recalibrate`, `_instrument_fault_settled`, `_profile` (readiness), `_preflight`.
+- `harness495/core/engine/checks/calibration.py`: `calibrate`, `measure_proposal`,
+  `instrument_decision`, `recalibrate`, `instrument_fault_settled`.
+- `harness495/core/engine/checks/sequence.py`: the `calibration` stage of `SEQUENCE`, and
+  `verify` returning the instrument-fault question for the state machine to raise.
+- `harness495/core/engine/engine.py`: `_profile` (readiness), `_preflight`, the `recalibrate`
+  branch of `_apply_decision`.
 - `harness495/core/models.py`: `Sufficiency`, `NON_DISCRIMINATING`, `Verification.discriminates`,
   `EvidenceKind.instrument_check`, `EvidenceKind.baseline`, `DecisionKind.instrument_fault`.
 - `harness495/core/decide.py`: `blind`, `tainted`, `rests_on_a_blind_instrument`, `set_aside`.
@@ -75,11 +79,8 @@ as `baseline` evidence and shown with the question, never concluded from.
   `test_measures_the_change_is_conservative`, `test_a_command_that_fails_on_both_versions_is_broken_not_a_defect`,
   `test_a_command_that_passes_on_both_versions_proves_nothing_either`,
   `test_passing_on_both_settles_nothing_when_the_test_could_not_be_carried_over`.
-- `tests/test_engine.py`: `test_verification_blind_to_the_change_is_not_turned_into_a_correction`,
-  `test_ignoring_a_blind_verification_holds_for_the_rest_of_the_run`,
-  `test_every_command_is_run_once_before_the_specification_is_approved`,
-  `test_a_broken_command_is_replaced_and_measured_again_without_producing_anything_twice`,
-  `test_a_command_the_producer_says_worked_is_run_on_both_versions_before_it_is_offered`.
+- `tests/features/calibration.feature` with `tests/test_calibration_scenarios.py`.
+- `tests/test_engine.py`: `test_every_command_is_run_once_before_the_specification_is_approved`.
 - `tests/test_scope_decide.py`: `test_a_verification_that_cannot_see_the_change_is_not_charged_to_the_change`,
   `test_finding_that_rests_on_a_blind_verification_is_set_aside`,
   `test_a_control_run_never_stands_in_for_the_verification_it_checks`.
