@@ -1,11 +1,11 @@
 """The lines the change adds, and which of them hold code a measure can be made about.
 
 Two checks of the verify phase read the diff line by line: the mutation check writes a wrong
-version of one added line at a time (``core/mutation.py``), and the coverage check asks which
-added lines the verifications execute (``core/reach.py``). Both need the same reading — the
-number a line has in the version under review, and whether that line is code of a technology
-the catalogue covers rather than a comment, a blank, or the instrument itself — so the reading
-lives here once and neither owns it.
+version of one added line at a time (``core/reading/mutation.py``), and the coverage check asks
+which added lines the verifications execute (``core/reading/reach.py``). Both need the same
+reading — the number a line has in the version under review, and whether that line is code of
+a technology the catalogue covers rather than a comment, a blank, or the instrument itself — so
+the reading lives here once and neither owns it.
 
 Everything is textual: the diff comes in as git printed it, the lines go out. No language is
 parsed, and the filters say so where they are loose.

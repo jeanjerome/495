@@ -1,8 +1,8 @@
 """What the change did to the test suite that passed on the base version.
 
-The pure reader is ``core/suite.py`` — the diff over the test files that existed on the base,
-and the runner's tally on each version; this module is what gathers the two texts it compares
-and writes the ``suite_check`` evidence (``docs/decisions/0021``).
+The pure reader is ``core/reading/suite.py`` — the diff over the test files that existed on the
+base, and the runner's tally on each version; this module is what gathers the two texts it
+compares and writes the ``suite_check`` evidence (``docs/decisions/0021``).
 """
 
 from __future__ import annotations

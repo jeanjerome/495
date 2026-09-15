@@ -5,9 +5,10 @@ Precedence (lowest to highest): built-in defaults, ``~/.config/495/config.toml``
 then command-line overrides applied by the interface layer.
 
 The project criteria carry one thing no file states: the lessons earlier runs showed and the
-requester accepted (``core/lessons.py``). They are read from ``<state_dir>/lessons.json`` and
-added to what ``project.toml`` declares, so that a command, a convention or a scope admitted
-once is in force in every run that follows, whether or not anyone copied it into the file.
+requester accepted (``core/reading/lessons.py``). They are read from
+``<state_dir>/lessons.json`` and added to what ``project.toml`` declares, so that a command, a
+convention or a scope admitted once is in force in every run that follows, whether or not
+anyone copied it into the file.
 """
 
 from __future__ import annotations

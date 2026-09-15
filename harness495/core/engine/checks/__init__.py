@@ -1,16 +1,16 @@
 """What the engine measures of a produced version, and what the rest of the engine may ask of it.
 
 Eight stages in a declared order (:mod:`.sequence`), five of them check groups that make no
-call to each other. Each group pairs with a pure reader that already exists in ``core/``: the
-reader says what a measurement means, the group here is what executes, persists and emits.
+call to each other. Each group pairs with a pure reader of ``core/reading/``: the reader says
+what a measurement means, the group here is what executes, persists and emits.
 
-=====================  ========================================================
+=====================  ================================================================
 ``stability.py``       ``core/reading/verification.py::reports_the_same_twice``
-``suite.py``           ``core/suite.py``
-``coverage.py``        ``core/reach.py``
-``mutation.py``        ``core/mutation.py``
+``suite.py``           ``core/reading/suite.py``
+``coverage.py``        ``core/reading/reach.py``
+``mutation.py``        ``core/reading/mutation.py``
 ``calibration.py``     ``core/reading/verification.py::classify_instrument``
-=====================  ========================================================
+=====================  ================================================================
 
 The package takes a :class:`~harness495.core.engine.services.RunServices` and produces
 evidence; it imports no agent and no phase. ``verify`` returns the instrument-fault question

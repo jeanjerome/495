@@ -1,9 +1,9 @@
 """Running the test commands once more under the project's own coverage tool.
 
-The pure reader is ``core/reach.py`` — the recipe that puts a tool in front of a command, the
-readers of the four report formats, and the crossing of a report with the lines the change adds
-(``core/diff.py``); this module is what runs the instrumented commands and writes the
-``coverage_check`` evidence (``docs/decisions/0023``).
+The pure reader is ``core/reading/reach.py`` — the recipe that puts a tool in front of a
+command, the readers of the four report formats, and the crossing of a report with the lines
+the change adds (``core/reading/diff.py``); this module is what runs the instrumented commands
+and writes the ``coverage_check`` evidence (``docs/decisions/0023``).
 """
 
 from __future__ import annotations

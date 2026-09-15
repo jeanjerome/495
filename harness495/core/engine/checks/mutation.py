@@ -1,9 +1,9 @@
 """Running the verifications against wrong versions of the change.
 
-The pure reader is ``core/mutation.py`` — which line of the diff to alter and how, and what the
-altered source reads (``core/diff.py``); this module is what applies each mutant in a detached
-worktree, runs the commands watching it and writes the ``mutation_check`` evidence
-(``docs/decisions/0022``).
+The pure reader is ``core/reading/mutation.py`` — which line of the diff to alter and how, and
+what the altered source reads (``core/reading/diff.py``); this module is what applies each
+mutant in a detached worktree, runs the commands watching it and writes the ``mutation_check``
+evidence (``docs/decisions/0022``).
 """
 
 from __future__ import annotations

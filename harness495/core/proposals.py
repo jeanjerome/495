@@ -1,7 +1,7 @@
 """Conformance proposals: the gaps against the catalogue, put to the requester and kept.
 
-A gap the profile states (``core/catalogue.py::compare``) is a fact; a proposal is that fact
-put to the requester, with an answer that outlives the profiling that stated it. The
+A gap the profile states (``core/reading/catalogue.py::compare``) is a fact; a proposal is that
+fact put to the requester, with an answer that outlives the profiling that stated it. The
 proposals of a project live in ``<state_dir>/proposals.json`` (``RunStore.load_proposals``).
 ``reconcile`` brings the file in step with a profile: a new gap opens a proposal, a gap that
 is no longer stated resolves its proposal, a declined proposal is left declined so that the

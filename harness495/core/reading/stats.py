@@ -5,8 +5,8 @@ every run, and nobody read them as a series — how often an instrument is at fa
 iterations a change costs here, what a requirement costs, which perspective finds something and
 which kind of verification is most often unable to tell the change from its absence. All of it
 is in the run documents; ``summarise`` reads them and states it, so that the work of closing a
-gap can be aimed at the thing that keeps costing (``core/lessons.py`` is the other half: what
-one run showed about the project, put to the requester).
+gap can be aimed at the thing that keeps costing (``core/reading/lessons.py`` is the other
+half: what one run showed about the project, put to the requester).
 
 Nothing here is persisted and nothing here decides: the numbers are read again from the runs on
 every call, and what is done about them is the requester's.

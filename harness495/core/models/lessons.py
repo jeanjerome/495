@@ -140,7 +140,7 @@ class ProjectProfile(StrictModel):
     role_coverage: list[RoleCoverage] = Field(default_factory=list)
     conditions: list[str] = Field(default_factory=list)
     """The catalogue conditions that held when the project was profiled
-    (``core/catalogue.py::CONDITIONS``), which pick the entry of a cell holding several.
+    (``core/conditions.py::CONDITIONS``), which pick the entry of a cell holding several.
 
     Recorded so that reading the catalogue against the profile opens no file: the reading
     answers as the run measured the tree, not as the tree stands, and a name absent from the

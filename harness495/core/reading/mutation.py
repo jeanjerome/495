@@ -5,10 +5,11 @@ ask "would it report something else if the change were wrong?". It has one mutan
 with, the absence of the change, and a test that fails there because the code it names does
 not exist yet reports nothing about the assertions it makes once the code is there.
 
-This module writes a few more mutants. Each takes one line the change added (``core/diff.py``
-reads which lines those are), alters it the way a plausible mistake would (a comparison
-inverted, an ``and`` turned into an ``or``, an operand sign flipped, a constant moved, a call
-dropped, a return short-circuited) and hands the engine a version of the change that is wrong
+This module writes a few more mutants. Each takes one line the change added
+(``core/reading/diff.py`` reads which lines those are), alters it the way a plausible mistake
+would (a comparison inverted, an ``and`` turned into an ``or``, an operand sign flipped, a
+constant moved, a call dropped, a return short-circuited) and hands the engine a version of the
+change that is wrong
 in a stated way. A verification that still reports success on it is passing over a wrong
 implementation of the very line it is supposed to watch. Reading is pure here: the diff comes
 in, the mutants and the mutated source go out, and the engine runs them.
@@ -173,11 +174,11 @@ class Mutant:
 def plan_mutants(diff: str, limit: int, commands: Sequence[str] = ()) -> list[Mutant]:
     """The mutants to run, at most ``limit`` of them, over the lines the change added.
 
-    The lines are the code the change adds, as ``core/diff.py`` reads it: the instrument is
-    left alone, since altering it measures nothing but itself. The cap is spread rather than
-    spent on the first lines it meets — one mutant per changed line, taking the files in turn,
-    then a second one per line, and so on — so that a change touching several files is
-    measured in several places.
+    The lines are the code the change adds, as ``core/reading/diff.py`` reads it: the
+    instrument is left alone, since altering it measures nothing but itself. The cap is spread
+    rather than spent on the first lines it meets — one mutant per changed line, taking the
+    files in turn, then a second one per line, and so on — so that a change touching several
+    files is measured in several places.
     """
     if limit <= 0:
         return []

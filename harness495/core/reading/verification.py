@@ -5,8 +5,8 @@ carry its requirements at all (``assess_sufficiency``). What a pair of runs on t
 says about the instrument rather than about the change (``measures_the_change``,
 ``classify_instrument``), and what two runs on the same version say about the command itself
 (``reports_the_same_twice``). Which files of a change are the instrument rather than what it
-delivers (``looks_like_a_test``), which is also what ``core/diff.py`` and ``core/suite.py``
-read a diff with.
+delivers (``looks_like_a_test``), which is also what ``core/reading/diff.py`` and
+``core/reading/suite.py`` read a diff with.
 
 The results these functions are handed come from :mod:`harness495.core.engine.running`, the
 only module that puts a verification command in the sandbox. Nothing here opens a file of the
