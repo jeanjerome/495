@@ -69,7 +69,7 @@ requirement assessment on its own (0001).
 ## Where in the code
 
 - `harness495/core/context.py::render_behaviour_test_form`.
-- `harness495/core/engine.py::_produce` and `_review`: the fact "Behaviour scenarios".
+- `harness495/core/engine/engine.py::_produce` and `_review`: the fact "Behaviour scenarios".
 - `harness495/core/prompts.py::PRODUCER_TASK`, the paragraph on a verification that carries a
   scenario; `PERSPECTIVES["test_quality"]`, the comparison of the three texts.
 - `tests/features/behaviour_test_form.feature` with `tests/test_behaviour_test_form_scenarios.py`.

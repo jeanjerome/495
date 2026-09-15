@@ -142,7 +142,7 @@ def cli(argv: list[str]) -> None:
     through a run, so it goes on probing the real ones and reports what this machine actually
     has — which is what makes it worth showing at all.
     """
-    from harness495.core import engine as engine_mod
+    from harness495.core.engine import engine as engine_mod
 
     held = {"script": LIVE.script()}
     engine_mod.build_agent = surface.scripted(held, PACE)  # type: ignore[assignment,attr-defined]

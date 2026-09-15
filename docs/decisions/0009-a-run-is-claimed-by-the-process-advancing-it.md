@@ -31,7 +31,7 @@ pause, terminal state) releases its claim.
 ## Where in the code
 
 - `harness495/core/store.py`: `claim`, `release`, `holder`, `_alive`, `DRIVER_FLAG`, `RunBusy`.
-- `harness495/core/engine.py`: `run`, `merge_delivery`, `check_integration`.
+- `harness495/core/engine/engine.py`: `run`, `merge_delivery`, `check_integration`.
 - `tests/test_models_store.py`: `test_a_claim_refuses_a_second_holder_and_is_given_back`,
   `test_a_run_held_by_a_live_process_is_named_not_taken`,
   `test_a_claim_left_by_a_dead_process_does_not_lock_the_run`,

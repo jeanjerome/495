@@ -97,7 +97,7 @@ tree as any file the previous iteration left. The command line's `--agent` and t
 - `harness495/core/prompts.py`: `TEST_DESIGNER_SYSTEM`, `TEST_DESIGNER_TASK`, the
   "Tests written by the test designer" paragraphs of `PRODUCER_TASK` and of
   `PERSPECTIVES["test_quality"]`.
-- `harness495/core/engine.py`: `_design_tests`, the call at the head of `_produce` and the
+- `harness495/core/engine/engine.py`: `_design_tests`, the call at the head of `_produce` and the
   facts it adds there and in `_review`, the protected-files `scope_check` in `_verify`, the
   reset in `_specify`.
 - `harness495/core/git.py`: `dirty_paths`, `discard_paths`.

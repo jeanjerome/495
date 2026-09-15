@@ -66,7 +66,7 @@ as `baseline` evidence and shown with the question, never concluded from.
 
 - `harness495/core/verification.py`: `run_control`, `measures_the_change`,
   `classify_instrument`, `failure_signature`, `instrument_files`, `looks_like_a_test`.
-- `harness495/core/engine.py`: `_calibrate`, `_measure_proposal`, `_instrument_decision`,
+- `harness495/core/engine/engine.py`: `_calibrate`, `_measure_proposal`, `_instrument_decision`,
   `_recalibrate`, `_instrument_fault_settled`, `_profile` (readiness), `_preflight`.
 - `harness495/core/models.py`: `Sufficiency`, `NON_DISCRIMINATING`, `Verification.discriminates`,
   `EvidenceKind.instrument_check`, `EvidenceKind.baseline`, `DecisionKind.instrument_fault`.

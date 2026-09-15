@@ -100,7 +100,7 @@ something other than the change, and `correctness` not to read either run as a d
   `failure_signature` the control run of 0002 already uses.
 - `harness495/core/models.py`: `EvidenceKind.stability_check`, `Verification.stable`,
   `Budget.max_repeated_commands`, `Budget.repeat_command_max_s`.
-- `harness495/core/engine.py`: `_flipped_since`, `_repeat_watchers`, `_repeat`, the call in
+- `harness495/core/engine/engine.py`: `_flipped_since`, `_repeat_watchers`, `_repeat`, the call in
   `_verify`, the `stable` guard in `_calibrate`, `_coverage_watchers` and `_mutation_watchers`,
   the fact in `_review`.
 - `harness495/core/decide.py::assess` (`unstable`, `unreadable`, `unsteady`).

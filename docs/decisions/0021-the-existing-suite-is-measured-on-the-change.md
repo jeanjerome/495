@@ -94,7 +94,7 @@ obsolete.
 - `harness495/core/suite.py`: `SuiteChange`, `SuiteCount`, `CountComparison`,
   `SuiteReading`, `read_suite_changes`, `count_tests`, `compare_counts`.
 - `harness495/core/models.py::EvidenceKind.suite_check`.
-- `harness495/core/engine.py`: `_suite_reading`, `_check_suite`, the call in `_verify`, the
+- `harness495/core/engine/engine.py`: `_suite_reading`, `_check_suite`, the call in `_verify`, the
   fact in `_review`, `_non_regression_verifications`.
 - `harness495/core/decide.py::assess` (`weakened_suite`, `unattached_weakening`).
 - `harness495/core/context.py::render_suite_reading`.

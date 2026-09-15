@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from harness495.core import engine as engine_mod
+from harness495.core.engine import engine as engine_mod
 from harness495.core.models import AgentSpec, HarnessConfig, RunStatus
 from harness495.interfaces.api import make_server
 from harness495.interfaces.cli import app

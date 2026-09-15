@@ -76,7 +76,7 @@ What the requester wants obeyed is declared in `.495/project.toml` under `conven
 - `harness495/core/context.py`: `render_profile` (the documentation files and the declared
   conventions), `ContextPack.add_untrusted`.
 - `harness495/core/prompts.py`: `COMMON_RULES`.
-- `harness495/core/engine.py`: `_clarify`, `_specify` (`read_doc_excerpts` into the untrusted
+- `harness495/core/engine/engine.py`: `_clarify`, `_specify` (`read_doc_excerpts` into the untrusted
   zone).
 - `tests/features/context_distribution.feature` and
   `tests/test_context_distribution_scenarios.py`.

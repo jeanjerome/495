@@ -80,7 +80,7 @@ that bear on a specification and not these.
 - `harness495/core/lessons.py`: `_false_positives`, `learn`, `HEADING`; `criteria` and
   `toml_lines` leave the kind alone.
 - `harness495/core/context.py`: `render_refuted`.
-- `harness495/core/engine.py`: `_review` gives the reviewer the claims of its own perspective;
+- `harness495/core/engine/engine.py`: `_review` gives the reviewer the claims of its own perspective;
   `_specify` leaves them out of the specifier's lessons.
 - `harness495/interfaces/cli.py`: `_print_lesson` names the reviewer a lesson answers;
   `lessons accept` says which reviewer is told.

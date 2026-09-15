@@ -207,9 +207,9 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 spec = None
                 if isinstance(body.get("spec"), dict):
-                    from harness495.core.engine import _spec_from_agent
+                    from harness495.core.engine import spec_from_agent
 
-                    spec = _spec_from_agent(body["spec"])
+                    spec = spec_from_agent(body["spec"])
                     spec.source = "user"
                 run = self.state.engine().create_run(
                     intent,

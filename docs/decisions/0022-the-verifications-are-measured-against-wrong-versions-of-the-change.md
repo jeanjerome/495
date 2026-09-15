@@ -109,7 +109,7 @@ quote the assertion that should have caught it.
   `added_lines`, `names_the_file`, `code_lines`), shared with the coverage check (0023).
 - `harness495/core/models.py`: `EvidenceKind.mutation_check`, `Budget.max_mutants`,
   `Budget.mutant_command_max_s`.
-- `harness495/core/engine.py`: `_mutation_watchers`, `_mutate`, `_run_mutant`, the call in
+- `harness495/core/engine/engine.py`: `_mutation_watchers`, `_mutate`, `_run_mutant`, the call in
   `_verify`, the fact in `_review`.
 - `harness495/core/decide.py::assess` (`let_through`).
 - `harness495/core/context.py::render_mutation_reading`.

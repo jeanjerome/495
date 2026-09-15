@@ -18,7 +18,7 @@ field produces a rejected object.
 `additionalProperties: false` and requires every property. Optional values are typed
 `["string", "null"]` (or array/number/null) so that a model with nothing to say answers `null`.
 
-The parsed object is then read by `_spec_from_agent`, `_verdict_from`/`_finding_from_agent` and
+The parsed object is then read by `spec_from_agent`, `_verdict_from`/`_finding_from_agent` and
 the producer summary reader in `engine.py`, which coerce into the pydantic models
 (`Spec`, `ReviewVerdict`, `Finding`, `ReportedCommand`) and validate a second time; an
 unparsable or invalid answer becomes a failed specifier, an `undetermined` reviewer, or an
@@ -54,7 +54,7 @@ generated from the pydantic models; those are a different set and may use `$ref`
 ## Where in the code
 
 - `harness495/core/schemas.py`.
-- `harness495/core/engine.py`: `_spec_from_agent`, `_normalise_spec`, `_verdict_from`,
+- `harness495/core/engine/engine.py`: `spec_from_agent`, `_normalise_spec`, `_verdict_from`,
   `_finding_from_agent`, `_parse_json_text`, `_produce` (summary reader).
 - `harness495/agents/claude_code.py`: `--json-schema`; `harness495/agents/codex.py`:
   `--output-schema`; `harness495/agents/openai_compat.py`: `schema_hint`, `final` block.

@@ -139,7 +139,7 @@ phase out, agent and stop alike.
 - `harness495/core/prompts.py`: `CLARIFIER_SYSTEM` and `CLARIFIER_TASK`; the paragraph of
   `SPECIFIER_TASK` that makes a decision binding and keeps `assumptions` for what nobody was
   asked; the sentence of the `spec_compliance` perspective that reads the diff against them.
-- `harness495/core/engine.py`: `_clarify` and its round loop, `_clarify_frontier` (the three
+- `harness495/core/engine/engine.py`: `_clarify` and its round loop, `_clarify_frontier` (the three
   drops), `_clarify_answers` and `_record_clarify_answers`, `_clarify_decision`,
   `_recommended_answer`, `_decisions_taken`, `OTHER_OPTION`, the `clarify` branch of
   `_apply_decision`, the `step` entries for the two new statuses, and the fact added in

@@ -1316,7 +1316,7 @@ class Engine:
                 run, "specifier returned no parsable specification", RunStatus.clarified
             )
         try:
-            spec = _spec_from_agent(data)
+            spec = spec_from_agent(data)
         except (ValueError, KeyError, TypeError) as exc:
             return self._fail(
                 run, f"specification rejected by schema validation: {exc}", RunStatus.clarified
@@ -3735,7 +3735,7 @@ def _decisions_taken(clarification: Clarification) -> list[DecisionTaken]:
     return taken
 
 
-def _spec_from_agent(data: dict[str, Any]) -> Spec:
+def spec_from_agent(data: dict[str, Any]) -> Spec:
     verifications: list[Verification] = []
     for i, v in enumerate(data.get("verifications", []), start=1):
         if not isinstance(v, dict):

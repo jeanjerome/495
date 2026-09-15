@@ -54,7 +54,7 @@ yet" from "something else landed".
 
 - `harness495/core/git.py`: `INTEGRATIONS`, `integrate_branch`, `_undo`, `can_fast_forward`,
   `has_uncommitted_changes`, `is_ancestor`, `blob_hash`.
-- `harness495/core/engine.py`: `merge_delivery`, `_merge_delivery`, `_integration_message`,
+- `harness495/core/engine/engine.py`: `merge_delivery`, `_merge_delivery`, `_integration_message`,
   `check_integration`, `_check_integration`.
 - `harness495/core/models.py`: `RunResult.integrated_as`, `IntegrationCheck`,
   `Run.integration_state`.

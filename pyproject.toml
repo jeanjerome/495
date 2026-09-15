@@ -140,9 +140,9 @@ type = "forbidden"
 source_modules = ["harness495.core"]
 forbidden_modules = ["harness495.agents", "harness495.sandbox"]
 ignore_imports = [
-    "harness495.core.engine -> harness495.agents.**",
-    "harness495.core.engine -> harness495.sandbox",
-    "harness495.core.engine -> harness495.sandbox.**",
+    "harness495.core.engine.** -> harness495.agents.**",
+    "harness495.core.engine.** -> harness495.sandbox",
+    "harness495.core.engine.** -> harness495.sandbox.**",
     "harness495.core.verification -> harness495.sandbox",
     "harness495.core.verification -> harness495.sandbox.**",
 ]

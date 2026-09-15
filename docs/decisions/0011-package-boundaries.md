@@ -19,7 +19,7 @@ Allowed imports of `harness495.*`, by importing package:
 | `harness495.agents` | `harness495.agents`, `harness495.sandbox`, `harness495.core.models`, `harness495.core.pricing` |
 | `harness495.core` (any module except `engine`, `verification`) | `harness495.core` |
 | `harness495.core.verification` | `harness495.core`, `harness495.sandbox` |
-| `harness495.core.engine` | `harness495.core`, `harness495.agents`, `harness495.sandbox` |
+| `harness495.core.engine` and its modules | `harness495.core`, `harness495.agents`, `harness495.sandbox` |
 | `harness495.interfaces` | anything |
 
 Nothing outside `harness495.interfaces` imports it. The table is written as four import-linter

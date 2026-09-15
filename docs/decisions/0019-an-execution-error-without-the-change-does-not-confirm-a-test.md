@@ -83,7 +83,7 @@ its `instructions` included. `Engine._review` walks that list.
   `RolesConfig.reviewers_for`.
 - `harness495/core/decide.py::assess`: `ADMISSIBLE` in place of `sufficient`, the
   `(unconfirmed: …)` note in the requirement's reason.
-- `harness495/core/engine.py`: `_calibrate` (subjects and the `control.ended` event),
+- `harness495/core/engine/engine.py`: `_calibrate` (subjects and the `control.ended` event),
   `_preflight`, `_review` (`reviewers_for`).
 - `harness495/core/context.py::render_spec`, `harness495/core/report.py::_observed`,
   `harness495/core/prompts.py::PERSPECTIVES["test_quality"]`,

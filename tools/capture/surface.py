@@ -49,7 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from harness495.agents.base import Agent, AgentResult, AgentTask
-from harness495.core import engine as engine_mod
+from harness495.core.engine import engine as engine_mod
 from harness495.core.config import load_config
 from harness495.core.engine import Engine
 from harness495.core.models import (

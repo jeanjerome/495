@@ -47,7 +47,7 @@ status.
 
 - `harness495/core/git.py`: `add_worktree`, `add_worktree_detached`, `commit_all`,
   `TRANSIENT_PATTERNS`, `reset_hard_clean`, `diff`, `sha256_text`, `ensure_excluded`.
-- `harness495/core/engine.py`: `worktrees_root`, `worktree_path`, `project_snapshot`,
+- `harness495/core/engine/engine.py`: `worktrees_root`, `worktree_path`, `project_snapshot`,
   `_intervene` (tamper check), `_produce` (freeze), `_save_patch`,
   `_prepare_evaluation_worktree`, `cleanup_worktree`.
 - `harness495/core/verification.py`: `VersionMismatch`, `run_verification`.

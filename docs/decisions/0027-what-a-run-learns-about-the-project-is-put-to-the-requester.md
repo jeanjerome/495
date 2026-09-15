@@ -93,7 +93,7 @@ document on every change, as the reading a person opens.
 - `harness495/core/scope.py`: `effective_allowed`, the paths a run's change may touch.
 - `harness495/core/config.py`: `load_config` adds the accepted lessons to the criteria.
 - `harness495/core/store.py`: `lessons_path`, `load_lessons`, `save_lessons`, `lessons_doc_path`.
-- `harness495/core/engine.py`: `_profile` carries the lessons in force; `_specify` gives them to
+- `harness495/core/engine/engine.py`: `_profile` carries the lessons in force; `_specify` gives them to
   the specifier.
 - `harness495/core/context.py`: `render_lessons`.
 - `harness495/interfaces/cli.py`: `retro`, the `lessons` commands, `stats`,

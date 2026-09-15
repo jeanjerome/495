@@ -279,9 +279,9 @@ def _agent_spec(config: HarnessConfig, ref: str) -> AgentSpec:
 
 def _load_spec_file(path: Path) -> Spec:
     data = json.loads(path.read_text(encoding="utf-8"))
-    from harness495.core.engine import _spec_from_agent
+    from harness495.core.engine import spec_from_agent
 
-    spec = _spec_from_agent(data)
+    spec = spec_from_agent(data)
     spec.source = "user"
     return spec
 

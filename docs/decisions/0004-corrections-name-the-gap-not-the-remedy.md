@@ -45,7 +45,7 @@ A verification found `broken` or `vacuous` (0002) produces no correction request
 - `harness495/core/decide.py`: module docstring, correction construction in `assess`,
   `failures_by_observation`.
 - `harness495/core/context.py`: `render_reviews(observations_only=...)`.
-- `harness495/core/engine.py`: `_produce` (correction pack).
+- `harness495/core/engine/engine.py`: `_produce` (correction pack).
 - `harness495/core/prompts.py`: `CORRECTION_TASK`.
 - `tests/test_scope_decide.py`: `test_correction_states_the_observation_not_the_remedy`,
   `test_one_failing_verification_yields_one_correction_for_all_its_requirements`.

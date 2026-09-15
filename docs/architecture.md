@@ -70,7 +70,7 @@ The rules are import-linter contracts in `pyproject.toml`; `lint-imports` checks
 | Module | Responsibility |
 |---|---|
 | `models` | the domain model: `Run`, `Spec`, `Requirement`, `Verification`, `Intervention`, `Evidence`, `ReviewVerdict`, `Decision`, `Iteration`, `Version`, configuration; all `StrictModel` (`extra="forbid"`) |
-| `engine` | the phases, the decisions raised to the requester and how each answer moves the run, calibration of instruments, merge and integration check |
+| `engine` | a package: `engine/engine.py` holds the phases, the decisions raised to the requester and how each answer moves the run, calibration of instruments, merge and integration check; `engine/__init__.py` names what anything outside may import — `Engine` and `EngineError`, `spec_from_agent` (the reader a requester-supplied JSON specification goes through) and `worktrees_root` |
 | `decide` | `assess()`: the pure acceptance decision over spec, evidence and reviews |
 | `verification` | running one command on the exact commit, the control run on the base version, the second run on the same version (`reports_the_same_twice`), the failure signature and the nature of a failure (assertion or execution error), sufficiency, test-file recognition |
 | `profile` | detection of languages, tooling and commands from manifests and from the tree; gathers what each technology's markers read (a `coverage.Tree`) |

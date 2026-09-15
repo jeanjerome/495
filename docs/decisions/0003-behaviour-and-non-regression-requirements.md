@@ -41,8 +41,8 @@ The specifier prompt states the rule and asks for the kind on each requirement.
 
 - `harness495/core/models.py`: `RequirementKind`, `Requirement.kind`.
 - `harness495/core/verification.py`: `assess_sufficiency` (`passing_on_base`).
-- `harness495/core/engine.py`: `_specify` (computes `passing_on_base`), `_calibrate`
-  (`leaned_on`), `_spec_from_agent` (unrecognised kind reads as `behaviour`).
+- `harness495/core/engine/engine.py`: `_specify` (computes `passing_on_base`), `_calibrate`
+  (`leaned_on`), `spec_from_agent` (unrecognised kind reads as `behaviour`).
 - `harness495/core/decide.py`: `settled_either_way`, `uncredited`.
 - `harness495/core/prompts.py`: `SPECIFIER_TASK`.
 - `tests/test_profile_verification.py`: `test_a_command_that_already_passes_cannot_carry_new_behaviour`,

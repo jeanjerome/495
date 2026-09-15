@@ -61,7 +61,7 @@ records that the reviewer assessed the requirement as violated without a cited o
 ## Where in the code
 
 - `harness495/core/decide.py`: `assess`, `Assessment`.
-- `harness495/core/engine.py`: `Engine._decide` (applies the assessment to the run),
+- `harness495/core/engine/engine.py`: `Engine._decide` (applies the assessment to the run),
   `Engine._ask_undetermined` (the question raised on `undetermined`).
 - `harness495/core/models.py`: `RequirementStatus`, `Verdict`, `Severity`, `Finding.evidence`.
 - `tests/features/decide.feature` (steps in `tests/test_decide_scenarios.py`): a finding that

@@ -109,7 +109,7 @@ executed"; `correctness` is asked whether the line carries behaviour a requireme
   `READERS` and the four report readers, `same_file`, `Unreached`, `Reading`, `cross`,
   `REPORT_DIR`.
 - `harness495/core/models.py`: `EvidenceKind.coverage_check`, `Budget.max_coverage_commands`.
-- `harness495/core/engine.py`: `_coverage_watchers`, `_instrument`, `_reach`, the call in
+- `harness495/core/engine/engine.py`: `_coverage_watchers`, `_instrument`, `_reach`, the call in
   `_verify`, the fact in `_review`.
 - `harness495/core/decide.py::assess` (`unexecuted`).
 - `harness495/core/context.py::render_reach_reading`.
