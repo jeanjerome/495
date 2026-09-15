@@ -39,4 +39,6 @@ pause, terminal state) releases its claim.
 - `tests/features/isolation.feature` with `tests/test_run_scenarios.py`: a run another
   process holds is refused rather than joined, and a run that stops on a question gives
   the claim back.
-- `tests/test_tui_pilot.py`: `test_a_run_advanced_elsewhere_is_watched_not_joined`.
+- `tests/features/driving.feature` with `tests/test_driving_scenarios.py`: a run another
+  process holds is watched rather than joined — every control withdrawn but the stop, which
+  is how one terminal reaches another's run — and the driver does one thing at a time.

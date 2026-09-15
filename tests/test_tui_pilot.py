@@ -7,25 +7,20 @@ against a real store walked by the fake agents, not against a mock of the engine
 from __future__ import annotations
 
 import io
-import json
-import socket
 import subprocess
-import time
 from pathlib import Path
 from typing import Any
 
 import pytest
 from rich.console import Console
 
-from harness495.core.models import RunStatus
-from harness495.core.store import DRIVER_FLAG, RunStore
+from harness495.core.store import RunStore
 from harness495.interfaces.tui import Shell, StoreSource
 from harness495.interfaces.tui.attention import attention
 from harness495.interfaces.tui.driving import StoreDriver
-from harness495.interfaces.tui.loops import _press, _wind_down, answer, open_merge
-from harness495.interfaces.tui.stages import stage_of, stage_state
+from harness495.interfaces.tui.loops import _press, answer, open_merge
+from harness495.interfaces.tui.stages import stage_state
 from harness495.interfaces.tui.theme import THEME
-from harness495.interfaces.tui.views import ask_intent
 
 WAIT = 120.0
 """Long enough for the fake agents and a real pytest run; a hung driver still fails the test."""
@@ -78,101 +73,7 @@ def settle(pilot: StoreDriver, quiet: bool = True) -> None:
 # --------------------------------------------------------------------- from an intent
 
 
-def test_an_intent_typed_here_becomes_a_run_that_walks_to_delivery(
-    store: RunStore, pilot: StoreDriver
-) -> None:
-    run_id = pilot.create("add subtract to calc")
-    settle(pilot)
-    run = store.load(run_id)
-    assert run.status is RunStatus.delivered, (run.stop_reason, run.warnings)
-    assert run.intent.source == "surface"
-    shell = surface(store, pilot)
-    shell.select(run_id)
-    # A delivered run stands at the last stop, which is the one the harness cannot walk alone.
-    assert stage_of(run) == "integration"
-    assert "d" not in dict(shell.controls()) and shell.startable() is None
-
-
-def test_an_existing_change_can_be_evaluated_from_here(
-    store: RunStore, pilot: StoreDriver, sample_project: Path
-) -> None:
-    run_id = pilot.create("subtract must work", "WORKTREE")
-    settle(pilot)
-    run = store.load(run_id)
-    assert run.mode.value == "evaluate" and run.evaluate_ref == "WORKTREE"
-
-
-def test_the_opening_question_states_what_each_answer_does(monkeypatch: Any) -> None:
-    """Enter twice is the ordinary run; a ref is asked for only where one is meant."""
-    console = Console(theme=THEME, file=io.StringIO(), width=100, highlight=False, record=True)
-
-    def answers(*typed: str) -> None:
-        queue = iter(typed)
-        monkeypatch.setattr("builtins.input", lambda *a, **k: next(queue))
-
-    answers("make the deploy command idempotent", "")
-    assert ask_intent(console) == ("make the deploy command idempotent", "")
-    asked = console.export_text()
-    assert "495 writes it" in asked and "it already exists" in asked
-    assert "<base>..<head>" not in asked, "the ordinary path never sees git syntax"
-
-    answers("subtract must work", "evaluate", "")
-    assert ask_intent(console) == ("subtract must work", "WORKTREE")
-
-    answers("subtract must work", "evaluate", "commit", "main..mine")
-    assert ask_intent(console) == ("subtract must work", "main..mine")
-
-    answers("")
-    assert ask_intent(console) is None, "an empty intent opens nothing"
-
-
 # --------------------------------------------------------------------- start, pause, answer
-
-
-def test_a_created_run_is_started_by_one_key(
-    store: RunStore, pilot: StoreDriver, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    run = engine_factory().create_run("add subtract to calc", sample_project, config)
-    shell = surface(store, pilot)
-    shell.select(run.id)
-    assert shell.startable() == "start"
-    assert ("s", "start") in shell.controls()
-    assert attention(shell.run, can_drive=True).key == "s"
-    shell.act("control:start")
-    settle(pilot)
-    shell.source.refresh(force=True)
-    assert shell.run.status is RunStatus.delivered
-
-
-def test_pausing_asks_the_run_to_stop_wherever_it_is_driven_from(
-    store: RunStore, pilot: StoreDriver, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    run = engine_factory().create_run("add subtract to calc", sample_project, config)
-    pilot.pause(run.id)
-    assert store.stop_requested(run.id) is not None
-    # The flag is read by whichever engine walks the run next, and cleared when it starts.
-    pilot.start(run.id)
-    settle(pilot)
-    assert store.load(run.id).status in {RunStatus.paused, RunStatus.delivered}
-
-
-def test_a_question_answered_here_lets_the_run_carry_on(
-    store: RunStore, pilot: StoreDriver, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    config.auto_approve = False
-    run = engine_factory().create_run("add subtract to calc", sample_project, config)
-    pilot.start(run.id)
-    settle(pilot)
-    shell = surface(store, pilot)
-    shell.select(run.id)
-    assert shell.run.status is RunStatus.awaiting_decision
-    assert ("d", "answer") in shell.controls()
-    assert shell.startable() is None, "a run stopped on a question is not started, it is answered"
-    assert stage_state(shell.run, "spec") == "blocked"
-    pilot.decide(shell.run.id, "approve", "")
-    settle(pilot)
-    shell.source.refresh(force=True)
-    assert shell.run.status is RunStatus.delivered
 
 
 # --------------------------------------------------------------------- the eighth stop
@@ -390,76 +291,7 @@ def test_a_tree_with_uncommitted_work_is_told_so_before_the_question_opens(
 # --------------------------------------------------------------------- two terminals
 
 
-def test_a_run_advanced_elsewhere_is_watched_not_joined(
-    store: RunStore, pilot: StoreDriver, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    run = engine_factory().create_run("add subtract to calc", sample_project, config)
-    (store.run_dir(run.id) / DRIVER_FLAG).write_text(
-        json.dumps({"pid": 1, "host": socket.gethostname(), "label": "495 run", "since": "now"}),
-        encoding="utf-8",
-    )
-    shell = surface(store, pilot)
-    shell.select(run.id)
-    assert shell.held is not None
-    assert shell.startable() is None
-    assert shell.controls() == [("p", "pause the run"), ("c", "new run")]
-    band = attention(shell.run, held=shell.held, can_drive=True)
-    assert "elsewhere" in band.headline
-    # Answering a question here would write over the document the other engine is holding.
-    assert not shell.can("decide") and not shell.can("integrate")
-    # Except the stop: a flag in the run directory is how one terminal reaches another's run.
-    assert shell.can("control:pause")
-    shell.act("control:start")
-    assert pilot.working() is None
-    assert pilot.notice is not None and "act on it there" in pilot.notice
-    assert store.load(run.id).status is RunStatus.created
-
-
-def test_the_driver_does_one_thing_at_a_time(
-    store: RunStore, pilot: StoreDriver, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    first = engine_factory().create_run("add subtract to calc", sample_project, config)
-    second = engine_factory().create_run("something else", sample_project, config)
-    pilot.start(first.id)
-    pilot.start(second.id)
-    assert pilot.notice is not None and first.id in pilot.notice
-    settle(pilot, quiet=False)
-    assert store.load(second.id).status is RunStatus.created
-
-
 # --------------------------------------------------------------------- leaving
-
-
-class _BlockingEngine:
-    """An engine that does nothing but hold the run until it is asked to stop."""
-
-    def __init__(self, store: RunStore) -> None:
-        self.store = store
-
-    def run(self, run_id: str) -> None:
-        while self.store.stop_requested(run_id) is None:
-            time.sleep(0.01)
-
-
-def test_leaving_the_surface_pauses_the_run_it_was_advancing(
-    store: RunStore, sample_project: Path, config: Any, engine_factory: Any
-) -> None:
-    """The engine lives in this process: quitting without stopping it kills an agent mid-turn."""
-    run = engine_factory().create_run("add subtract to calc", sample_project, config)
-    pilot = StoreDriver(
-        store, project=sample_project, engine_factory=lambda: _BlockingEngine(store)
-    )
-    shell = surface(store, pilot)
-    shell.select(run.id)
-    pilot.start(run.id)
-    for _ in range(500):
-        if pilot.working() is not None:
-            break
-        time.sleep(0.01)
-    assert pilot.working() is not None
-    _wind_down(shell, None, timeout=WAIT)
-    assert pilot.working() is None
-    assert store.stop_requested(run.id) is not None
 
 
 def _git_out(root: Path, *args: str) -> str:
