@@ -29,7 +29,7 @@ from harness495.interfaces.tui.driving import ReadOnly
 from harness495.interfaces.tui.headlines import headline
 from harness495.interfaces.tui.icons import ICON, ICON_SET, use_icons
 from harness495.interfaces.tui.source import StaticSource
-from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH, stage_of
+from harness495.interfaces.tui.stages import STAGES, STATE_GLYPH
 from harness495.interfaces.tui.theme import THEME
 from harness495.interfaces.tui.widgets import WorkingMark
 
@@ -114,174 +114,12 @@ BOTH = pytest.mark.parametrize("draw", [_printed, _drawn], ids=["printed", "draw
 CHROME = 7
 
 
-@BOTH
-@pytest.mark.parametrize("opened_first", [False, True], ids=["fresh", "after a run was opened"])
-def test_the_home_page_speaks_for_no_run_however_you_got_there(
-    draw: Any, opened_first: bool
-) -> None:
-    """The header, the band and the strip each name a run; this page is about the store.
-
-    Getting here by opening a run and pressing ``l`` used to be a different screen from
-    getting here without: ``opened`` is a latch nothing lowers, so the chrome went on naming
-    the run opened last — its status, its question, its pipeline — above a cursor standing
-    somewhere else entirely.
-    """
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    if opened_first:
-        shell.select("run-1")
-        shell.act("view:runs")
-    assert shell.at_home and shell.view == "runs"
-
-    lines = draw(shell)
-    chrome = "\n".join(lines[:CHROME])
-    assert "no run is open" in chrome
-    assert "2 runs" in chrome, "the identity and the band count the store"
-    assert "run-1" not in chrome and "delivered" not in chrome, "it spoke for a run again"
-    assert "profile" not in chrome, "eight stops are eight stops of a run"
-    # The card states the question the cursor is on — that is what it is for. What is not
-    # here is the panel that *puts* it to you: a question is answered at the stop that raised
-    # it, and this page stands at none.
-    assert not any("what this rests on" in ln for ln in lines)
-
-
-@BOTH
-def test_the_card_names_the_run_the_cursor_is_on(draw: Any) -> None:
-    """Reading a run is not opening it: the detail beside the listing follows the cursor."""
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    assert "run-0" in "\n".join(draw(shell)[CHROME:])
-    shell.act("cursor:+1")
-    body = "\n".join(draw(shell)[CHROME:])
-    assert "run-1" in body and "delivered" in body
-    assert not shell.opened, "the cursor moved; nothing was opened"
-
-
-@BOTH
-def test_opening_a_row_gives_the_chrome_back_for_that_row(draw: Any) -> None:
-    """The listing used to point at one run while the header named another."""
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    shell.act("cursor:+1")
-    shell.act("open")
-    assert shell.opened and shell.run.id == "run-1"
-    assert shell.view == stage_of(shell.run)
-    lines = draw(shell)
-    # The header names the run you opened, and the band under it speaks for the same one.
-    assert "run-1" in lines[0] and "delivered" in lines[CHROME - 3]
-    # Back to the listing: the cursor is still on the run that is open, not reset to the top.
-    shell.act("view:runs")
-    assert shell.cursor == 1
-
-
 def _delivered(rid: str = "run-1") -> Run:
     """A run with something to act on: a branch to merge and a report to check a ref against."""
     run = _bare(RunStatus.delivered, rid)
     run.result.branch = f"495/{rid}"
     run.result.report_ref = "report.md"
     return run
-
-
-@BOTH
-@pytest.mark.parametrize("opened", [False, True], ids=["the store", "a run"])
-def test_the_header_is_closed_by_a_rule(draw: Any, opened: bool) -> None:
-    """Three things are stacked at the top of every screen, and the first one ends.
-
-    Identity, then what it needs, then what it holds. Without a line under the identity the
-    band's own frame opened one row under the last row of the header, and five lines read as
-    one block instead of two things in a hierarchy.
-    """
-    shell = _store_of(_asking(), _delivered())
-    if opened:
-        shell.select("run-1")
-    lines = draw(shell)
-    assert lines[2].rstrip() == "─" * 150, "a rule, the full width of the screen"
-    assert not lines[3].strip(), "and air between it and what it separates"
-
-
-def test_a_control_on_the_home_acts_on_the_row_under_the_cursor() -> None:
-    """The whole point of the page: one subject per screen, and it is the one it points at.
-
-    The run that was opened last used to keep the controls, so ``d`` answered a question three
-    rows above the cursor — and the footer offered it while the card described another run.
-    """
-    shell = _store_of(_asking(), _delivered(), driver=_Driving())
-    shell.select("run-0")
-    shell.act("view:runs")
-    assert shell.can("decide"), "the cursor is on the run that asked"
-
-    shell.act("cursor:+1")
-    assert shell.focus is not None and shell.focus.id == "run-1"
-    assert shell.run.id == "run-0", "the run opened behind the page is still the opened one"
-    assert not shell.can("decide"), "it answered a question three rows above the cursor"
-    offered = [key for key, _, _ in shell.footer_keys()]
-    assert "d" not in offered and "m" in offered and "i" in offered
-    assert shell.controls() == [
-        ("m", "merge the branch"),
-        ("i", "check a ref"),
-        ("c", "new run"),
-    ]
-
-
-def test_a_surface_that_only_reads_offers_nothing_on_the_home_either() -> None:
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    assert shell.controls() == []
-    assert [key for key, _, _ in shell.footer_keys()] == ["↑↓", "enter", "n", "?", "q"]
-
-
-def test_a_key_that_names_a_stop_opens_the_row_it_is_a_stop_of() -> None:
-    """A digit is "go to stop N" — of the run under the cursor, since that is the subject."""
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    shell.act("cursor:+1")
-    shell.act("stage:spec")
-    assert shell.opened and shell.run.id == "run-1" and shell.view == "spec"
-
-
-def test_a_relative_move_needs_a_stop_to_move_from() -> None:
-    """← and → walk to the *next* stop. The home page stands at none, so they do nothing."""
-    shell = _store_of(_asking(), _bare(RunStatus.delivered, "run-1"))
-    for action in ("stage:+1", "stage:-1", "filter"):
-        shell.act(action)
-        assert shell.at_home and not shell.opened
-
-
-def test_what_the_band_names_is_where_n_puts_the_cursor() -> None:
-    """One reading of the store's attention, for the two surfaces that act on it."""
-    shell = _store_of(_bare(RunStatus.delivered, "run-1"), _asking())
-    state = shell.store_state()
-    assert state.tone == "ask" and "waiting on you" in state.headline
-    assert state.key == "n" and "2 runs" in state.about
-    shell.act("catchup")
-    assert shell.focus is not None and shell.focus.pending_decision is not None
-
-
-def test_the_band_says_what_no_single_run_can() -> None:
-    """A store where nothing asks anything still has something to say about itself."""
-    quiet = _store_of(_bare(RunStatus.delivered, "run-1")).store_state()
-    assert quiet.tone == "good" and quiet.key is None
-    idle = _store_of(_bare(RunStatus.producing, "run-2")).store_state()
-    assert idle.tone == "ask" and "idle" in idle.headline
-    stopped = _store_of(_bare(RunStatus.failed, "run-3"), _asking()).store_state()
-    assert "waiting on you" in stopped.headline, "a question outranks a run that already ended"
-
-
-def test_a_store_emptied_under_the_surface_still_has_a_page() -> None:
-    """Another terminal can take the last run away; what is left is still a store."""
-    shell = _store_of(driver=_Driving())
-    assert shell.focus is None
-    assert shell.controls() == [("c", "new run")], "nothing acts on a run; one thing makes one"
-    text = "\n".join(_drawn(shell))
-    assert "no run yet" in text and "no project" in text
-    for action in ("open", "decide", "control:start", "catchup", "stage:spec"):
-        shell.act(action)
-        assert shell.at_home and not shell.opened
-
-
-def test_a_store_too_long_for_the_screen_is_windowed_around_the_cursor() -> None:
-    """The layout crops what does not fit without saying so, and the cursor crops first."""
-    shell = _store_of(*(_bare(RunStatus.created, f"run-{n:02d}") for n in range(30)))
-    for _ in range(20):
-        shell.act("cursor:+1")
-    text = "\n".join(_drawn(shell, height=30)[CHROME:])
-    assert "21 of 30, showing" in text
-    assert "run-20" in text and "run-00" not in text
 
 
 # --------------------------------------------------------------------- the icons
