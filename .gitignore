@@ -1,11 +1,21 @@
+# Virtual environment and build products
 .venv/
+build/
+dist/
+*.egg-info/
+
+# Compiled bytecode
 __pycache__/
 *.pyc
-.495/
+
+# Tool caches and reports
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-*.egg-info/
-build/
-dist/
+.coverage
+
+# Run state, when 495 is pointed at this repository
+.495/
+
+# Editor and operating system
 .DS_Store
