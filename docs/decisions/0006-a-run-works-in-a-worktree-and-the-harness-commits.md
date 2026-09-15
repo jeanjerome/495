@@ -52,6 +52,7 @@ status.
   `_prepare_evaluation_worktree`, `cleanup_worktree`.
 - `harness495/core/engine/running.py`: `VersionMismatch`, `run_verification`.
 - `tests/test_engine.py`: `test_worktree_is_outside_project_and_escape_is_detected`,
-  `test_reviewer_tampering_discards_verdict`, `test_evaluate_working_tree_and_patch`,
-  `test_an_iteration_that_changes_nothing_stops_instead_of_being_reviewed_again`.
+  `test_reviewer_tampering_discards_verdict`, `test_evaluate_working_tree_and_patch`.
+- `tests/features/workflow.feature` with `tests/test_run_scenarios.py`: a second version
+  identical to the first stops the run instead of being read again.
 - `tests/features/running.feature` with `tests/test_running_scenarios.py`.

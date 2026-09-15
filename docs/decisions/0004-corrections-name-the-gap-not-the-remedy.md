@@ -50,4 +50,5 @@ A verification found `broken` or `vacuous` (0002) produces no correction request
 - `tests/features/decide.feature` with `tests/test_decide_scenarios.py`: a correction request
   carries the claim and the observation and never the remedy, and one failing verification asks
   for one correction naming every requirement it carries.
-- `tests/test_engine.py`: `test_correction_prompt_carries_observations_not_the_reviewer_s_conclusions`.
+- `tests/features/workflow.feature` with `tests/test_run_scenarios.py`: the correction a
+  producer is given carries the observation, never the remedy.

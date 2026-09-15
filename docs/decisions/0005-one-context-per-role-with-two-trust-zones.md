@@ -59,5 +59,5 @@ tracked files. The rendered prompt is stored as `prompt.md` and its section size
 - `harness495/core/prompts.py`: `COMMON_RULES`, role system prompts.
 - `harness495/core/engine/engine.py`: `_specify`, `_produce`, `_review` (pack construction),
   `_intervene` (persists `prompt.md` and `context.json`).
-- `tests/test_engine.py`: `test_correction_prompt_carries_observations_not_the_reviewer_s_conclusions`;
-  `test_full_change_workflow_accepts` (reviewer prompt content).
+- `tests/features/workflow.feature` with `tests/test_run_scenarios.py`: what a reviewer is
+  given of the change and what stays out of it, and what the corrective producer is told.

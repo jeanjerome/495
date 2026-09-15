@@ -21,121 +21,14 @@ from harness495.core.models import (
     RunStatus,
     Verdict,
 )
-from harness495.core.report import render_markdown
 from harness495.core.store import DRIVER_FLAG, RunBusy
-from tests.conftest import Scenario, accept_review, bad_producer, good_producer, reject_review
+from tests.conftest import Scenario, good_producer
 
 
 def _create(
     engine: Any, project: Path, config: Any, mode: RunMode = RunMode.change, **kw: Any
 ) -> Run:
     return engine.create_run("add subtract to calc", project, config, mode, **kw)
-
-
-def test_full_change_workflow_accepts(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-    assert run.status is RunStatus.delivered, (run.stop_reason, run.warnings)
-    assert run.result.outcome is Verdict.accept
-    assert [r.status for r in run.spec.requirements] == [RequirementStatus.satisfied] * 2
-    # Readiness ran the project's test command on the base version.
-    assert run.profile is not None and run.profile.readiness[0].executable
-    # Roles were mobilised in order: clarifier, specifier, the test designer (V1 is a test to
-    # create), producer, the 2 configured reviewers and the test_quality one that a test to
-    # create calls for.
-    assert [t.role for t in scenario.calls] == [
-        Role.clarifier,
-        Role.specifier,
-        Role.test_designer,
-        Role.producer,
-        Role.reviewer,
-        Role.reviewer,
-        Role.reviewer,
-    ]
-    # Reviewers received only the diff, spec, evidence: never the producer transcript.
-    reviewer_prompt = next(t.prompt for t in scenario.calls if t.role is Role.reviewer)
-    assert "Untrusted content" in reviewer_prompt and "git diff base..head" in reviewer_prompt
-    assert "fake transcript" not in reviewer_prompt and "Established facts" in reviewer_prompt
-    # Exact version: a commit on the run branch, patch hash recorded, evidence bound to it.
-    it = run.current_iteration
-    assert it and it.version and it.version.head_commit and it.version.patch_sha256
-    assert it.version.branch == f"495/{run.id}"
-    assert all(
-        e.subject_version == it.version.head_commit
-        for e in run.evidence
-        if e.kind.value == "command_result"
-    )
-    assert sorted(it.version.files_changed) == [
-        "calc.py",
-        "tests/test_calc.py",
-        "tests/test_subtract.py",
-    ]
-    assert run.test_design is not None and run.test_design.files == ["tests/test_subtract.py"]
-    # Evidence: scope ok, V1 and V2 passed, three review verdicts.
-    kinds = [e.kind.value for e in run.evidence]
-    assert (
-        kinds.count("command_result") == 2
-        and kinds.count("review_verdict") == 3
-        and "scope_check" in kinds
-    )
-    assert all(e.passed for e in run.evidence if e.kind.value == "command_result")
-    # Consumption and cost accounted: the clarifier, the specifier, the test designer, the
-    # producer and the three reviewers.
-    assert run.consumption.interventions == 7 and run.consumption.cost_usd > 0
-    assert run.consumption.cost_basis.value == "reported"
-    # Decisions: auto approval + acceptance.
-    assert [d.kind for d in run.decisions] == [DecisionKind.approve_spec, DecisionKind.acceptance]
-    # Artifacts: patch and report exist and the state validates.
-    store = engine.store
-    assert store.resolve(run.id, run.result.patch_ref).exists()
-    report = render_markdown(run, store)
-    assert "## Requirements" in report and "PASS" in report and "git merge --no-ff" in report
-    Run.model_validate_json(store.run_path(run.id).read_text())
-    events = [e.type for e in store.events(run.id)]
-    assert "run.delivered" in events and "version.frozen" in events
-    # Nothing was merged into the project; the branch exists.
-    assert "subtract" not in (sample_project / "calc.py").read_text()
-    assert f"495/{run.id}" in git.git(["branch", "--list", f"495/{run.id}"], sample_project)
-
-
-def test_rejection_loop_then_accept(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    scenario.producers = [bad_producer, good_producer]
-    scenario.reviews["correctness"] = [reject_review("correctness"), accept_review("correctness")]
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-    assert run.status is RunStatus.delivered and run.result.outcome is Verdict.accept
-    assert [i.outcome for i in run.iterations] == [Verdict.reject, Verdict.accept]
-    first = run.iterations[0]
-    assert any("[R1]" in c for c in first.correction_requests)
-    # The failed test output and the findings reached the producer of iteration 2 as untrusted content.
-    second_producer = [t for t in scenario.calls if t.role is Role.producer][1]
-    assert (
-        "Correction requests" in second_producer.prompt
-        and "reviewer findings" in second_producer.prompt
-    )
-    assert run.iterations[1].version.head_commit != first.version.head_commit
-    assert len(engine.store.artifacts_dir(run.id).glob("iteration-*.patch").__class__.__name__) > 0
-
-
-def test_iteration_limit_asks_human(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    scenario.producers = [bad_producer]
-    scenario.reviews["correctness"] = [reject_review("correctness")]
-    config.budget.max_iterations = 1
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-    assert run.status is RunStatus.awaiting_decision
-    assert run.pending_decision and run.pending_decision.kind is DecisionKind.iteration_limit
-    run = engine.decide(run.id, "stop")
-    assert run.status is RunStatus.rejected and run.result.outcome is Verdict.reject
 
 
 def test_undetermined_refuses_to_conclude(
@@ -191,29 +84,6 @@ def test_decision_handler_answers_inline(
     assert asked == ["approve_spec"] and run.status is RunStatus.delivered
 
 
-def test_pause_and_resume(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    original = scenario.next_producer
-
-    def interrupting_producer(cwd: Path) -> None:
-        good_producer(cwd)
-        engine.request_stop(run.id, "test stop")
-        raise KeyboardInterrupt
-
-    scenario.producers = [interrupting_producer]
-    run = engine.run(run.id)
-    assert run.status is RunStatus.paused and run.resume_status is RunStatus.ready
-    assert any(i.status is InterventionStatus.interrupted for i in run.interventions)
-    scenario.producers = [good_producer]
-    run = engine.run(run.id)
-    assert run.status is RunStatus.delivered
-    assert [i.n for i in run.iterations] == [1, 2]
-    del original
-
-
 def test_reviewer_tampering_discards_verdict(
     sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
 ) -> None:
@@ -236,26 +106,6 @@ def test_reviewer_tampering_discards_verdict(
     )
     wt = engine.worktree_path(run)
     assert "tampered" not in (wt / "calc.py").read_text()
-
-
-def test_scope_violation_is_rejected(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    def out_of_scope(cwd: Path) -> None:
-        good_producer(cwd)
-        (cwd / "README.md").write_text("changed")
-
-    def back_in_scope(cwd: Path) -> None:
-        good_producer(cwd)
-        subprocess.run(["git", "checkout", "HEAD~1", "--", "README.md"], cwd=cwd, check=True)
-
-    scenario.producers = [out_of_scope, back_in_scope]
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-    assert run.iterations[0].outcome is Verdict.reject
-    assert any("[scope]" in c and "README.md" in c for c in run.iterations[0].correction_requests)
-    assert run.status is RunStatus.delivered and run.iterations[1].outcome is Verdict.accept
 
 
 def test_budget_exhaustion_asks_human(
@@ -367,54 +217,6 @@ def test_worktree_is_outside_project_and_escape_is_detected(
     )
     # The user's tree is left for inspection, nothing was committed on their behalf.
     assert (sample_project / "calc.py").read_text() == "escaped"
-
-
-def test_an_iteration_that_changes_nothing_stops_instead_of_being_reviewed_again(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    scenario.producers = [bad_producer, bad_producer]
-    scenario.reviews["correctness"] = [reject_review("correctness")]
-    scenario.producer_not_done = ["V1 cannot pass without editing files outside the scope"]
-    config.budget.max_iterations = 3
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-
-    assert run.status is RunStatus.awaiting_decision
-    assert run.pending_decision and run.pending_decision.kind is DecisionKind.no_progress
-    # Two productions, but only the first version was verified and reviewed.
-    assert sum(1 for t in scenario.calls if t.role is Role.producer) == 2
-    assert len(run.iterations) == 2
-    assert run.iterations[0].version.patch_sha256 == run.iterations[1].version.patch_sha256
-    assert run.iterations[1].review_ids == []
-    # What the producer said it could not do reaches the human, unverified and labelled as such.
-    assert run.iterations[1].blocked_claims == scenario.producer_not_done
-    # The question stays one sentence; the claim itself travels in the decision's context.
-    assert run.pending_decision.context["blocked_claims"] == scenario.producer_not_done
-    assert len(run.pending_decision.question) < 200
-    assert all(o.consequence for o in run.pending_decision.options)
-
-    run = engine.decide(run.id, "stop")
-    assert run.status is RunStatus.rejected
-
-
-def test_correction_prompt_carries_observations_not_the_reviewer_s_conclusions(
-    sample_project: Path, config: Any, engine_factory: Any, scenario: Scenario
-) -> None:
-    scenario.producers = [bad_producer, good_producer]
-    scenario.reviews["correctness"] = [reject_review("correctness"), accept_review("correctness")]
-    engine = engine_factory()
-    run = _create(engine, sample_project, config)
-    run = engine.run(run.id)
-
-    corrective = [t for t in scenario.calls if t.role is Role.producer][1].prompt
-    # The claim and where to look travel; the reviewer's fix does not.
-    assert "subtract adds instead of subtracting" in corrective
-    assert "calc.py:8" in corrective
-    assert "use a - b" not in corrective
-    # Nothing in the prompt tells the producer to chase an exit code.
-    assert "make verification pass" not in corrective
-    assert "not demonstrated" in corrective or "observed:" in corrective
 
 
 def test_the_specification_is_readable_when_approval_is_asked(
