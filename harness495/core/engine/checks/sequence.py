@@ -19,6 +19,7 @@ from __future__ import annotations
 from harness495.core import git
 from harness495.core.engine.checks import calibration, coverage, mutation, stability, suite
 from harness495.core.engine.checks.stage import Reading, Stage
+from harness495.core.engine.running import run_verification
 from harness495.core.engine.services import RunServices
 from harness495.core.models import (
     Evidence,
@@ -30,7 +31,6 @@ from harness495.core.models import (
     new_id,
 )
 from harness495.core.scope import check_scope, effective_allowed
-from harness495.core.verification import run_verification
 
 
 def scope_check(

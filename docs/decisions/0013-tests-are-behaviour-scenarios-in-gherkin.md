@@ -13,8 +13,9 @@ reviewers can tell what a passing test proves. A test written as a function of a
 read by whoever knows the code; a scenario written as Given/When/Then is read by whoever knows
 the domain, which includes the requester who wrote the intent and the specifier who wrote the
 requirement it verifies. The project chose that second reading as the norm. The catalogue
-(0012) already recognises `.feature` files as test files (`core/verification.py`) but had no
-role for the tool that runs them, and 495's own suite was written as plain pytest functions.
+(0012) already recognises `.feature` files as test files (`core/reading/verification.py`) but
+had no role for the tool that runs them, and 495's own suite was written as plain pytest
+functions.
 
 ## Decision
 
@@ -68,6 +69,6 @@ role for the tool that runs them, and 495's own suite was written as plain pytes
 - `tests/features/decide.feature`, `tests/test_decide_scenarios.py`: first application, the
   decision scenarios of `core/decide.py::assess` (moved from `tests/test_scope_decide.py`).
 - `AGENTS.md`, section Invariants.
-- `harness495/core/verification.py::_TEST_SUFFIXES`: `.feature` counted as a test file.
+- `harness495/core/reading/verification.py::_TEST_SUFFIXES`: `.feature` counted as a test file.
 - To build: `harness495/core/prompts.py` (`SPECIFIER_TASK`, `PRODUCER_TASK`),
   `harness495/core/profile.py` (detection of the `bdd` tool).

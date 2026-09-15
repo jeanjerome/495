@@ -96,8 +96,8 @@ something other than the change, and `correctness` not to read either run as a d
 
 ## Where in the code
 
-- `harness495/core/verification.py`: `reported_success`, `reports_the_same_twice`, over the
-  `failure_signature` the control run of 0002 already uses.
+- `harness495/core/reading/verification.py`: `reported_success`, `reports_the_same_twice`,
+  over the `failure_signature` the control run of 0002 already uses.
 - `harness495/core/models/evidence.py::EvidenceKind.stability_check`;
   `harness495/core/models/specification.py::Verification.stable`;
   `harness495/core/models/config.py`: `Budget.max_repeated_commands`,

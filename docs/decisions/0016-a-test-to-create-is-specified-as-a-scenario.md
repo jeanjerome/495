@@ -66,7 +66,7 @@ from the same text the requester approved and the reviewers compare against it.
   `Verification.scenario`.
 - `harness495/core/schemas.py`: the `scenario` property of `SPEC_SCHEMA`.
 - `harness495/core/engine/engine.py::_scenario_from_agent`, called from `spec_from_agent`.
-- `harness495/core/verification.py::assess_sufficiency`, `_has_scenario`.
+- `harness495/core/reading/verification.py::assess_sufficiency`, `_has_scenario`.
 - `harness495/core/prompts.py::SPECIFIER_TASK`, the rule on `scenario`.
 - `harness495/core/context.py::render_spec`; `harness495/interfaces/render.py::print_spec`;
   `harness495/interfaces/tui/views/spec.py`: the steps under the verification.

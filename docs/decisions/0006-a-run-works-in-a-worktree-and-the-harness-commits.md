@@ -50,8 +50,8 @@ status.
 - `harness495/core/engine/engine.py`: `worktrees_root`, `worktree_path`, `project_snapshot`,
   `_intervene` (tamper check), `_produce` (freeze), `_save_patch`,
   `_prepare_evaluation_worktree`, `cleanup_worktree`.
-- `harness495/core/verification.py`: `VersionMismatch`, `run_verification`.
+- `harness495/core/engine/running.py`: `VersionMismatch`, `run_verification`.
 - `tests/test_engine.py`: `test_worktree_is_outside_project_and_escape_is_detected`,
   `test_reviewer_tampering_discards_verdict`, `test_evaluate_working_tree_and_patch`,
   `test_an_iteration_that_changes_nothing_stops_instead_of_being_reviewed_again`.
-- `tests/test_profile_verification.py`: `test_run_verification_records_evidence_and_checks_version`.
+- `tests/features/running.feature` with `tests/test_running_scenarios.py`.

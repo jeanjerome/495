@@ -34,8 +34,8 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
+from harness495.core.reading.verification import classify_instrument
 from harness495.core.report import render_markdown
-from harness495.core.verification import classify_instrument
 from harness495.sandbox.base import CommandResult
 from tests.conftest import Scenario
 

@@ -36,8 +36,8 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
+from harness495.core.reading.verification import assess_sufficiency
 from harness495.core.store import RunStore
-from harness495.core.verification import assess_sufficiency
 from tests.conftest import Scenario
 
 scenarios("features/specifier.feature")

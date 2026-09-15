@@ -1,7 +1,7 @@
 """Scenarios of ``tests/features/stability.feature``: a verification is run twice on the same
 version, and one that does not report the same thing twice decides nothing.
 
-The pair scenarios call ``core.verification.reports_the_same_twice``; the decision scenarios
+The pair scenarios call ``core.reading.verification.reports_the_same_twice``; the decision scenarios
 call ``core.decide.assess`` once; the run scenarios walk a change run with the scripted agents
 of ``conftest``, giving the specification a check whose outcome alternates from one run to the
 next, and read the run, the prompts and the report back. The last section reaches
@@ -43,8 +43,8 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
+from harness495.core.reading.verification import reports_the_same_twice
 from harness495.core.report import render_markdown
-from harness495.core.verification import reports_the_same_twice
 from harness495.sandbox.base import CommandResult
 from tests.conftest import Measured, Region, Scenario, measure
 

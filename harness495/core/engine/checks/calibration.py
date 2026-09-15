@@ -1,6 +1,6 @@
 """Running every demonstrating verification again on the base version, and reading the pair.
 
-The pure reader is ``core/verification.py`` — ``run_control``, ``measures_the_change`` and
+The pure reader is ``core/reading/verification.py`` — ``measures_the_change`` and
 ``classify_instrument``, which say what a pair of runs on two trees means; this module is what
 prepares the base version carrying the change's test files, runs the commands on it, records
 what the producer reported as a candidate replacement, and puts an instrument found blind to
@@ -16,6 +16,7 @@ from pathlib import Path
 from harness495.core import git
 from harness495.core.engine.checks.stage import Reading
 from harness495.core.engine.errors import EngineError
+from harness495.core.engine.running import run_control
 from harness495.core.engine.services import RunServices
 from harness495.core.models import (
     ADMISSIBLE,
@@ -32,11 +33,10 @@ from harness495.core.models import (
     Sufficiency,
     Verification,
 )
-from harness495.core.verification import (
+from harness495.core.reading.verification import (
     classify_instrument,
     instrument_files,
     measures_the_change,
-    run_control,
 )
 
 

@@ -70,7 +70,7 @@ for pytest 10; 495 pins `pytest<10` in its dev group until the plugin's fix ship
 
 | Role | Marker of the recommended tool |
 |---|---|
-| bdd | `pytest-bdd` in the dependencies; `.feature` files (already counted as test files by `core/verification.py`); `from pytest_bdd import` in `tests/` |
+| bdd | `pytest-bdd` in the dependencies; `.feature` files (already counted as test files by `core/reading/verification.py`); `from pytest_bdd import` in `tests/` |
 
 A project with `.feature` files and `behave` in its dependencies measures the role with the
 conditioned entry; it is a conformance proposal only if the project also has pytest tests, in

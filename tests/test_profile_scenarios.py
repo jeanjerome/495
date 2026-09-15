@@ -1,10 +1,12 @@
-"""Scenarios of ``tests/features/profile.feature``, ``catalogue.feature`` and
-``proposals.feature``: the role coverage of a host project, its gaps against the catalogue,
-and the conformance proposals those gaps become.
+"""Scenarios of ``tests/features/detection.feature``, ``profile.feature``,
+``catalogue.feature`` and ``proposals.feature``: what a host project is written in and what
+already checks it, the role coverage that reading yields, its gaps against the catalogue, and
+the conformance proposals those gaps become.
 
 The steps lay a project out in a temporary directory from the scenario text, profile it
 (through the API or through the CLI), answer the proposals through the CLI, and read the
-coverage, the gaps and the proposals back; nothing is asserted outside a ``Then``.
+languages, the commands, the coverage, the gaps and the proposals back; nothing is asserted
+outside a ``Then``.
 """
 
 from __future__ import annotations
@@ -24,16 +26,24 @@ from harness495.core.coverage import ROLES_BY_TECHNOLOGY
 from harness495.core.models import (
     CatalogueGap,
     CatalogueRole,
+    ProjectCommand,
+    ProjectConfig,
     ProjectProfile,
     Proposal,
     RoleCoverage,
     Run,
+    VerificationKind,
 )
-from harness495.core.profile import detect_profile
+from harness495.core.profile import detect_profile, read_doc_excerpts
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 
-scenarios("features/profile.feature", "features/catalogue.feature", "features/proposals.feature")
+scenarios(
+    "features/detection.feature",
+    "features/profile.feature",
+    "features/catalogue.feature",
+    "features/proposals.feature",
+)
 
 
 @dataclass
@@ -50,6 +60,7 @@ class Project:
     pom_artifacts: list[str] = field(default_factory=list)
     gradle_plugins: list[str] = field(default_factory=list)
     gradle_dependencies: list[str] = field(default_factory=list)
+    declared_commands: list[ProjectCommand] = field(default_factory=list)
     profile: ProjectProfile | None = None
     last_role: RoleCoverage | None = None
     last_gap: CatalogueGap | None = None
@@ -109,6 +120,11 @@ class Project:
     def profiled(self) -> ProjectProfile:
         assert self.profile is not None, "the harness has not profiled the project yet"
         return self.profile
+
+    def command(self, name: str) -> ProjectCommand:
+        found = self.profiled().command(name)
+        assert found is not None, f"no command named {name}: {self.profiled().commands}"
+        return found
 
     def coverage(self, technology: str, role: str) -> RoleCoverage:
         row = self.profiled().coverage(technology, CatalogueRole(role))
@@ -287,9 +303,23 @@ def a_file_contains(project: Project, path: str, text: str) -> None:
     target.write_text(text.replace("\\n", "\n") + "\n")  # "\n" in a scenario is a line break
 
 
+@given(parsers.parse('its Makefile has the target "{name}"'))
+def makefile_has_a_target(project: Project, name: str) -> None:
+    (project.root / "Makefile").write_text(f"{name}:\n\techo {name}\n")
+
+
+@given(parsers.parse('the requester declared the command "{name}" as "{command}"'))
+def the_requester_declared_a_command(project: Project, name: str, command: str) -> None:
+    project.declared_commands.append(
+        ProjectCommand(name=name, command=command, kind=VerificationKind.test)
+    )
+
+
 @when("the harness profiles the project")
 def the_harness_profiles_the_project(project: Project) -> None:
-    project.profile = detect_profile(project.root)
+    project.profile = detect_profile(
+        project.root, ProjectConfig(commands=project.declared_commands)
+    )
 
 
 @when("the project's tree is removed")
@@ -397,6 +427,51 @@ def the_requester_has_deferred(
     proposal = project.proposal(technology, role)
     project.run_cli("proposals", "defer", proposal.id, monkeypatch=monkeypatch)
     assert project.exit_code == 0, project.output
+
+
+@then(parsers.parse('the languages are "{languages}"'))
+def the_languages_are(project: Project, languages: str) -> None:
+    assert project.profiled().languages == [t.strip() for t in languages.split(",") if t.strip()]
+
+
+@then("no language is detected")
+def no_language_is_detected(project: Project) -> None:
+    assert project.profiled().languages == []
+
+
+@then(parsers.parse('the command "{name}" is "{command}"'))
+def the_command_is(project: Project, name: str, command: str) -> None:
+    assert project.command(name).command == command
+
+
+@then(parsers.parse('the command "{name}" ends with "{tail}"'))
+def the_command_ends_with(project: Project, name: str, tail: str) -> None:
+    assert project.command(name).command.endswith(tail), project.command(name).command
+
+
+@then(parsers.parse('no command is named "{name}"'))
+def no_command_is_named(project: Project, name: str) -> None:
+    assert project.profiled().command(name) is None, project.profiled().commands
+
+
+@then("the project names no command")
+def the_project_names_no_command(project: Project) -> None:
+    assert [c.name for c in project.profiled().commands] == []
+
+
+@then(parsers.parse('the documentation files name "{path}"'))
+def the_documentation_files_name(project: Project, path: str) -> None:
+    assert path in project.profiled().doc_files
+
+
+@then(parsers.parse('the excerpt of "{path}" is "{text}"'))
+def the_excerpt_is(project: Project, path: str, text: str) -> None:
+    assert read_doc_excerpts(project.root, [path])[path] == text + "\n"
+
+
+@then(parsers.parse('the tooling does not name "{tool}"'))
+def the_tooling_does_not_name(project: Project, tool: str) -> None:
+    assert tool not in project.profiled().tooling, project.profiled().tooling
 
 
 @then(parsers.parse('the role "{role}" of "{technology}" is measured with "{tools}"'))

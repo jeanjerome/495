@@ -2,7 +2,7 @@
 
 Every other control the harness runs compares two trees; this one compares two runs of the same
 command on the same tree, where nothing changed in between. The pure reader of the pair is
-``core/verification.py::reports_the_same_twice``; this module is what runs the second command
+``core/reading/verification.py::reports_the_same_twice``; this module is what runs the second command
 and writes the ``stability_check`` evidence (``docs/decisions/0024``).
 """
 
@@ -20,7 +20,7 @@ from harness495.core.models import (
     Verification,
     new_id,
 )
-from harness495.core.verification import reports_the_same_twice
+from harness495.core.reading.verification import reports_the_same_twice
 from harness495.sandbox.base import ExecRequest
 
 

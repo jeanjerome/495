@@ -64,8 +64,9 @@ as `baseline` evidence and shown with the question, never concluded from.
 
 ## Where in the code
 
-- `harness495/core/verification.py`: `run_control`, `measures_the_change`,
-  `classify_instrument`, `failure_signature`, `instrument_files`, `looks_like_a_test`.
+- `harness495/core/engine/running.py::run_control`: the run on the base version.
+- `harness495/core/reading/verification.py`: `measures_the_change`, `classify_instrument`,
+  `failure_signature`, `instrument_files`, `looks_like_a_test`.
 - `harness495/core/engine/checks/calibration.py`: `calibrate`, `measure_proposal`,
   `instrument_decision`, `recalibrate`, `instrument_fault_settled`.
 - `harness495/core/engine/checks/sequence.py`: the `calibration` stage of `SEQUENCE`, and
@@ -78,10 +79,9 @@ as `baseline` evidence and shown with the question, never concluded from.
   `harness495/core/models/evidence.py`: `EvidenceKind.instrument_check`,
   `EvidenceKind.baseline`.
 - `harness495/core/decide.py`: `blind`, `tainted`, `rests_on_a_blind_instrument`, `set_aside`.
-- `tests/test_profile_verification.py`: `test_failure_signature_ignores_where_and_when_but_not_what`,
-  `test_measures_the_change_is_conservative`, `test_a_command_that_fails_on_both_versions_is_broken_not_a_defect`,
-  `test_a_command_that_passes_on_both_versions_proves_nothing_either`,
-  `test_passing_on_both_settles_nothing_when_the_test_could_not_be_carried_over`.
+- `tests/features/verification.feature` with `tests/test_verification_scenarios.py`: the
+  failure signature, what a pair of runs tells of the change, and what it says of the
+  instrument when it tells nothing (broken, vacuous, or not enough to tell).
 - `tests/features/calibration.feature` with `tests/test_calibration_scenarios.py`.
 - `tests/test_engine.py`: `test_every_command_is_run_once_before_the_specification_is_approved`.
 - `tests/test_scope_decide.py`: `test_a_verification_that_cannot_see_the_change_is_not_charged_to_the_change`,

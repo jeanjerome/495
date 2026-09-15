@@ -1,32 +1,35 @@
-"""Run verification commands against the exact evaluated version and collect evidence."""
+"""What a verification command is worth, and what its runs mean, read and nothing else.
+
+Three readings, none of which executes anything. Whether a specification's verifications can
+carry its requirements at all (``assess_sufficiency``). What a pair of runs on two versions
+says about the instrument rather than about the change (``measures_the_change``,
+``classify_instrument``), and what two runs on the same version say about the command itself
+(``reports_the_same_twice``). Which files of a change are the instrument rather than what it
+delivers (``looks_like_a_test``), which is also what ``core/diff.py`` and ``core/suite.py``
+read a diff with.
+
+The results these functions are handed come from :mod:`harness495.core.engine.running`, the
+only module that puts a verification command in the sandbox. Nothing here opens a file of the
+project under test or runs a process, ``shutil.which`` on the machine's PATH excepted, which is
+how the audit tells a command that cannot run from one that can.
+"""
 
 from __future__ import annotations
 
 import re
 import shutil
-from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
-from harness495.core import git
 from harness495.core.catalogue import unmeasured_role
 from harness495.core.models import (
-    Evidence,
-    EvidenceKind,
     ProjectProfile,
     RequirementKind,
     Spec,
     Sufficiency,
     Verification,
     VerificationKind,
-    new_id,
 )
-from harness495.sandbox import Sandbox
-from harness495.sandbox.base import CommandResult, ExecRequest
-
-
-class VersionMismatch(RuntimeError):
-    pass
-
 
 INTERPRETER_NAMES = ("python", "python3", "pytest", "node", "npm", "npx", "ruff", "mypy")
 
@@ -264,131 +267,24 @@ def instrument_files(files_changed: list[str]) -> list[str]:
     return [f for f in files_changed if looks_like_a_test(f)]
 
 
-def run_verification(
-    v: Verification,
-    worktree: Path,
-    expected_head: str | None,
-    sandbox: Sandbox,
-    iteration: int,
-    timeout_s: int,
-    output_sink: Callable[[str, str], str],
-    stop_check: Callable[[], bool] | None = None,
-    requirement_ids: list[str] | None = None,
-    network: bool = False,
-) -> Evidence:
-    """Execute one verification. ``output_sink(evidence_id, text)`` stores the output and returns a ref."""
-    eid = new_id("ev")
-    if v.command is None:
-        return Evidence(
-            id=eid,
-            kind=EvidenceKind.command_result,
-            iteration=iteration,
-            subject_version=expected_head,
-            verification_id=v.id,
-            requirement_ids=requirement_ids or [],
-            passed=None,
-            summary=f"{v.id} has no command; not executed ({v.sufficiency.value})",
-        )
-    if expected_head is not None:
-        actual = git.head_commit(worktree)
-        if actual != expected_head:
-            raise VersionMismatch(
-                f"worktree HEAD {actual} differs from evaluated version {expected_head}"
-            )
-    req = ExecRequest(
-        command=v.command,
-        cwd=worktree,
-        timeout_s=v.timeout_s or timeout_s,
-        writable=True,  # test runners write caches; the version is protected by git, not by the sandbox
-        network=network,
-        stop_check=stop_check,
-    )
-    res: CommandResult = sandbox.run(req)
-    ref = output_sink(eid, res.output)
-    passed: bool | None
-    if res.timed_out or res.interrupted:
-        passed = None if res.interrupted else False
-        summary = "timed out" if res.timed_out else "interrupted"
-    else:
-        passed = res.exit_code == v.expected_exit_code
-        summary = f"exit {res.exit_code} (expected {v.expected_exit_code})"
-    return Evidence(
-        id=eid,
-        kind=EvidenceKind.command_result,
-        iteration=iteration,
-        subject_version=expected_head,
-        verification_id=v.id,
-        requirement_ids=requirement_ids or [],
-        command=v.command,
-        exit_code=res.exit_code,
-        expected_exit_code=v.expected_exit_code,
-        passed=passed,
-        summary=summary,
-        output_ref=ref,
-        output_sha256=git.sha256_text(res.output),
-        duration_s=res.duration_s,
-        sandbox=sandbox.describe(req),
-    )
+class CommandOutcome(Protocol):
+    """What reading a pair of runs needs of a run that happened, and no more.
 
-
-def run_control(
-    v: Verification,
-    base_worktree: Path,
-    base_commit: str,
-    sandbox: Sandbox,
-    iteration: int,
-    timeout_s: int,
-    output_sink: Callable[[str, str], str],
-    stop_check: Callable[[], bool] | None = None,
-    network: bool = False,
-    applied: list[str] | None = None,
-    label: str | None = None,
-) -> tuple[Evidence, CommandResult]:
-    """Run a verification against the base version, where the change does not exist.
-
-    The tree it runs in carries the change's own test files when they could be identified, so
-    that the instrument is present and only the behaviour it measures is missing. What comes back
-    is half of a pair: a command whose outcome is the same here and on the change is not
-    observing the change, whatever it reports.
+    The engine hands in the result its sandbox produced; naming the four fields structurally
+    rather than importing that class is what keeps this module free of the package that
+    executes commands.
     """
-    eid = new_id("ev")
-    command = v.command
-    assert command is not None
-    req = ExecRequest(
-        command=command,
-        cwd=base_worktree,
-        timeout_s=v.timeout_s or timeout_s,
-        writable=True,
-        network=network,  # the control must run under the conditions the subject ran under
-        stop_check=stop_check,
-    )
-    res: CommandResult = sandbox.run(req)
-    return (
-        Evidence(
-            id=eid,
-            kind=EvidenceKind.instrument_check,
-            iteration=iteration,
-            subject_version=base_commit,
-            verification_id=v.id,
-            command=command,
-            exit_code=res.exit_code,
-            expected_exit_code=v.expected_exit_code,
-            passed=None,  # a statement about the instrument, not about the change
-            summary=f"{label or 'control run on the base version'}: exit {res.exit_code}"
-            + (f", with {len(applied)} test file(s) of the change applied" if applied else ""),
-            output_ref=output_sink(eid, res.output),
-            output_sha256=git.sha256_text(res.output),
-            duration_s=res.duration_s,
-            sandbox=sandbox.describe(req),
-        ),
-        res,
-    )
+
+    exit_code: int | None
+    output: str
+    timed_out: bool
+    interrupted: bool
 
 
 def measures_the_change(
     subject_exit: int | None,
     subject_output: str,
-    control: CommandResult,
+    control: CommandOutcome,
     subject_timed_out: bool = False,
 ) -> bool:
     """False when the command fails identically with and without the change.
@@ -414,7 +310,7 @@ def reports_the_same_twice(
     first_exit: int | None,
     first_output: str,
     first_timed_out: bool,
-    second: CommandResult,
+    second: CommandOutcome,
 ) -> tuple[bool, str]:
     """Read two runs of one command on one version. Returns (stable, what the pair reported).
 
@@ -457,7 +353,7 @@ def classify_instrument(
     subject_exit: int | None,
     subject_output: str,
     subject_timed_out: bool,
-    control: CommandResult,
+    control: CommandOutcome,
     base_commit: str,
     applied: list[str],
 ) -> tuple[bool | None, Sufficiency, str]:

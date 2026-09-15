@@ -135,7 +135,7 @@ ignore_imports = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "inside core, only engine reaches agents and only engine and verification reach sandbox"
+name = "inside core, only engine reaches agents and sandbox"
 type = "forbidden"
 source_modules = ["harness495.core"]
 forbidden_modules = ["harness495.agents", "harness495.sandbox"]
@@ -143,6 +143,4 @@ ignore_imports = [
     "harness495.core.engine.** -> harness495.agents.**",
     "harness495.core.engine.** -> harness495.sandbox",
     "harness495.core.engine.** -> harness495.sandbox.**",
-    "harness495.core.verification -> harness495.sandbox",
-    "harness495.core.verification -> harness495.sandbox.**",
 ]

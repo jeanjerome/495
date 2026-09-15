@@ -77,7 +77,7 @@ its `instructions` included. `Engine._review` walks that list.
 
 ## Where in the code
 
-- `harness495/core/verification.py`: `asserted`, `execution_error`, `_ASSERTION`,
+- `harness495/core/reading/verification.py`: `asserted`, `execution_error`, `_ASSERTION`,
   `_EXECUTION_ERROR`, the `unconfirmed` branch of `classify_instrument`.
 - `harness495/core/models/enums.py`: `Sufficiency.unconfirmed`, `ADMISSIBLE`;
   `harness495/core/models/config.py::RolesConfig.reviewers_for`.

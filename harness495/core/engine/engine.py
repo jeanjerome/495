@@ -51,6 +51,7 @@ from harness495.core.context import (
 from harness495.core.decide import Assessment, assess
 from harness495.core.engine import checks
 from harness495.core.engine.errors import EngineError
+from harness495.core.engine.running import VersionMismatch
 from harness495.core.engine.services import RunServices
 from harness495.core.models import (
     ADMISSIBLE,
@@ -107,6 +108,7 @@ from harness495.core.models import (
     utcnow,
 )
 from harness495.core.profile import detect_profile, read_doc_excerpts
+from harness495.core.reading.verification import assess_sufficiency, looks_like_a_test
 from harness495.core.report import render_markdown
 from harness495.core.schemas import (
     CLARIFY_SCHEMA,
@@ -117,11 +119,6 @@ from harness495.core.schemas import (
 )
 from harness495.core.scope import effective_allowed
 from harness495.core.store import RunStore
-from harness495.core.verification import (
-    VersionMismatch,
-    assess_sufficiency,
-    looks_like_a_test,
-)
 from harness495.sandbox import Sandbox, select_sandbox
 from harness495.sandbox.base import ExecRequest
 

@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from harness495.core.verification import looks_like_a_test
+from harness495.core.reading.verification import looks_like_a_test
 
 SOURCE_SUFFIXES = frozenset(
     {
