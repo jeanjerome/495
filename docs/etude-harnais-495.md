@@ -1220,5 +1220,5 @@ l'article demande, et qu'il faut préserver dans chaque travail :
 | Budgets, coûts | `core/budget.py`, `core/pricing.py`, `data/pricing.json` |
 | Persistance, claim, événements | `core/store.py` |
 | Rapport | `core/report.py` |
-| Tests du moteur avec agents factices | `tests/conftest.py` (`Scenario`, `FakeAgent`), `tests/test_engine.py` |
+| Tests du moteur avec agents factices | `tests/conftest.py` (`Scenario`, `FakeAgent`), `tests/test_run_scenarios.py`, `tests/test_integration_scenarios.py` |
 | Tests de la décision et du différentiel | `tests/test_decide_scenarios.py`, `tests/test_scope_scenarios.py`, `tests/test_verification_scenarios.py`, `tests/test_profile_scenarios.py` |

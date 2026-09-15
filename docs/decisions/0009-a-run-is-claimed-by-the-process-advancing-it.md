@@ -36,6 +36,7 @@ pause, terminal state) releases its claim.
   `test_a_run_held_by_a_live_process_is_named_not_taken`,
   `test_a_claim_left_by_a_dead_process_does_not_lock_the_run`,
   `test_releasing_someone_else_s_claim_does_nothing`.
-- `tests/test_engine.py`: `test_a_run_being_advanced_elsewhere_is_refused_not_joined`,
-  `test_the_claim_is_given_back_when_the_run_blocks`.
+- `tests/features/isolation.feature` with `tests/test_run_scenarios.py`: a run another
+  process holds is refused rather than joined, and a run that stops on a question gives
+  the claim back.
 - `tests/test_tui_pilot.py`: `test_a_run_advanced_elsewhere_is_watched_not_joined`.

@@ -51,8 +51,11 @@ status.
   `_intervene` (tamper check), `_produce` (freeze), `_save_patch`,
   `_prepare_evaluation_worktree`, `cleanup_worktree`.
 - `harness495/core/engine/running.py`: `VersionMismatch`, `run_verification`.
-- `tests/test_engine.py`: `test_worktree_is_outside_project_and_escape_is_detected`,
-  `test_reviewer_tampering_discards_verdict`, `test_evaluate_working_tree_and_patch`.
+- `tests/features/isolation.feature` with `tests/test_run_scenarios.py`: the worktree is
+  outside the project, a producer that writes into the checkout is caught and its
+  intervention tampered, and a reviewer that writes has its verdict discarded.
+- `tests/features/evaluation.feature` with `tests/test_run_scenarios.py`: the working tree
+  is evaluated, and the patch that run recorded evaluates to the same thing.
 - `tests/features/workflow.feature` with `tests/test_run_scenarios.py`: a second version
   identical to the first stops the run instead of being read again.
 - `tests/features/running.feature` with `tests/test_running_scenarios.py`.

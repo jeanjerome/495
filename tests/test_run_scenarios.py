@@ -1,6 +1,8 @@
-"""Scenarios of ``tests/features/workflow.feature`` and ``tests/features/questions.feature``:
-the walk ``core/engine/engine.py`` makes from an intent to a change it accepts, and the
-questions it stops on when it cannot make that walk alone.
+"""Scenarios of ``tests/features/workflow.feature``, ``questions.feature``,
+``isolation.feature`` and ``evaluation.feature``: the walk ``core/engine/engine.py`` makes from
+an intent to a change it accepts, the questions it stops on when it cannot make that walk
+alone, the tree it keeps that walk inside, and the same walk over a change that already
+exists.
 
 The steps script the fake agents of ``tests/conftest.py``, carry one run out over the sample
 project, answer what it asks, and read the run document, the interventions' prompts, the
@@ -10,6 +12,7 @@ evidence and the store back. Nothing is asserted outside a ``Then``.
 from __future__ import annotations
 
 import json
+import socket
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -17,6 +20,7 @@ from pathlib import Path
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
+from harness495.agents.base import AgentTask
 from harness495.core import git
 from harness495.core.config import load_config
 from harness495.core.engine import Engine
@@ -36,6 +40,7 @@ from harness495.core.models import (
     Verdict,
 )
 from harness495.core.report import render_markdown
+from harness495.core.store import DRIVER_FLAG, RunBusy
 from tests.conftest import (
     Scenario,
     accept_review,
@@ -44,7 +49,12 @@ from tests.conftest import (
     reject_review,
 )
 
-scenarios("features/workflow.feature", "features/questions.feature")
+scenarios(
+    "features/workflow.feature",
+    "features/questions.feature",
+    "features/isolation.feature",
+    "features/evaluation.feature",
+)
 
 INTENT = "add subtract to calc"
 
@@ -60,6 +70,9 @@ class Walk:
     run_id: str = ""
     asked: list[str] = field(default_factory=list)
     built: Engine | None = None
+    evaluated_ref: str = ""
+    second: Run | None = None
+    refused: Exception | None = None
 
     @property
     def engine(self) -> Engine:
@@ -85,6 +98,9 @@ class Walk:
 
     def prompts(self, role: Role) -> list[str]:
         return [task.prompt for task in self.script.calls if task.role is role]
+
+    def claim_flag(self) -> Path:
+        return self.engine.store.run_dir(self.run_id) / DRIVER_FLAG
 
     def pending(self) -> PendingDecision:
         found = self.run.pending_decision
@@ -683,3 +699,185 @@ def the_question_no_longer_says(world: Walk, text: str) -> None:
 @then("the run stands profiled")
 def the_run_stands_profiled(world: Walk) -> None:
     assert world.run.status is RunStatus.profiled
+
+
+# ----------------------------------------------------------------- the tree a run works in
+
+
+@given("the producer also writes into the project's own checkout")
+def the_producer_writes_into_the_checkout(world: Walk) -> None:
+    def escaping_producer(cwd: Path) -> None:
+        good_producer(cwd)
+        (world.project / "calc.py").write_text("escaped")
+
+    world.script.producers = [escaping_producer]
+
+
+@given("the reviewers write into the tree they are reading")
+def the_reviewers_write_into_the_tree(world: Walk) -> None:
+    def tamper(task: AgentTask) -> None:
+        (task.cwd / "calc.py").write_text("tampered")
+
+    world.script.reviewer_hook = tamper
+
+
+@given("another process holds the claim on the run")
+def another_process_holds_the_claim(world: Walk) -> None:
+    world.run_id = world.engine.create_run(INTENT, world.project, world.config, RunMode.change).id
+    world.claim_flag().write_text(
+        json.dumps({"pid": 1, "host": socket.gethostname(), "label": "495 run", "since": "now"}),
+        encoding="utf-8",
+    )
+
+
+@when("the run is created")
+def the_run_is_created(world: Walk) -> None:
+    world.run_id = world.engine.create_run(INTENT, world.project, world.config, RunMode.change).id
+
+
+@when("carrying the run out is attempted")
+def carrying_the_run_out_is_attempted(world: Walk) -> None:
+    try:
+        world.engine.run(world.run_id)
+    except RunBusy as exc:
+        world.refused = exc
+
+
+@when("the claim is given up and the run is carried out")
+def the_claim_is_given_up(world: Walk) -> None:
+    world.claim_flag().unlink()
+    world.carry_out()
+
+
+@then("the worktree is outside the project, and the run says where it is")
+def the_worktree_is_outside_the_project(world: Walk) -> None:
+    run = world.run
+    worktree = world.engine.worktree_path(run)
+    assert not str(worktree).startswith(str(world.project))
+    assert run.worktree == str(worktree)
+
+
+@then("the run failed, saying what it found changed")
+def the_run_failed_saying_what_changed(world: Walk) -> None:
+    run = world.run
+    reason = run.stop_reason or ""
+    assert run.status is RunStatus.failed
+    assert "escaped" in reason or "modified the project" in reason
+
+
+@then("the evidence holds a failed integrity check")
+def the_evidence_holds_a_failed_integrity_check(world: Walk) -> None:
+    assert any(e.kind.value == "integrity" and e.passed is False for e in world.run.evidence)
+
+
+@then("the producer's intervention is recorded as tampered")
+def the_producers_intervention_is_tampered(world: Walk) -> None:
+    assert any(
+        i.status is InterventionStatus.tampered
+        for i in world.run.interventions
+        if i.role is Role.producer
+    )
+
+
+@then("what the producer wrote in the checkout is left there for inspection")
+def what_was_written_in_the_checkout_is_left(world: Walk) -> None:
+    assert (world.project / "calc.py").read_text() == "escaped"
+
+
+@then("every review is discarded")
+def every_review_is_discarded(world: Walk) -> None:
+    reviews = world.run.reviews
+    assert reviews and all(rv.discarded for rv in reviews)
+
+
+@then("every reviewer's intervention is recorded as tampered")
+def every_reviewer_intervention_is_tampered(world: Walk) -> None:
+    assert all(
+        i.status is InterventionStatus.tampered
+        for i in world.run.interventions
+        if i.role is Role.reviewer
+    )
+
+
+@then("the worktree carries no trace of what the reviewers wrote")
+def the_worktree_carries_no_trace(world: Walk) -> None:
+    worktree = world.engine.worktree_path(world.run)
+    assert "tampered" not in (worktree / "calc.py").read_text()
+
+
+@then("it is refused as busy, and the run stands where it was")
+def it_is_refused_as_busy(world: Walk) -> None:
+    assert isinstance(world.refused, RunBusy)
+    assert world.run.status is RunStatus.created
+
+
+@then("nothing holds the claim on the run")
+def nothing_holds_the_claim(world: Walk) -> None:
+    assert not world.claim_flag().exists()
+
+
+# ----------------------------------------------------------------- evaluating what exists
+
+
+@given("the change is committed in the project")
+def the_change_is_committed_in_the_project(world: Walk) -> None:
+    good_producer(world.project)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "add subtract"],
+        cwd=world.project,
+        check=True,
+        capture_output=True,
+    )
+    world.evaluated_ref = git.head_commit(world.project)
+
+
+@given("the change is in the working tree, uncommitted")
+def the_change_is_in_the_working_tree(world: Walk) -> None:
+    good_producer(world.project)
+    world.evaluated_ref = "WORKTREE"
+
+
+@when("the committed change is evaluated")
+@when("the working tree is evaluated")
+def the_change_is_evaluated(world: Walk) -> None:
+    world.run_id = world.engine.create_run(
+        INTENT,
+        world.project,
+        world.config,
+        RunMode.evaluate,
+        evaluate_ref=world.evaluated_ref,
+    ).id
+    world.engine.run(world.run_id)
+
+
+@when("the working tree is put back and the patch of that run is evaluated")
+def the_patch_is_evaluated(world: Walk) -> None:
+    run = world.run
+    patch = world.engine.store.resolve(run.id, run.result.patch_ref)
+    subprocess.run(["git", "checkout", "--", "."], cwd=world.project, check=True)
+    second = world.engines().create_run(
+        INTENT,
+        world.project,
+        world.config,
+        RunMode.evaluate,
+        evaluate_ref=f"patch:{patch}",
+    )
+    world.second = world.engines().run(second.id)
+
+
+@then("no producer was called")
+def no_producer_was_called(world: Walk) -> None:
+    assert Role.producer not in [task.role for task in world.script.calls]
+
+
+@then("the version evaluated is that commit")
+def the_version_evaluated_is_that_commit(world: Walk) -> None:
+    version = world.iteration_one.version
+    assert version is not None and version.head_commit == world.evaluated_ref
+
+
+@then("the second run is delivered, and accepted")
+def the_second_run_is_delivered(world: Walk) -> None:
+    second = world.second
+    assert second is not None
+    assert second.status is RunStatus.delivered and second.result.outcome is Verdict.accept
