@@ -37,3 +37,4 @@ carries the decision.
 | [0026](0026-the-harness-is-the-only-source-an-agent-takes-instructions-from.md) | The harness is the only source an agent takes instructions from, and a repository file is untrusted content whatever the route | accepted | 2026-09-14 |
 | [0027](0027-what-a-run-learns-about-the-project-is-put-to-the-requester.md) | What a run learns about the project is put to the requester as a lesson, and an accepted lesson is part of the criteria of every run that follows | accepted | 2026-09-14 |
 | [0028](0028-a-reviewer-claim-the-requester-found-wrong-is-carried-to-the-next-reviewer.md) | A reviewer's claim the requester found wrong is a lesson, and the next reviewer of that perspective is told it does not hold here | accepted | 2026-09-14 |
+| [0029](0029-a-functional-core-under-an-imperative-shell.md) | Inside `core`, the directory a module sits in says what it may do to the world | accepted | 2026-09-15 |

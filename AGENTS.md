@@ -25,10 +25,15 @@ CLI `495`, launcher `./run.sh`.
 Keep these true in every change; each has a test or a record that names it.
 
 - Package dependencies point one way: `interfaces` → `core.engine` → `agents` → `sandbox` →
-  `core.models`, and `core.reading` imports `core.models` and `core.reading` alone — no store,
-  no git, no sandbox, no subprocess. The exact rules are import-linter contracts in
-  `pyproject.toml`, run by `lint-imports` and by `tests/test_architecture.py`
-  (`docs/decisions/0011-package-boundaries.md`).
+  `core.models` (`docs/decisions/0011-package-boundaries.md`). Inside `core`, the directory a
+  module sits in says what it may do to the world: `models/` states what things are, `reading/`
+  says what a measurement means and imports `core.models` and `core.reading` alone — no store, no
+  git, no sandbox, no subprocess — `engine/` acts, and `profile.py`, `coverage.py`,
+  `conditions.py`, `proposals.py` read the project into a document. Each check of the verify phase
+  is a driver under `core/engine/checks/` paired with a reader under `core/reading/`
+  (`docs/decisions/0029-a-functional-core-under-an-imperative-shell.md`). The exact rules are
+  import-linter contracts in `pyproject.toml`, run by `lint-imports` and by
+  `tests/test_architecture.py`.
 - A test uses the library the catalogue `docs/test-libraries.md` recommends for its role and
   technology. A hand-written check is admissible only for a role with no entry, and its docstring
   says so (`0012`).
