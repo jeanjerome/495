@@ -70,5 +70,7 @@ records that the reviewer assessed the requirement as violated without a cited o
   alone and beside an accepting reviewer, and one backed by a finding; a change no reviewer
   read, a review the harness discarded, a blocker attached to no requirement, and a failed
   scope check.
-- `tests/test_engine.py`: `test_undetermined_refuses_to_conclude`,
-  `test_reviewer_tampering_discards_verdict`.
+- `tests/features/questions.feature` with `tests/test_run_scenarios.py`: a requirement only
+  a review speaks for is a gap at approval and leaves the outcome `undetermined`, which the
+  requester answers by accepting the risk.
+- `tests/test_engine.py`: `test_reviewer_tampering_discards_verdict`.

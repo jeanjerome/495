@@ -83,7 +83,9 @@ as `baseline` evidence and shown with the question, never concluded from.
   failure signature, what a pair of runs tells of the change, and what it says of the
   instrument when it tells nothing (broken, vacuous, or not enough to tell).
 - `tests/features/calibration.feature` with `tests/test_calibration_scenarios.py`.
-- `tests/test_engine.py`: `test_every_command_is_run_once_before_the_specification_is_approved`.
+- `tests/features/questions.feature` with `tests/test_run_scenarios.py`: a command invented
+  for the specification is run once on the base version before approval is asked, judged by
+  nobody, and what it reported travels with the question.
 - `tests/features/decide.feature` with `tests/test_decide_scenarios.py`: a verification that
   fails without the change as well is charged to nothing, a finding resting on one is set aside
   while a finding standing on the code itself is not, and a control run on the base version
