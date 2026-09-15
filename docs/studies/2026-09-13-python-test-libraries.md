@@ -147,7 +147,7 @@ Input for the role coverage of `docs/etude-harnais-495.md`, E50 (a):
 
 - A cross-technology row for secrets scanning (gitleaks or detect-secrets), outside the
   per-technology tables.
-- First use in 495 (`docs/etude-harnais-495.md`, E46): hypothesis on `core/decide.py::assess`
+- First use in 495 (`docs/etude-harnais-495.md`, E46): hypothesis on `core/reading/decide.py::assess`
   and the verification helpers, mutmut on `decide.py` and `reading/verification.py`.
 - The other technologies of the catalogue: JavaScript / TypeScript, Rust, Go, Java / Kotlin,
   Shell.

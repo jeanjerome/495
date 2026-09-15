@@ -34,7 +34,7 @@ from harness495.core.models import (
     Version,
     new_id,
 )
-from harness495.core.retro import retrospect
+from harness495.core.reading.retro import retrospect
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 

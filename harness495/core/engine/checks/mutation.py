@@ -25,7 +25,7 @@ from harness495.core.models import (
     VerificationKind,
     new_id,
 )
-from harness495.core.mutation import Mutant, mutated_source, plan_mutants
+from harness495.core.reading.mutation import Mutant, mutated_source, plan_mutants
 from harness495.sandbox.base import ExecRequest
 
 

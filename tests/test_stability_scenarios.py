@@ -22,7 +22,6 @@ from typing import Any
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from harness495.core.decide import Assessment, assess
 from harness495.core.engine.checks.stability import repeat
 from harness495.core.models import (
     DecisionKind,
@@ -43,6 +42,7 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
+from harness495.core.reading.decide import Assessment, assess
 from harness495.core.reading.verification import reports_the_same_twice
 from harness495.core.report import render_markdown
 from harness495.sandbox.base import CommandResult

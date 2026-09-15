@@ -32,8 +32,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from harness495.core.lessons import render_document
 from harness495.core.models import Event, Lessons, Proposals, Retrospective, Run, utcnow
+from harness495.core.reading.lessons import render_document
 
 STATE_DIR_NAME = ".495"
 PROPOSALS_FILE = "proposals.json"

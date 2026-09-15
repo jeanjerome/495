@@ -30,7 +30,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 
-from harness495.core.diff import AddedLine
+from harness495.core.reading.diff import AddedLine
 
 REPORT_DIR = ".495-coverage"
 """Where the instrumented command is told to write, inside the worktree: one directory, so

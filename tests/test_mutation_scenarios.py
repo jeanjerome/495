@@ -21,7 +21,6 @@ from typing import Any
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from harness495.core.decide import Assessment, assess
 from harness495.core.engine.checks import Reading
 from harness495.core.engine.checks.mutation import mutate, run_mutant
 from harness495.core.git import diff as repo_diff
@@ -41,7 +40,8 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
-from harness495.core.mutation import Mutant, mutated_source, plan_mutants
+from harness495.core.reading.decide import Assessment, assess
+from harness495.core.reading.mutation import Mutant, mutated_source, plan_mutants
 from harness495.core.report import render_markdown
 from tests.conftest import (
     SAMPLE_MODULE,

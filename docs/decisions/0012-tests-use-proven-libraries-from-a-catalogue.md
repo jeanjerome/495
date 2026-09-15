@@ -67,7 +67,7 @@ ecosystem already provides.
   markers has no rows, so that an unmeasured role always states a fact about the project and
   never a gap in the profile. Tools found this way join the profile's tooling, so the agents
   are told about them.
-- The comparison with the catalogue (point 4) is `harness495/core/catalogue.py::compare`,
+- The comparison with the catalogue (point 4) is `harness495/core/reading/catalogue.py::compare`,
   run at the end of `detect_profile`; its result is stored on the profile (`CatalogueGap`,
   `ProjectProfile.catalogue_gaps`) so that a run records the gaps it saw. `RECOMMENDED`
   mirrors the document's `recommended` entries and `CONTRADICTING_ROLES` its Roles table;
@@ -108,7 +108,7 @@ ecosystem already provides.
   `harness495/core/profile.py` gathers each technology's `Tree`;
   `core/context.py::render_profile`, `495 profile` and
   the TUI profile view show the rows.
-- `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`,
+- `harness495/core/reading/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`,
   and the conditions that select among the entries of a cell (`CONDITIONS`,
   `conditions_holding`); `harness495/core/models/profile.py::CatalogueGap`;
   `harness495/core/models/enums.py::GapKind`; `harness495/core/models/lessons.py`:

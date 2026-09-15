@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from harness495.core.catalogue import applicable
 from harness495.core.models import (
     CatalogueRole,
     Evidence,
@@ -29,6 +28,7 @@ from harness495.core.models import (
     Verification,
     utcnow,
 )
+from harness495.core.reading.catalogue import applicable
 
 SECTION_NAMES: dict[str, str] = {"python": "Python", "shell": "Shell"}
 """The catalogue's section heading per technology, as the Rejected table names it."""

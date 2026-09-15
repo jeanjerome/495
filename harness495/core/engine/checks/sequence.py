@@ -30,7 +30,7 @@ from harness495.core.models import (
     RunStatus,
     new_id,
 )
-from harness495.core.scope import check_scope, effective_allowed
+from harness495.core.reading.scope import check_scope, effective_allowed
 
 
 def scope_check(

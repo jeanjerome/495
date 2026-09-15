@@ -18,7 +18,6 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
-from harness495.core import lessons as memory
 from harness495.core.config import load_config
 from harness495.core.models import (
     REPLACED_PREFIX,
@@ -55,6 +54,7 @@ from harness495.core.models import (
     Version,
     new_id,
 )
+from harness495.core.reading import lessons as memory
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 from tests.conftest import Scenario

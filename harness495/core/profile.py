@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from harness495.core import catalogue, coverage, git
+from harness495.core import conditions, coverage, git
 from harness495.core.coverage import Tree, read_ci
 from harness495.core.models import (
     ProjectCommand,
@@ -23,6 +23,7 @@ from harness495.core.models import (
     ProjectProfile,
     VerificationKind,
 )
+from harness495.core.reading import catalogue
 
 DOC_CANDIDATES = [
     "CLAUDE.md",
@@ -640,7 +641,7 @@ def detect_profile(root: Path, project: ProjectConfig | None = None) -> ProjectP
     )
     # The conditions of the catalogue read the tree; they are measured here, once, so that
     # every later reading of the catalogue answers from the profile alone.
-    prof.conditions = catalogue.conditions_holding(prof)
+    prof.conditions = conditions.conditions_holding(prof)
     prof.catalogue_gaps = catalogue.compare(prof)
     if git.is_repo(root):
         try:

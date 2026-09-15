@@ -28,7 +28,7 @@ nobody. Reviewers were the only role no lesson was ever given.
 ## Decision
 
 `learn` states a fifth kind, `false_positive`: a claim a reviewer made that does not hold in
-this project. `core/lessons.py::_false_positives` reads it from the run document, and puts only
+this project. `core/reading/lessons.py::_false_positives` reads it from the run document, and puts only
 the findings the harness acted on — one that blocked the change, and one a reviewer read a
 requirement as violated for — each citing an observation, without which 0001 reads the claim as
 deciding nothing and there is nothing to refute. A finding of a review the harness discarded is
@@ -77,7 +77,7 @@ that bear on a specification and not these.
 
 - `harness495/core/models/lessons.py`: `LessonKind.false_positive`, `Lesson.perspective`,
   `Lesson.key`, `Lesson.declares`.
-- `harness495/core/lessons.py`: `_false_positives`, `learn`, `HEADING`; `criteria` and
+- `harness495/core/reading/lessons.py`: `_false_positives`, `learn`, `HEADING`; `criteria` and
   `toml_lines` leave the kind alone.
 - `harness495/core/context.py`: `render_refuted`.
 - `harness495/core/engine/engine.py`: `_review` gives the reviewer the claims of its own perspective;

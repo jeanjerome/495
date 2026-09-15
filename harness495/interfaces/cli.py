@@ -20,10 +20,7 @@ from rich.text import Text
 
 from harness495 import __version__
 from harness495.core import git
-from harness495.core import lessons as memory
 from harness495.core import proposals as conformance
-from harness495.core import retro as retrospection
-from harness495.core import stats as indicators
 from harness495.core.config import CONFIG_TEMPLATE, PROJECT_TEMPLATE, load_config
 from harness495.core.engine import Engine, EngineError
 from harness495.core.models import (
@@ -51,6 +48,9 @@ from harness495.core.models import (
     ToolVerdict,
 )
 from harness495.core.profile import detect_profile
+from harness495.core.reading import lessons as memory
+from harness495.core.reading import retro as retrospection
+from harness495.core.reading import stats as indicators
 from harness495.core.report import render_markdown
 from harness495.core.store import RunBusy, RunNotFound, RunStore, default_state_dir
 from harness495.interfaces.render import (

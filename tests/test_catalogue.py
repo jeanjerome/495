@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from harness495.core.catalogue import (
-    CONDITIONS,
+from harness495.core.conditions import CONDITIONS
+from harness495.core.coverage import ROLES_BY_TECHNOLOGY
+from harness495.core.models import CatalogueRole
+from harness495.core.reading.catalogue import (
     CONTRADICTING_ROLES,
     RECOMMENDED,
     ROLE_CONTRACTS,
     Recommendation,
 )
-from harness495.core.coverage import ROLES_BY_TECHNOLOGY
-from harness495.core.models import CatalogueRole
 
 CATALOGUE = Path(__file__).resolve().parent.parent / "docs" / "test-libraries.md"
 

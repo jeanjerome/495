@@ -102,6 +102,7 @@ markers = [
 
 [tool.importlinter]
 root_package = "harness495"
+include_external_packages = true
 # Package boundaries: docs/decisions/0011-package-boundaries.md. Run with `lint-imports`;
 # tests/test_architecture.py runs the same contracts under pytest.
 
@@ -143,4 +144,25 @@ ignore_imports = [
     "harness495.core.engine.** -> harness495.agents.**",
     "harness495.core.engine.** -> harness495.sandbox",
     "harness495.core.engine.** -> harness495.sandbox.**",
+]
+
+[[tool.importlinter.contracts]]
+name = "core.reading imports core.models and core.reading alone"
+type = "forbidden"
+source_modules = ["harness495.core.reading"]
+forbidden_modules = [
+    "harness495.core",
+    "harness495.agents",
+    "harness495.sandbox",
+    "harness495.interfaces",
+    "subprocess",
+    "os",
+    "tempfile",
+    "socket",
+    "urllib",
+    "httpx",
+]
+ignore_imports = [
+    "harness495.core.reading.** -> harness495.core.models",
+    "harness495.core.reading.** -> harness495.core.reading.**",
 ]

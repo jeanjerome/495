@@ -50,12 +50,15 @@ them.
 
 ## Consequences
 
-- A retrospective is a pure function of the run document (`core/retro.py::retrospect`), like
-  the decision (0001): it reads evidence, iterations, the spec and the profile, never the
+- A retrospective is a pure function of the run document (`core/reading/retro.py::retrospect`),
+  like the decision (0001): it reads evidence, iterations, the spec and the profile, never the
   events, the outputs or the tree. The catalogue entry each observation is stated against is
   read the same way: a cell holding several entries is picked between by conditions, some of
   which read the project's files, and those are evaluated once, while the project is profiled,
   onto `ProjectProfile.conditions`; `catalogue.applicable` reads that record and opens nothing.
+  The two halves sit in two packages, so that nothing puts them back together: the conditions
+  in `core/conditions.py`, the recommendations in `core/reading/catalogue.py`, which the
+  contract on `core.reading` keeps free of anything that could read a file (0011).
   A run read after its project changed answers as the run measured the project, not as the
   project stands. A run archived with `495 export` yields the same retrospective anywhere. The
   cost is that two failures with different signatures on both versions, which the engine tells
@@ -78,8 +81,9 @@ them.
 ## Where in the code
 
 - `harness495/core/models/retrospective.py`: `ToolVerdict`, `ToolObservation`, `Retrospective`.
-- `harness495/core/retro.py`: `measurements`, `read`, `retrospect`, `SECTION_NAMES`.
-- `harness495/core/catalogue.py`: `CONDITIONS`, `conditions_holding`, `applicable`;
+- `harness495/core/reading/retro.py`: `measurements`, `read`, `retrospect`, `SECTION_NAMES`.
+- `harness495/core/conditions.py`: `CONDITIONS`, `conditions_holding`;
+  `harness495/core/reading/catalogue.py::applicable` reads what they left;
   `harness495/core/profile.py::detect_profile` records the outcome;
   `harness495/core/models/lessons.py::ProjectProfile.conditions`.
 - `harness495/core/store.py`: `RunStore.retrospective_path`, `load_retrospective`,

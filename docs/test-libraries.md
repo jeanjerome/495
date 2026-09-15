@@ -17,7 +17,7 @@ One recommended library per technology and per role. Binds 495's own tests and t
   can detect" sections; a technology whose study is not done has no rows). `495 init` and
   `495 profile` then compare the coverage with the entries below and state each gap: a role
   nothing measures, a role measured with another tool than the recommended one, a role
-  measured with part of the recommended entry (`harness495/core/catalogue.py`, which mirrors
+  measured with part of the recommended entry (`harness495/core/reading/catalogue.py`, which mirrors
   the `recommended` entries; `tests/test_catalogue.py` keeps it equal to this document). Only
   the roles marked *proposed to a host project* in the Roles table are compared: those whose
   measure can contradict what the agent produced. A cell with several entries is compared
@@ -37,7 +37,7 @@ One recommended library per technology and per role. Binds 495's own tests and t
 - A study that fills a section lives in `docs/studies/`, named by date and technology, and
   records what was measured; the source column points to it.
 - Closing a run on a host project: `495 retro <run-id>` reads back what the run showed about
-  each tool that measured a role (`harness495/core/retro.py`): proven when its report
+  each tool that measured a role (`harness495/core/reading/retro.py`): proven when its report
   differed with and without the change or contradicted the agent, faulty when it timed out,
   failed identically on both versions, failed before any change too or had its command
   replaced by the requester, inconclusive otherwise. It prints the row below that each proven

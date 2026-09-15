@@ -107,7 +107,7 @@ something other than the change, and `correctness` not to read either run as a d
 - The `stable` guard in `checks/calibration.py::calibrate`,
   `checks/coverage.py::coverage_watchers` and `checks/mutation.py::mutation_watchers`.
 - `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
-- `harness495/core/decide.py::assess` (`unstable`, `unreadable`, `unsteady`).
+- `harness495/core/reading/decide.py::assess` (`unstable`, `unreadable`, `unsteady`).
 - `harness495/core/context.py::render_stability_reading`.
 - `harness495/core/prompts.py`: the sentences of `PERSPECTIVES["correctness"]` and
   `PERSPECTIVES["test_quality"]`.

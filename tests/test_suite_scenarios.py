@@ -21,7 +21,6 @@ from typing import Any
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from harness495.core.decide import Assessment, assess
 from harness495.core.engine.checks.suite import check_suite
 from harness495.core.models import (
     DecisionKind,
@@ -41,8 +40,8 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
-from harness495.core.report import render_markdown
-from harness495.core.suite import (
+from harness495.core.reading.decide import Assessment, assess
+from harness495.core.reading.suite import (
     CountComparison,
     SuiteChange,
     SuiteCount,
@@ -51,6 +50,7 @@ from harness495.core.suite import (
     count_tests,
     read_suite_changes,
 )
+from harness495.core.report import render_markdown
 from tests.conftest import SAMPLE_MODULE, SAMPLE_TEST, Measured, Region, Scenario, measure
 
 scenarios("features/suite.feature")

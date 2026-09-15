@@ -11,7 +11,6 @@ from __future__ import annotations
 import shutil
 
 from harness495.core import git
-from harness495.core.diff import code_lines
 from harness495.core.engine.checks.stage import Reading
 from harness495.core.engine.services import RunServices
 from harness495.core.models import (
@@ -26,7 +25,8 @@ from harness495.core.models import (
     VerificationKind,
     new_id,
 )
-from harness495.core.reach import (
+from harness495.core.reading.diff import code_lines
+from harness495.core.reading.reach import (
     READERS,
     REPORT_DIR,
     Hits,

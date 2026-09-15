@@ -79,7 +79,7 @@ rationale that cites the refusal and says the decision stands, not a proposal to
 - `harness495/core/proposals.py::declined_roles`; `harness495/core/engine/engine.py::_profile` reads
   them onto the run's profile.
 - `harness495/core/schemas.py`: `CATALOGUE_ROLES`, the `role` property of `SPEC_SCHEMA`.
-- `harness495/core/catalogue.py`: `ROLE_CONTRACTS`, `unmeasured_role`.
+- `harness495/core/reading/catalogue.py`: `ROLE_CONTRACTS`, `unmeasured_role`.
 - `harness495/core/reading/verification.py::assess_sufficiency` (the `profile` argument).
 - `harness495/core/context.py`: `render_catalogue`, the role in `render_spec`.
 - `harness495/core/engine/engine.py`: `_specify` (the fact, the profile passed to the audit),

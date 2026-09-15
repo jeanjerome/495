@@ -41,7 +41,7 @@ from harness495.core.models import (
     new_id,
     utcnow,
 )
-from harness495.core.scope import effective_allowed
+from harness495.core.reading.scope import effective_allowed
 
 MAX_OBSERVED = 20
 """Sentences kept per lesson: enough to weigh it, bounded however many runs show it again."""

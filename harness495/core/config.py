@@ -17,7 +17,6 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from harness495.core.lessons import criteria
 from harness495.core.models import (
     AgentSpec,
     Budget,
@@ -30,6 +29,7 @@ from harness495.core.models import (
     ScopeConfig,
     VerificationKind,
 )
+from harness495.core.reading.lessons import criteria
 from harness495.core.store import RunStore
 
 USER_CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config")).expanduser() / "495"

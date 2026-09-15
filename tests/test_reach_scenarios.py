@@ -22,8 +22,6 @@ from typing import Any
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from harness495.core.decide import Assessment, assess
-from harness495.core.diff import code_lines
 from harness495.core.engine.checks.coverage import reach
 from harness495.core.git import diff as repo_diff
 from harness495.core.models import (
@@ -45,7 +43,9 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
-from harness495.core.reach import (
+from harness495.core.reading.decide import Assessment, assess
+from harness495.core.reading.diff import code_lines
+from harness495.core.reading.reach import (
     READERS,
     REPORT_DIR,
     Hits,

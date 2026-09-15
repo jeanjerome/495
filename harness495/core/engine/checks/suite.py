@@ -20,7 +20,7 @@ from harness495.core.models import (
     VerificationKind,
     new_id,
 )
-from harness495.core.suite import (
+from harness495.core.reading.suite import (
     CountComparison,
     SuiteReading,
     compare_counts,

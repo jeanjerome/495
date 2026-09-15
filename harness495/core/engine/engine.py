@@ -48,7 +48,6 @@ from harness495.core.context import (
     trim_output,
     truncate_diff,
 )
-from harness495.core.decide import Assessment, assess
 from harness495.core.engine import checks
 from harness495.core.engine.errors import EngineError
 from harness495.core.engine.running import VersionMismatch
@@ -108,6 +107,8 @@ from harness495.core.models import (
     utcnow,
 )
 from harness495.core.profile import detect_profile, read_doc_excerpts
+from harness495.core.reading.decide import Assessment, assess
+from harness495.core.reading.scope import effective_allowed
 from harness495.core.reading.verification import assess_sufficiency, looks_like_a_test
 from harness495.core.report import render_markdown
 from harness495.core.schemas import (
@@ -117,7 +118,6 @@ from harness495.core.schemas import (
     SPEC_SCHEMA,
     TEST_DESIGNER_SUMMARY_SCHEMA,
 )
-from harness495.core.scope import effective_allowed
 from harness495.core.store import RunStore
 from harness495.sandbox import Sandbox, select_sandbox
 from harness495.sandbox.base import ExecRequest

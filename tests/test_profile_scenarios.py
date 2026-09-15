@@ -268,7 +268,7 @@ def a_ruby_project(project: Project) -> None:
 
 @given(parsers.parse('the catalogue has no entry for "{technology}"'))
 def the_catalogue_has_no_entry_for(technology: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    from harness495.core import catalogue
+    from harness495.core.reading import catalogue
 
     monkeypatch.setattr(
         catalogue,

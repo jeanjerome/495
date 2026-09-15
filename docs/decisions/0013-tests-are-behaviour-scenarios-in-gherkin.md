@@ -67,7 +67,9 @@ functions.
 - `docs/studies/2026-09-13-python-bdd-libraries.md`: the study behind the entry.
 - `pyproject.toml`: dev dependencies `pytest-bdd`, `pytest<10`.
 - `tests/features/decide.feature`, `tests/test_decide_scenarios.py`: first application, the
-  decision scenarios of `core/decide.py::assess` (moved from `tests/test_scope_decide.py`).
+  decision scenarios of `core/reading/decide.py::assess`.
+- `tests/features/scope.feature`, `tests/test_scope_scenarios.py`: the paths a change is
+  allowed to touch (`core/reading/scope.py::check_scope`).
 - `AGENTS.md`, section Invariants.
 - `harness495/core/reading/verification.py::_TEST_SUFFIXES`: `.feature` counted as a test file.
 - To build: `harness495/core/prompts.py` (`SPECIFIER_TASK`, `PRODUCER_TASK`),

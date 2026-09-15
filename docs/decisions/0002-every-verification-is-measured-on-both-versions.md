@@ -78,12 +78,13 @@ as `baseline` evidence and shown with the question, never concluded from.
   `harness495/core/models/specification.py::Verification.discriminates`;
   `harness495/core/models/evidence.py`: `EvidenceKind.instrument_check`,
   `EvidenceKind.baseline`.
-- `harness495/core/decide.py`: `blind`, `tainted`, `rests_on_a_blind_instrument`, `set_aside`.
+- `harness495/core/reading/decide.py`: `blind`, `tainted`, `rests_on_a_blind_instrument`, `set_aside`.
 - `tests/features/verification.feature` with `tests/test_verification_scenarios.py`: the
   failure signature, what a pair of runs tells of the change, and what it says of the
   instrument when it tells nothing (broken, vacuous, or not enough to tell).
 - `tests/features/calibration.feature` with `tests/test_calibration_scenarios.py`.
 - `tests/test_engine.py`: `test_every_command_is_run_once_before_the_specification_is_approved`.
-- `tests/test_scope_decide.py`: `test_a_verification_that_cannot_see_the_change_is_not_charged_to_the_change`,
-  `test_finding_that_rests_on_a_blind_verification_is_set_aside`,
-  `test_a_control_run_never_stands_in_for_the_verification_it_checks`.
+- `tests/features/decide.feature` with `tests/test_decide_scenarios.py`: a verification that
+  fails without the change as well is charged to nothing, a finding resting on one is set aside
+  while a finding standing on the code itself is not, and a control run on the base version
+  neither makes a passing verification unexecuted nor stands in for the one it checks.

@@ -29,7 +29,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from harness495.core.diff import AddedLine, code_lines
+from harness495.core.reading.diff import AddedLine, code_lines
 
 # --------------------------------------------------------------------------- the operators
 

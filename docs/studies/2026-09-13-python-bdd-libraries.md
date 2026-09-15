@@ -45,7 +45,7 @@ runs a hypothesis property; the same file under each candidate.
 ### First application in 495
 
 `tests/features/decide.feature` and `tests/test_decide_scenarios.py`: four scenarios of
-`core/decide.py::assess`, moved from `tests/test_scope_decide.py`, run by the suite with the
+`core/reading/decide.py::assess`, run by the suite with the
 project's `pytest -p no:cacheprovider`.
 
 ## Decision

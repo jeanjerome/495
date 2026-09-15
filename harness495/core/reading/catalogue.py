@@ -1,14 +1,11 @@
 """The catalogue's recommendations (``docs/test-libraries.md``) and a project's gaps against them.
 
-Two halves. The conditions read the project: each says whether one cell's second entry applies,
-from the tree or from the role coverage, and ``conditions_holding`` evaluates them once, when
-the project is profiled, onto ``ProjectProfile.conditions``. The recommendations read the
-profile and nothing else: ``RECOMMENDED`` mirrors the ``recommended`` entries of the document,
-per technology and role, in the document's order, and ``ROLE_CONTRACTS`` what its Roles table
-says a test of each role must show; ``tests/test_catalogue.py`` keeps them equal to the
-document. ``applicable`` takes the entry of a cell whose condition the profile records as
-having held, so a reading of the catalogue opens no file and answers as the run measured the
-tree rather than as the tree stands (``docs/decisions/0015``).
+``RECOMMENDED`` mirrors the ``recommended`` entries of the document, per technology and role,
+in the document's order, and ``ROLE_CONTRACTS`` what its Roles table says a test of each role
+must show; ``tests/test_catalogue.py`` keeps them equal to the document. ``applicable`` takes
+the entry of a cell whose condition the profile records as having held, so a reading of the
+catalogue opens no file and answers as the run measured the tree rather than as the tree
+stands (``core/conditions.py``, ``docs/decisions/0015``).
 
 ``compare`` reads a profile's role coverage and states, for each role whose measure can
 contradict the agent's implementation (``CONTRADICTING_ROLES``), whether the project measures
@@ -20,10 +17,7 @@ added here only once it is in the document with its source
 
 from __future__ import annotations
 
-import json
-from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 from harness495.core.models import (
     CatalogueGap,
@@ -32,102 +26,6 @@ from harness495.core.models import (
     ProjectProfile,
     RoleCoverage,
 )
-
-# --------------------------------------------------------------------------- the conditions
-
-
-def _measures_with(
-    technology: str, role: CatalogueRole, tool: str
-) -> Callable[[ProjectProfile], bool]:
-    def holds(profile: ProjectProfile) -> bool:
-        row = profile.coverage(technology, role)
-        return row is not None and tool in row.tools
-
-    return holds
-
-
-def _no_pytest_suite_or_standalone_features(profile: ProjectProfile) -> bool:
-    runner = profile.coverage("python", CatalogueRole.runner)
-    has_pytest = runner is not None and "pytest" in runner.tools
-    return not has_pytest or (Path(profile.root) / "features" / "steps").is_dir()
-
-
-def _specs_in_shellspec_or_coverage_measured(profile: ProjectProfile) -> bool:
-    """shellspec is the runner when the project already keeps its specs in it, or measures
-    coverage: kcov traces the shell shellspec runs the script in (``When run source``), and
-    bats under kcov did not finish (``docs/studies/2026-09-13-shell-test-libraries.md``)."""
-    return _measures_with("shell", CatalogueRole.runner, "shellspec")(profile) or _measures_with(
-        "shell", CatalogueRole.coverage, "kcov"
-    )(profile)
-
-
-def _uses_express(profile: ProjectProfile) -> bool:
-    return (Path(profile.root) / "node_modules" / "express").is_dir() or _lists_dependency(
-        Path(profile.root) / "package.json", "express"
-    )
-
-
-def _lists_dependency(package_json: Path, name: str) -> bool:
-    try:
-        data = json.loads(package_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    return any(name in data.get(key, {}) for key in ("dependencies", "devDependencies"))
-
-
-def _is_kotlin(profile: ProjectProfile) -> bool:
-    root = Path(profile.root)
-    if (root / "src" / "main" / "kotlin").is_dir():
-        return True
-    for name, marks in (
-        ("build.gradle.kts", ("kotlin(", "org.jetbrains.kotlin")),
-        ("build.gradle", ("org.jetbrains.kotlin",)),
-        ("pom.xml", ("kotlin-maven-plugin",)),
-    ):
-        try:
-            text = (root / name).read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        if any(mark in text for mark in marks):
-            return True
-    return False
-
-
-def _is_kotlin_on_gradle(profile: ProjectProfile) -> bool:
-    root = Path(profile.root)
-    return _is_kotlin(profile) and any(
-        (root / name).is_file() for name in ("build.gradle.kts", "build.gradle")
-    )
-
-
-CONDITIONS: dict[str, Callable[[ProjectProfile], bool]] = {
-    "no_pytest_suite_or_standalone_features": _no_pytest_suite_or_standalone_features,
-    "specs_in_shellspec_or_coverage_measured": _specs_in_shellspec_or_coverage_measured,
-    "uses_express": _uses_express,
-    "runs_cargo_audit": _measures_with("rust", CatalogueRole.security, "cargo-audit"),
-    "runs_golangci_lint": _measures_with("go", CatalogueRole.static, "golangci-lint"),
-    "is_kotlin": _is_kotlin,
-    "runs_kotest": _measures_with("java/kotlin", CatalogueRole.runner, "kotest"),
-    "is_kotlin_on_gradle": _is_kotlin_on_gradle,
-}
-"""What selects the second entry of a cell, by the name a ``Recommendation`` names it with.
-
-These are the only functions here that read the project: a file of the tree, or the role
-coverage detection has just established. Everything below reads the profile document alone.
-"""
-
-
-def conditions_holding(profile: ProjectProfile) -> list[str]:
-    """The names of the conditions that hold on the project, in the order of ``CONDITIONS``.
-
-    Evaluated once, while the project is being profiled and the tree is the one the run was
-    asked about; ``ProjectProfile.conditions`` keeps the answer, and every later reading of
-    the catalogue takes it from there.
-    """
-    return [name for name, holds in CONDITIONS.items() if holds(profile)]
-
-
-# --------------------------------------------------------------------------- the recommendations
 
 CONTRADICTING_ROLES: frozenset[CatalogueRole] = frozenset(
     {
@@ -182,9 +80,10 @@ class Recommendation:
     """One ``recommended`` entry of the catalogue: the tools of the cell, and when it applies.
 
     ``applies_when`` is empty for the first entry of a cell, the default; the entries after it
-    apply when the condition of that name (``CONDITIONS``) held on the project when it was
-    profiled, and ``condition`` says so in words. The name is all that is kept here: the entry
-    carries no predicate, so the recommendation data reads the profile document alone.
+    apply when the condition of that name (``core/conditions.py::CONDITIONS``) held on the
+    project when it was profiled, and ``condition`` says so in words. The name is all that is
+    kept here: the entry carries no predicate, so the recommendation data reads the profile
+    document alone.
     """
 
     technology: str

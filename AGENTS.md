@@ -25,8 +25,10 @@ CLI `495`, launcher `./run.sh`.
 Keep these true in every change; each has a test or a record that names it.
 
 - Package dependencies point one way: `interfaces` → `core.engine` → `agents` → `sandbox` →
-  `core.models`. The exact rules are import-linter contracts in `pyproject.toml`, run by
-  `lint-imports` and by `tests/test_architecture.py` (`docs/decisions/0011-package-boundaries.md`).
+  `core.models`, and `core.reading` imports `core.models` and `core.reading` alone — no store,
+  no git, no sandbox, no subprocess. The exact rules are import-linter contracts in
+  `pyproject.toml`, run by `lint-imports` and by `tests/test_architecture.py`
+  (`docs/decisions/0011-package-boundaries.md`).
 - A test uses the library the catalogue `docs/test-libraries.md` recommends for its role and
   technology. A hand-written check is admissible only for a role with no entry, and its docstring
   says so (`0012`).
@@ -34,18 +36,18 @@ Keep these true in every change; each has a test or a record that names it.
   catalogue's `bdd` entry (pytest-bdd for Python with pytest tests, behave otherwise); a test
   of another contract keeps the Given/When/Then shape in its name and body, and asserts only in
   the *then* part (`0013`).
-- `core/decide.py::assess` stays a pure function of spec, evidence and reviews. A requirement
-  becomes `satisfied` only from a verification that ran on the evaluated commit and passed;
-  `violated` only from a failed verification or a reviewer finding that cites an observation;
-  `undetermined` otherwise, and `undetermined` blocks acceptance (`0001`).
+- `core/reading/decide.py::assess` stays a pure function of spec, evidence and reviews. A
+  requirement becomes `satisfied` only from a verification that ran on the evaluated commit and
+  passed; `violated` only from a failed verification or a reviewer finding that cites an
+  observation; `undetermined` otherwise, and `undetermined` blocks acceptance (`0001`).
 - Every verification a `behaviour` requirement leans on is measured on the change and on the
   base version carrying the change's test files; a command reporting the same on both leaves
   the evidence (`0002`, `0003`); one that fails on the base by an execution error and not by
   an assertion is `unconfirmed`, still credited, and the `test_quality` reviewer, called
   whenever a test is to be created, is told to read it (`0019`).
-- The suite that passed on the base is measured on the change: `core/suite.py` reads the diff
-  over the test files that existed there and the runners' tallies on both versions, a test
-  deleted, removed or skipped, or a smaller tally, is a failed `suite_check`, and a passing
+- The suite that passed on the base is measured on the change: `core/reading/suite.py` reads
+  the diff over the test files that existed there and the runners' tallies on both versions, a
+  test deleted, removed or skipped, or a smaller tally, is a failed `suite_check`, and a passing
   command on such a suite credits no `non_regression` requirement (`undetermined` until the
   requester rules); every existing test the change touched is listed to the reviewers (`0021`).
 - Every command a requirement leans on is run a second time on the evaluated commit, with
@@ -57,10 +59,10 @@ Keep these true in every change; each has a test or a record that names it.
   behaviour requirements resting on those commands `undetermined`, never `violated`, and never
   becomes a correction request (`0022`).
 - The test commands are run once more under the project's own coverage tool and the report is
-  crossed with the lines the change adds (`core/diff.py`, `core/reach.py`): a line the report
-  holds with no hit leaves the behaviour requirements resting on those commands `undetermined`,
-  and a line the report does not hold, or a file it does not instrument, is charged to nothing
-  (`0023`).
+  crossed with the lines the change adds (`core/reading/diff.py`, `core/reading/reach.py`): a
+  line the report holds with no hit leaves the behaviour requirements resting on those commands
+  `undetermined`, and a line the report does not hold, or a file it does not instrument, is
+  charged to nothing (`0023`).
 - A correction request carries the requirement, the claim and the observation. Reviewer
   explanations and remedies stay out of the producer's context; the producer's transcript stays
   out of every reviewer's context (`0004`, `0005`).
@@ -81,14 +83,14 @@ Keep these true in every change; each has a test or a record that names it.
   again (`0014`).
 - Runs work in a git worktree under `~/.cache/495/worktrees/`; the harness makes the commits;
   the user's checkout is written by `495 merge` only (`0006`, `0010`).
-- `core/retro.py::retrospect` is a pure function of the run document; `495 retro` writes
+- `core/reading/retro.py::retrospect` is a pure function of the run document; `495 retro` writes
   `retrospective.json` under the run and never the catalogue, whose rows are admitted by hand
   (`0015`).
 - What a run showed about the project is stated as a lesson against the criteria as they stand
-  (`core/lessons.py::learn`, pure), kept once however many runs show it, and enters the criteria
-  on the requester's acceptance alone; nothing writes `.495/project.toml`.
-  `core/stats.py::summarise` reads the runs as a series, persists nothing and decides nothing
-  (`0027`).
+  (`core/reading/lessons.py::learn`, pure), kept once however many runs show it, and enters the
+  criteria on the requester's acceptance alone; nothing writes `.495/project.toml`.
+  `core/reading/stats.py::summarise` reads the runs as a series, persists nothing and decides
+  nothing (`0027`).
 - A lesson that declares nothing travels as a fact to the one role it bears on: a `note` to the
   specifier, a `false_positive` — a reviewer's claim the requester found does not hold here — to
   the reviewer of that perspective and to no other. The proposition put to the requester is the

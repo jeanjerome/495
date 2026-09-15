@@ -21,7 +21,6 @@ import shutil
 from pathlib import Path
 from typing import Protocol
 
-from harness495.core.catalogue import unmeasured_role
 from harness495.core.models import (
     ProjectProfile,
     RequirementKind,
@@ -30,6 +29,7 @@ from harness495.core.models import (
     Verification,
     VerificationKind,
 )
+from harness495.core.reading.catalogue import unmeasured_role
 
 INTERPRETER_NAMES = ("python", "python3", "pytest", "node", "npm", "npx", "ruff", "mypy")
 

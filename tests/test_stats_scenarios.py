@@ -15,7 +15,6 @@ import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
-from harness495.core import stats as indicators
 from harness495.core.models import (
     REPLACED_PREFIX,
     Finding,
@@ -39,6 +38,7 @@ from harness495.core.models import (
     Version,
     new_id,
 )
+from harness495.core.reading import stats as indicators
 from harness495.core.store import RunStore
 from harness495.interfaces.cli import app
 

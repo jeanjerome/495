@@ -27,13 +27,13 @@ After the control runs and before the mutation check, `checks.coverage.reach` ru
 own test commands once more under its own coverage tool and records one `coverage_check` evidence
 per iteration, naming the lines of the change no command executed.
 
-`core/diff.py` holds the reading both checks share: `added_lines(diff)` for the number a line
+`core/reading/diff.py` holds the reading both checks share: `added_lines(diff)` for the number a line
 has in the version under review, and `code_lines(diff, commands)` for the lines that carry code
 of a technology the catalogue covers — not a comment, not a blank, not the instrument (a file
 `looks_like_a_test` recognises, or one a `test` verification's command names whole, so that a
 command running `tests/test_calc.py` names that file and not `calc.py`).
 
-`core/reach.py` is pure and does the rest. `instrument(technology, tools, command, directory)`
+`core/reading/reach.py` is pure and does the rest. `instrument(technology, tools, command, directory)`
 rewrites the project's test command into one that writes a line-level report, from the tool the
 profile recognised for the `coverage` role of that technology (`RoleCoverage`): coverage.py in
 front of the runner then `coverage json`, vitest's and jest's own lcov options appended,
@@ -103,9 +103,9 @@ executed"; `correctness` is asked whether the line carries behaviour a requireme
 
 ## Where in the code
 
-- `harness495/core/diff.py`: `AddedLine`, `added_lines`, `is_comment`, `names_the_file`,
-  `code_lines`, `SOURCE_SUFFIXES` — shared with `core/mutation.py` (0022).
-- `harness495/core/reach.py`: `Instrumented`, `instrument`, the recipe per technology,
+- `harness495/core/reading/diff.py`: `AddedLine`, `added_lines`, `is_comment`, `names_the_file`,
+  `code_lines`, `SOURCE_SUFFIXES` — shared with `core/reading/mutation.py` (0022).
+- `harness495/core/reading/reach.py`: `Instrumented`, `instrument`, the recipe per technology,
   `READERS` and the four report readers, `same_file`, `Unreached`, `Reading`, `cross`,
   `REPORT_DIR`.
 - `harness495/core/models/evidence.py::EvidenceKind.coverage_check`;
@@ -115,7 +115,7 @@ executed"; `correctness` is asked whether the line carries behaviour a requireme
 - `harness495/core/engine/checks/sequence.py`: the `coverage` stage of `SEQUENCE` and the gate
   `instrument_is_readable` it waits on.
 - `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
-- `harness495/core/decide.py::assess` (`unexecuted`).
+- `harness495/core/reading/decide.py::assess` (`unexecuted`).
 - `harness495/core/context.py::render_reach_reading`.
 - `harness495/core/prompts.py`: the sentences of `PERSPECTIVES["correctness"]` and
   `PERSPECTIVES["test_quality"]`.

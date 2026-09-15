@@ -21,7 +21,7 @@ that were there before the run had no protection at all.
 
 The harness reads what the change did to the suite that passed on the base, and records one
 `suite_check` evidence per iteration, in `checks.sequence.SEQUENCE` after the verifications and
-before the control runs. Two readings, both pure functions in `core/suite.py`:
+before the control runs. Two readings, both pure functions in `core/reading/suite.py`:
 
 - `read_suite_changes(diff)` reads the diff of the change over the test files that existed
   on the base (a file the diff creates is the change's own instrument, left to 0002). Per
@@ -91,13 +91,13 @@ obsolete.
 
 ## Where in the code
 
-- `harness495/core/suite.py`: `SuiteChange`, `SuiteCount`, `CountComparison`,
+- `harness495/core/reading/suite.py`: `SuiteChange`, `SuiteCount`, `CountComparison`,
   `SuiteReading`, `read_suite_changes`, `count_tests`, `compare_counts`.
 - `harness495/core/models/evidence.py::EvidenceKind.suite_check`.
 - `harness495/core/engine/checks/suite.py`: `suite_reading`, `check_suite`,
   `non_regression_verifications`; the `suite` stage of `checks/sequence.py::SEQUENCE`.
 - `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.
-- `harness495/core/decide.py::assess` (`weakened_suite`, `unattached_weakening`).
+- `harness495/core/reading/decide.py::assess` (`weakened_suite`, `unattached_weakening`).
 - `harness495/core/context.py::render_suite_reading`.
 - `harness495/core/prompts.py`: the "existing tests" paragraph of `PRODUCER_TASK`, the
   sentences of `PERSPECTIVES["spec_compliance"]` and `PERSPECTIVES["test_quality"]`.

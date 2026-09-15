@@ -25,7 +25,7 @@ That route stops at the catalogue, which is 495's own document; what a run showe
 `495 retro <run-id>` also reads what the run showed about the project, states each thing as a
 **lesson**, and keeps it in `<state_dir>/lessons.json` with the requester's answer.
 
-`core/lessons.py::learn` is a pure function of the run document, the project's criteria as they
+`core/reading/lessons.py::learn` is a pure function of the run document, the project's criteria as they
 stand, and the retrospective of the run when it has been written. It states four kinds:
 
 - `command`: a verification whose command the requester replaced, which the criteria do not
@@ -44,7 +44,7 @@ with three runs behind it. The requester accepts, declines or defers it; `accept
 it in the requester's own words without changing what the runs showed; a declined lesson keeps
 its reason and is never proposed again.
 
-`core/lessons.py::criteria` adds the accepted lessons to the project's criteria, in
+`core/reading/lessons.py::criteria` adds the accepted lessons to the project's criteria, in
 `load_config`: a command becomes a `[[commands]]` entry whose source names the lesson, a
 convention a line of `conventions`, a scope the globs of `[scope] allowed_paths`. From the next
 run on, the command is run at readiness and offered to the specifier, the convention travels as
@@ -76,7 +76,7 @@ document on every change, as the reading a person opens.
   document, not the text of the file, and an edit made there is not read back. Feeding the
   specifier the file itself was rejected — it would mean parsing prose back into criteria, and a
   hand-edited line would reach an agent as a fact nobody accepted.
-- `495 stats` (`core/stats.py`) reads the runs of the store as a series — outcomes, iterations,
+- `495 stats` (`core/reading/stats.py`) reads the runs of the store as a series — outcomes, iterations,
   cost per requirement assessed, commands recorded at fault, kinds of verification that decided
   nothing, what each perspective found and what it found again. It is computed on every call,
   persisted nowhere, and decides nothing: what is done about a number is the requester's.
@@ -87,10 +87,10 @@ document on every change, as the reading a person opens.
 
 - `harness495/core/models/lessons.py`: `LessonKind`, `LessonStatus`, `Lesson`, `Lessons`,
   `REPLACED_PREFIX`, `ProjectProfile.lessons`.
-- `harness495/core/lessons.py`: `learn`, `reconcile`, `accept`, `decline`, `defer`, `criteria`,
+- `harness495/core/reading/lessons.py`: `learn`, `reconcile`, `accept`, `decline`, `defer`, `criteria`,
   `toml_lines`, `render_document`.
-- `harness495/core/stats.py`: `summarise`, `InstrumentStat`, `KindStat`, `PerspectiveStat`.
-- `harness495/core/scope.py`: `effective_allowed`, the paths a run's change may touch.
+- `harness495/core/reading/stats.py`: `summarise`, `InstrumentStat`, `KindStat`, `PerspectiveStat`.
+- `harness495/core/reading/scope.py`: `effective_allowed`, the paths a run's change may touch.
 - `harness495/core/config.py`: `load_config` adds the accepted lessons to the criteria.
 - `harness495/core/store.py`: `lessons_path`, `load_lessons`, `save_lessons`, `lessons_doc_path`.
 - `harness495/core/engine/engine.py`: `_profile` carries the lessons in force; `_specify` gives them to

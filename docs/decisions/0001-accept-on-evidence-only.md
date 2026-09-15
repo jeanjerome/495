@@ -13,7 +13,7 @@ intent as its own verification.
 
 ## Decision
 
-`harness495.core.decide.assess(spec, evidence, reviews)` computes the outcome of an iteration
+`harness495.core.reading.decide.assess(spec, evidence, reviews)` computes the outcome of an iteration
 from three inputs and nothing else: the approved specification, the `Evidence` the harness
 recorded itself, and the `ReviewVerdict`s of read-only reviewers. It calls no agent and reads no
 file.
@@ -60,15 +60,15 @@ records that the reviewer assessed the requirement as violated without a cited o
 
 ## Where in the code
 
-- `harness495/core/decide.py`: `assess`, `Assessment`.
+- `harness495/core/reading/decide.py`: `assess`, `Assessment`.
 - `harness495/core/engine/engine.py`: `Engine._decide` (applies the assessment to the run),
   `Engine._ask_undetermined` (the question raised on `undetermined`).
 - `harness495/core/models/enums.py`: `RequirementStatus`, `Verdict`, `Severity`;
   `harness495/core/models/evidence.py::Finding.evidence`.
 - `tests/features/decide.feature` (steps in `tests/test_decide_scenarios.py`): a finding that
   cites no observation, a finding that cites one, a `violated` assessment without a finding,
-  alone and beside an accepting reviewer, and one backed by a finding.
-- `tests/test_scope_decide.py`: `test_no_review_means_undetermined_and_discarded_ignored`,
-  `test_unattached_blocker_and_scope_block_acceptance`.
+  alone and beside an accepting reviewer, and one backed by a finding; a change no reviewer
+  read, a review the harness discarded, a blocker attached to no requirement, and a failed
+  scope check.
 - `tests/test_engine.py`: `test_undetermined_refuses_to_conclude`,
   `test_reviewer_tampering_discards_verdict`.

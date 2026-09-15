@@ -6,7 +6,6 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from harness495.core.catalogue import ROLE_CONTRACTS, applicable
 from harness495.core.models import (
     NON_DISCRIMINATING,
     CatalogueRole,
@@ -23,7 +22,8 @@ from harness495.core.models import (
     TestDesign,
     Version,
 )
-from harness495.core.suite import SuiteReading
+from harness495.core.reading.catalogue import ROLE_CONTRACTS, applicable
+from harness495.core.reading.suite import SuiteReading
 
 MAX_DIFF_CHARS = 120_000
 MAX_EVIDENCE_OUTPUT = 3_000
