@@ -9,6 +9,7 @@ the integration check back. Nothing is asserted outside a ``Then``.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -96,6 +97,27 @@ def the_branch_has_moved_on(world: Landing) -> None:
         "the branch went somewhere of its own\n", encoding="utf-8"
     )
     commit(world.project, "notes", "NOTES.md")
+
+
+@given("the machine names nobody to git")
+def the_machine_names_nobody(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A CI runner or a container: no identity to be found, in the configuration or around it.
+
+    An empty name rather than no configuration at all, since git falls back to the account and
+    the hostname of the machine where it can, and a developer's machine usually can.
+    """
+    nobody = tmp_path / "nobody.gitconfig"
+    nobody.write_text("[user]\n\tname =\n", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(nobody))
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", os.devnull)
+    for named in (
+        "GIT_AUTHOR_NAME",
+        "GIT_COMMITTER_NAME",
+        "GIT_AUTHOR_EMAIL",
+        "GIT_COMMITTER_EMAIL",
+        "EMAIL",
+    ):
+        monkeypatch.delenv(named, raising=False)
 
 
 @given("the checkout stands on a detached HEAD")

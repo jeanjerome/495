@@ -269,6 +269,12 @@ def can_fast_forward(path: Path, branch: str) -> bool:
 
 
 def _as_harness(args: list[str]) -> list[str]:
+    """Name the harness as the one writing, for any command git refuses without an identity.
+
+    ``merge --squash`` is one of them although it writes no commit: git resolves the committer
+    before it merges and stops there, so a checkout whose machine has no ``user.name`` — a CI
+    runner, a container — refuses the squash rather than the commit that follows it.
+    """
     return ["-c", "user.name=495 harness", "-c", "user.email=495@localhost", *args]
 
 
@@ -312,7 +318,7 @@ def integrate_branch(path: Path, branch: str, how: str, message: str, base: str)
         elif how == "rebase":
             git(_as_harness(["cherry-pick", f"{base}..{branch}"]), path)
         else:
-            git(["merge", "--squash", branch], path)
+            git(_as_harness(["merge", "--squash", branch]), path)
             git(_as_harness(["commit", "-m", message]), path)
     except GitError as exc:
         _undo(path, before)

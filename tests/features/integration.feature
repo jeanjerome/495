@@ -47,6 +47,17 @@ Feature: Landing a delivered change in the checkout the requester works in
       | squash | no       | no    | add subtract to calc                  |
       | merge  | yes      | yes   | Merge branch '495/                    |
 
+  # git resolves the committer before it squashes, though a squash writes no commit of its
+  # own: a checkout on a machine that names nobody would refuse the act rather than the commit
+  # that follows it. 495 names itself for the squash as it does for the commit.
+  Scenario: A squash goes through on a machine that names nobody
+    Given a run carried to delivery
+    And the branch has moved on since
+    And the machine names nobody to git
+    When the delivery is integrated by squash
+    Then the files of the checkout are those of the verified commit
+    And the last commit subject starts with "add subtract to calc"
+
   Scenario: A squash says where the evidence for it is
     Given a run carried to delivery
     And the branch has moved on since
