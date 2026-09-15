@@ -72,8 +72,11 @@ as `baseline` evidence and shown with the question, never concluded from.
   `verify` returning the instrument-fault question for the state machine to raise.
 - `harness495/core/engine/engine.py`: `_profile` (readiness), `_preflight`, the `recalibrate`
   branch of `_apply_decision`.
-- `harness495/core/models.py`: `Sufficiency`, `NON_DISCRIMINATING`, `Verification.discriminates`,
-  `EvidenceKind.instrument_check`, `EvidenceKind.baseline`, `DecisionKind.instrument_fault`.
+- `harness495/core/models/enums.py`: `Sufficiency`, `NON_DISCRIMINATING`,
+  `DecisionKind.instrument_fault`;
+  `harness495/core/models/specification.py::Verification.discriminates`;
+  `harness495/core/models/evidence.py`: `EvidenceKind.instrument_check`,
+  `EvidenceKind.baseline`.
 - `harness495/core/decide.py`: `blind`, `tainted`, `rests_on_a_blind_instrument`, `set_aside`.
 - `tests/test_profile_verification.py`: `test_failure_signature_ignores_where_and_when_but_not_what`,
   `test_measures_the_change_is_conservative`, `test_a_command_that_fails_on_both_versions_is_broken_not_a_defect`,

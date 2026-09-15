@@ -33,7 +33,8 @@ degrades to `estimated` as soon as one intervention is estimated. Reports and in
 
 ## Where in the code
 
-- `harness495/core/models.py`: `Cost`, `CostBasis`, `Consumption`, `Budget`.
+- `harness495/core/models/interventions.py::Cost`; `harness495/core/models/enums.py::CostBasis`;
+  `harness495/core/models/run.py::Consumption`; `harness495/core/models/config.py::Budget`.
 - `harness495/core/budget.py`: `check_before`, `per_intervention_budget`, `record`.
 - `harness495/core/pricing.py`: `lookup`, `estimate`, `context_window`.
 - `harness495/core/engine/engine.py`: `_intervene` (cost assignment), `_fmt_cost`.

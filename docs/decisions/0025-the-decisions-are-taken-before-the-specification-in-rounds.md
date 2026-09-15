@@ -129,11 +129,15 @@ phase out, agent and stop alike.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `Role.clarifier`, `RolesConfig.clarifier`, `DecisionKind.clarify`,
-  `ClarifyOption`, `ClarifyQuestion`, `ClarifyAnswer`, `ClarifyRound`, `Clarification`,
-  `ClarifyReply`, `DecisionAnswer`, `DecisionTaken`, `normalise_question`, `Run.clarification`,
-  `PendingDecision.questions`, `Decision.answers`, `Spec.decisions_taken`,
-  `Budget.max_clarify_rounds`, `RunStatus.clarifying` and `RunStatus.clarified`.
+- `harness495/core/models/clarification.py`: `ClarifyOption`, `ClarifyQuestion`,
+  `ClarifyAnswer`, `ClarifyRound`, `Clarification`, `ClarifyReply`, `DecisionAnswer`,
+  `DecisionTaken`, `normalise_question`.
+- `harness495/core/models/enums.py`: `Role.clarifier`, `DecisionKind.clarify`,
+  `RunStatus.clarifying` and `RunStatus.clarified`;
+  `harness495/core/models/config.py`: `RolesConfig.clarifier`, `Budget.max_clarify_rounds`;
+  `harness495/core/models/decisions.py`: `PendingDecision.questions`, `Decision.answers`;
+  `harness495/core/models/specification.py::Spec.decisions_taken`;
+  `harness495/core/models/run.py::Run.clarification`.
 - `harness495/core/schemas.py`: `CLARIFY_SCHEMA`, hand-written and strict (0007); no field for
   an answer, because the clarifier does not take the decisions it states.
 - `harness495/core/prompts.py`: `CLARIFIER_SYSTEM` and `CLARIFIER_TASK`; the paragraph of

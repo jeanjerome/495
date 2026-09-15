@@ -39,7 +39,8 @@ The specifier prompt states the rule and asks for the kind on each requirement.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `RequirementKind`, `Requirement.kind`.
+- `harness495/core/models/enums.py::RequirementKind`;
+  `harness495/core/models/specification.py::Requirement.kind`.
 - `harness495/core/verification.py`: `assess_sufficiency` (`passing_on_base`).
 - `harness495/core/engine/engine.py`: `_specify` (computes `passing_on_base`),
   `spec_from_agent` (unrecognised kind reads as `behaviour`).

@@ -63,7 +63,8 @@ records that the reviewer assessed the requirement as violated without a cited o
 - `harness495/core/decide.py`: `assess`, `Assessment`.
 - `harness495/core/engine/engine.py`: `Engine._decide` (applies the assessment to the run),
   `Engine._ask_undetermined` (the question raised on `undetermined`).
-- `harness495/core/models.py`: `RequirementStatus`, `Verdict`, `Severity`, `Finding.evidence`.
+- `harness495/core/models/enums.py`: `RequirementStatus`, `Verdict`, `Severity`;
+  `harness495/core/models/evidence.py::Finding.evidence`.
 - `tests/features/decide.feature` (steps in `tests/test_decide_scenarios.py`): a finding that
   cites no observation, a finding that cites one, a `violated` assessment without a finding,
   alone and beside an accepting reviewer, and one backed by a finding.

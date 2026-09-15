@@ -1,0 +1,185 @@
+"""Domain model of a 495 run.
+
+Every object that the harness persists is a pydantic model so that the on-disk state can be
+validated against the JSON schema published by ``495 schema``. The model links, by identifier,
+the intent, the requirements, the verifications, the interventions, the evidence, the decisions
+and the delivered result.
+
+The vocabulary is one namespace: every name below is imported from ``harness495.core.models``,
+whichever module of the package states it. The modules are the areas of the vocabulary — the
+closed sets in :mod:`~harness495.core.models.enums`, then one module per area, and the document
+that links them all in :mod:`~harness495.core.models.run` — and they import one another in one
+direction only, upwards from :mod:`~harness495.core.models.base`.
+"""
+
+from __future__ import annotations
+
+from harness495.core.models.base import SCHEMA_VERSION, StrictModel, new_id, utcnow
+from harness495.core.models.clarification import (
+    Clarification,
+    ClarifyAnswer,
+    ClarifyOption,
+    ClarifyQuestion,
+    ClarifyReply,
+    ClarifyRound,
+    DecisionAnswer,
+    DecisionTaken,
+    normalise_question,
+)
+from harness495.core.models.config import (
+    AgentSpec,
+    Budget,
+    HarnessConfig,
+    ProjectCommand,
+    ProjectConfig,
+    ReviewerSpec,
+    RolesConfig,
+    SandboxConfig,
+    ScopeConfig,
+)
+from harness495.core.models.decisions import Decision, DecisionOption, PendingDecision
+from harness495.core.models.enums import (
+    ADMISSIBLE,
+    BLOCKING_STATUSES,
+    NON_DISCRIMINATING,
+    TERMINAL_STATUSES,
+    AgentKind,
+    Capability,
+    CatalogueRole,
+    CostBasis,
+    DecisionKind,
+    DecisionMaker,
+    GapKind,
+    InterventionStatus,
+    RequirementKind,
+    RequirementStatus,
+    Role,
+    RunMode,
+    RunStatus,
+    Severity,
+    Sufficiency,
+    Verdict,
+    VerificationKind,
+)
+from harness495.core.models.evidence import Evidence, EvidenceKind, Finding, ReviewVerdict
+from harness495.core.models.interventions import (
+    AgentIdentity,
+    Cost,
+    Intervention,
+    SandboxInfo,
+    Usage,
+)
+from harness495.core.models.lessons import (
+    REPLACED_PREFIX,
+    Lesson,
+    LessonKind,
+    Lessons,
+    LessonStatus,
+    ProjectProfile,
+)
+from harness495.core.models.profile import CatalogueGap, DeclinedRole, ReadinessCheck, RoleCoverage
+from harness495.core.models.proposals import Proposal, Proposals, ProposalStatus
+from harness495.core.models.retrospective import Retrospective, ToolObservation, ToolVerdict
+from harness495.core.models.run import (
+    Consumption,
+    DesignedTest,
+    Event,
+    IntegrationCheck,
+    Intent,
+    Iteration,
+    ReportedCommand,
+    Run,
+    RunResult,
+    TestDesign,
+    Version,
+)
+from harness495.core.models.specification import BehaviourScenario, Requirement, Spec, Verification
+
+__all__ = [
+    "ADMISSIBLE",
+    "AgentIdentity",
+    "AgentKind",
+    "AgentSpec",
+    "BLOCKING_STATUSES",
+    "BehaviourScenario",
+    "Budget",
+    "Capability",
+    "CatalogueGap",
+    "CatalogueRole",
+    "Clarification",
+    "ClarifyAnswer",
+    "ClarifyOption",
+    "ClarifyQuestion",
+    "ClarifyReply",
+    "ClarifyRound",
+    "Consumption",
+    "Cost",
+    "CostBasis",
+    "Decision",
+    "DecisionAnswer",
+    "DecisionKind",
+    "DecisionMaker",
+    "DecisionOption",
+    "DecisionTaken",
+    "DeclinedRole",
+    "DesignedTest",
+    "Event",
+    "Evidence",
+    "EvidenceKind",
+    "Finding",
+    "GapKind",
+    "HarnessConfig",
+    "IntegrationCheck",
+    "Intent",
+    "Intervention",
+    "InterventionStatus",
+    "Iteration",
+    "Lesson",
+    "LessonKind",
+    "LessonStatus",
+    "Lessons",
+    "NON_DISCRIMINATING",
+    "PendingDecision",
+    "ProjectCommand",
+    "ProjectConfig",
+    "ProjectProfile",
+    "Proposal",
+    "ProposalStatus",
+    "Proposals",
+    "REPLACED_PREFIX",
+    "ReadinessCheck",
+    "ReportedCommand",
+    "Requirement",
+    "RequirementKind",
+    "RequirementStatus",
+    "Retrospective",
+    "ReviewVerdict",
+    "ReviewerSpec",
+    "Role",
+    "RoleCoverage",
+    "RolesConfig",
+    "Run",
+    "RunMode",
+    "RunResult",
+    "RunStatus",
+    "SCHEMA_VERSION",
+    "SandboxConfig",
+    "SandboxInfo",
+    "ScopeConfig",
+    "Severity",
+    "Spec",
+    "StrictModel",
+    "Sufficiency",
+    "TERMINAL_STATUSES",
+    "TestDesign",
+    "ToolObservation",
+    "ToolVerdict",
+    "Usage",
+    "Verdict",
+    "Verification",
+    "VerificationKind",
+    "Version",
+    "new_id",
+    "normalise_question",
+    "utcnow",
+]

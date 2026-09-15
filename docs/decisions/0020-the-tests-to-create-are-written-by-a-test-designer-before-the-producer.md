@@ -91,8 +91,9 @@ tree as any file the previous iteration left. The command line's `--agent` and t
 
 ## Where in the code
 
-- `harness495/core/models.py`: `Role.test_designer`, `RolesConfig.test_designer`,
-  `DesignedTest`, `TestDesign`, `Run.test_design`.
+- `harness495/core/models/enums.py::Role.test_designer`;
+  `harness495/core/models/config.py::RolesConfig.test_designer`;
+  `harness495/core/models/run.py`: `DesignedTest`, `TestDesign`, `Run.test_design`.
 - `harness495/core/config.py::_roles_from` (`false` reads as None), `CONFIG_TEMPLATE`.
 - `harness495/core/schemas.py::TEST_DESIGNER_SUMMARY_SCHEMA`.
 - `harness495/core/prompts.py`: `TEST_DESIGNER_SYSTEM`, `TEST_DESIGNER_TASK`, the

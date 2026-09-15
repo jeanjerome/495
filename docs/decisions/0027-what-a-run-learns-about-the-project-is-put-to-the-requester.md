@@ -85,7 +85,7 @@ document on every change, as the reading a person opens.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `LessonKind`, `LessonStatus`, `Lesson`, `Lessons`,
+- `harness495/core/models/lessons.py`: `LessonKind`, `LessonStatus`, `Lesson`, `Lessons`,
   `REPLACED_PREFIX`, `ProjectProfile.lessons`.
 - `harness495/core/lessons.py`: `learn`, `reconcile`, `accept`, `decline`, `defer`, `criteria`,
   `toml_lines`, `render_document`.

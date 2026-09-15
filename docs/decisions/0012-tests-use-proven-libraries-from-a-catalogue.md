@@ -100,7 +100,9 @@ ecosystem already provides.
 - `pyproject.toml`: `[tool.importlinter]`, dev dependency `import-linter`.
 - `tests/test_architecture.py`.
 - `AGENTS.md`, section Invariants (the rule for 495's own tests).
-- `harness495/core/models.py`: `CatalogueRole`, `RoleCoverage`, `ProjectProfile.role_coverage`.
+- `harness495/core/models/enums.py::CatalogueRole`;
+  `harness495/core/models/profile.py::RoleCoverage`;
+  `harness495/core/models/lessons.py::ProjectProfile.role_coverage`.
 - `harness495/core/coverage.py`: `ROLES_BY_TECHNOLOGY`, the marker tables (`PYTHON_TOOLS`,
   `SHELL_TOOLS`, `NODE_TOOLS`, `RUST_TOOLS`, `GO_TOOLS`, `JVM_TOOLS`), `rows`;
   `harness495/core/profile.py` gathers each technology's `Tree`;
@@ -108,13 +110,14 @@ ecosystem already provides.
   the TUI profile view show the rows.
 - `harness495/core/catalogue.py`: `RECOMMENDED`, `CONTRADICTING_ROLES`, `applicable`, `compare`,
   and the conditions that select among the entries of a cell (`CONDITIONS`,
-  `conditions_holding`); `harness495/core/models.py`: `CatalogueGap`, `GapKind`,
-  `ProjectProfile.catalogue_gaps`, `ProjectProfile.conditions`;
+  `conditions_holding`); `harness495/core/models/profile.py::CatalogueGap`;
+  `harness495/core/models/enums.py::GapKind`; `harness495/core/models/lessons.py`:
+  `ProjectProfile.catalogue_gaps` and `ProjectProfile.conditions`;
   `495 profile` and `495 init` print the gaps, the TUI profile view lists them.
 - `tests/features/profile.feature` and `tests/features/catalogue.feature` with
   `tests/test_profile_scenarios.py`; `tests/test_catalogue.py`.
 - `harness495/core/proposals.py`: `FIRST_TEST`, `intent_for`, `reconcile`, `accept`,
-  `decline`, `defer`; `harness495/core/models.py`: `Proposal`, `Proposals`,
+  `decline`, `defer`; `harness495/core/models/proposals.py`: `Proposal`, `Proposals`,
   `ProposalStatus`; `harness495/core/store.py`: `RunStore.load_proposals`,
   `save_proposals`; `harness495/interfaces/cli.py`: the `proposals` commands, the proposal
   column of the gaps table, `495 schema proposals`.

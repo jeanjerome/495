@@ -79,8 +79,8 @@ its `instructions` included. `Engine._review` walks that list.
 
 - `harness495/core/verification.py`: `asserted`, `execution_error`, `_ASSERTION`,
   `_EXECUTION_ERROR`, the `unconfirmed` branch of `classify_instrument`.
-- `harness495/core/models.py`: `Sufficiency.unconfirmed`, `ADMISSIBLE`,
-  `RolesConfig.reviewers_for`.
+- `harness495/core/models/enums.py`: `Sufficiency.unconfirmed`, `ADMISSIBLE`;
+  `harness495/core/models/config.py::RolesConfig.reviewers_for`.
 - `harness495/core/decide.py::assess`: `ADMISSIBLE` in place of `sufficient`, the
   `(unconfirmed: …)` note in the requirement's reason.
 - `harness495/core/engine/checks/calibration.py::calibrate`: the subjects and the

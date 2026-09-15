@@ -93,7 +93,7 @@ obsolete.
 
 - `harness495/core/suite.py`: `SuiteChange`, `SuiteCount`, `CountComparison`,
   `SuiteReading`, `read_suite_changes`, `count_tests`, `compare_counts`.
-- `harness495/core/models.py::EvidenceKind.suite_check`.
+- `harness495/core/models/evidence.py::EvidenceKind.suite_check`.
 - `harness495/core/engine/checks/suite.py`: `suite_reading`, `check_suite`,
   `non_regression_verifications`; the `suite` stage of `checks/sequence.py::SEQUENCE`.
 - `harness495/core/engine/engine.py::_review`: the fact given to the reviewers.

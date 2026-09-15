@@ -107,8 +107,8 @@ quote the assertion that should have caught it.
 - `harness495/core/mutation.py`: `candidates`, `Mutant`, `plan_mutants`, `mutated_source`, the
   operator tables; the reading of the diff they work from is `core/diff.py` (`AddedLine`,
   `added_lines`, `names_the_file`, `code_lines`), shared with the coverage check (0023).
-- `harness495/core/models.py`: `EvidenceKind.mutation_check`, `Budget.max_mutants`,
-  `Budget.mutant_command_max_s`.
+- `harness495/core/models/evidence.py::EvidenceKind.mutation_check`;
+  `harness495/core/models/config.py`: `Budget.max_mutants`, `Budget.mutant_command_max_s`.
 - `harness495/core/engine/checks/mutation.py`: `mutation_watchers`, `mutate`, `run_mutant`.
 - `harness495/core/engine/checks/sequence.py`: the `mutation` stage of `SEQUENCE` and the gate
   `instrument_is_readable` it waits on.

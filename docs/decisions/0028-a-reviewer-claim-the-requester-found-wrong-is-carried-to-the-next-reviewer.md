@@ -75,8 +75,8 @@ that bear on a specification and not these.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `LessonKind.false_positive`, `Lesson.perspective`, `Lesson.key`,
-  `Lesson.declares`.
+- `harness495/core/models/lessons.py`: `LessonKind.false_positive`, `Lesson.perspective`,
+  `Lesson.key`, `Lesson.declares`.
 - `harness495/core/lessons.py`: `_false_positives`, `learn`, `HEADING`; `criteria` and
   `toml_lines` leave the kind alone.
 - `harness495/core/context.py`: `render_refuted`.

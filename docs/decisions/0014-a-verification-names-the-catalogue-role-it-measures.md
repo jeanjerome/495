@@ -72,8 +72,10 @@ rationale that cites the refusal and says the decision stands, not a proposal to
 
 ## Where in the code
 
-- `harness495/core/models.py`: `Verification.role`, `DeclinedRole`,
-  `ProjectProfile.declined_roles`, `ProjectProfile.declined`.
+- `harness495/core/models/specification.py::Verification.role`;
+  `harness495/core/models/profile.py::DeclinedRole`;
+  `harness495/core/models/lessons.py`: `ProjectProfile.declined_roles`,
+  `ProjectProfile.declined`.
 - `harness495/core/proposals.py::declined_roles`; `harness495/core/engine/engine.py::_profile` reads
   them onto the run's profile.
 - `harness495/core/schemas.py`: `CATALOGUE_ROLES`, the `role` property of `SPEC_SCHEMA`.

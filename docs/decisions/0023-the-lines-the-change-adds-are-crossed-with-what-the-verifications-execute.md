@@ -108,7 +108,8 @@ executed"; `correctness` is asked whether the line carries behaviour a requireme
 - `harness495/core/reach.py`: `Instrumented`, `instrument`, the recipe per technology,
   `READERS` and the four report readers, `same_file`, `Unreached`, `Reading`, `cross`,
   `REPORT_DIR`.
-- `harness495/core/models.py`: `EvidenceKind.coverage_check`, `Budget.max_coverage_commands`.
+- `harness495/core/models/evidence.py::EvidenceKind.coverage_check`;
+  `harness495/core/models/config.py::Budget.max_coverage_commands`.
 - `harness495/core/engine/checks/coverage.py`: `coverage_watchers`, `instrumented_command`,
   `reach`.
 - `harness495/core/engine/checks/sequence.py`: the `coverage` stage of `SEQUENCE` and the gate

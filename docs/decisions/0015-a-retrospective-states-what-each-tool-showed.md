@@ -77,11 +77,11 @@ them.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `ToolVerdict`, `ToolObservation`, `Retrospective`.
+- `harness495/core/models/retrospective.py`: `ToolVerdict`, `ToolObservation`, `Retrospective`.
 - `harness495/core/retro.py`: `measurements`, `read`, `retrospect`, `SECTION_NAMES`.
 - `harness495/core/catalogue.py`: `CONDITIONS`, `conditions_holding`, `applicable`;
   `harness495/core/profile.py::detect_profile` records the outcome;
-  `harness495/core/models.py`: `ProjectProfile.conditions`.
+  `harness495/core/models/lessons.py::ProjectProfile.conditions`.
 - `harness495/core/store.py`: `RunStore.retrospective_path`, `load_retrospective`,
   `save_retrospective`.
 - `harness495/interfaces/cli.py`: the `retro` command, `_print_retrospective`,

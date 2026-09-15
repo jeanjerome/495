@@ -98,8 +98,10 @@ something other than the change, and `correctness` not to read either run as a d
 
 - `harness495/core/verification.py`: `reported_success`, `reports_the_same_twice`, over the
   `failure_signature` the control run of 0002 already uses.
-- `harness495/core/models.py`: `EvidenceKind.stability_check`, `Verification.stable`,
-  `Budget.max_repeated_commands`, `Budget.repeat_command_max_s`.
+- `harness495/core/models/evidence.py::EvidenceKind.stability_check`;
+  `harness495/core/models/specification.py::Verification.stable`;
+  `harness495/core/models/config.py`: `Budget.max_repeated_commands`,
+  `Budget.repeat_command_max_s`.
 - `harness495/core/engine/checks/stability.py`: `flipped_since`, `repeat_watchers`, `repeat`;
   the `stability` stage of `checks/sequence.py::SEQUENCE`.
 - The `stable` guard in `checks/calibration.py::calibrate`,

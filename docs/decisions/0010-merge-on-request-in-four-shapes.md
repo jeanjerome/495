@@ -56,7 +56,7 @@ yet" from "something else landed".
   `has_uncommitted_changes`, `is_ancestor`, `blob_hash`.
 - `harness495/core/engine/engine.py`: `merge_delivery`, `_merge_delivery`, `_integration_message`,
   `check_integration`, `_check_integration`.
-- `harness495/core/models.py`: `RunResult.integrated_as`, `IntegrationCheck`,
+- `harness495/core/models/run.py`: `RunResult.integrated_as`, `IntegrationCheck`,
   `Run.integration_state`.
 - `tests/test_engine.py`: `test_fast_forward_adds_nothing_at_all`,
   `test_fast_forward_is_refused_once_your_branch_has_gone_somewhere`,

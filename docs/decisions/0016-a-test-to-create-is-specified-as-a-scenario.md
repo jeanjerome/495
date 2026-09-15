@@ -62,7 +62,7 @@ from the same text the requester approved and the reviewers compare against it.
 
 ## Where in the code
 
-- `harness495/core/models.py`: `BehaviourScenario` (`complete`, `lines()`),
+- `harness495/core/models/specification.py`: `BehaviourScenario` (`complete`, `lines()`),
   `Verification.scenario`.
 - `harness495/core/schemas.py`: the `scenario` property of `SPEC_SCHEMA`.
 - `harness495/core/engine/engine.py::_scenario_from_agent`, called from `spec_from_agent`.
